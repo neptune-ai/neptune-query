@@ -1,4 +1,4 @@
-name: Run e2e tests - neptune-fetcher
+name: Run e2e tests - neptune-query
 
 on:
   schedule:
@@ -10,16 +10,27 @@ on:
       - dev/.*
   pull_request: # Don't run e2e tests on PRs that don't modify source code
     paths:
-      - 'neptune_fetcher/src/**'
-      - 'neptune_fetcher/tests/**'
+      - 'src/**'
+      - 'tests/**'
       - 'dev_requirements.txt'
-      - 'neptune_fetcher/pyproject.toml'
-      - '.github/workflows/tests-e2e-fetcher.yml'
+      - 'pyproject.toml'
+      - '.github/workflows/tests-e2e.yml'
 
 jobs:
   test:
     runs-on: tools-gha-runners
     timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - env: "AZURE"
+            env_suffix: ""
+            test_markers: ""
+            verify_ssl: true
+          - env: "GCP"
+            env_suffix: "_GCP"
+            test_markers: "files"
+            verify_ssl: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +42,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd neptune_fetcher &&
           python -m pip install --upgrade pip &&
           pip install -r dev_requirements.txt
 
@@ -39,17 +49,20 @@ jobs:
         env:
           NEPTUNE_WORKSPACE: ${{ secrets.E2E_WORKSPACE }}
           NEPTUNE_E2E_WORKSPACE: ${{ secrets.E2E_WORKSPACE }}
-          NEPTUNE_E2E_PROJECT: ${{ secrets.E2E_PROJECT }}
-          NEPTUNE_API_TOKEN: ${{ secrets.E2E_API_TOKEN }}
-          PROJECT_DIR: neptune_fetcher
-          TESTS_DIR: tests/e2e
-        run: bash .github/scripts/run-e2e-tests.sh
+          NEPTUNE_E2E_PROJECT: ${{ secrets[format('E2E_PROJECT{0}', matrix.env_suffix)] }}
+          NEPTUNE_API_TOKEN: ${{ secrets[format('E2E_API_TOKEN{0}', matrix.env_suffix)] }}
+          PROJECT_DIR: .
+          TESTS_DIR: tests/e2e_query
+          TEST_MARKERS: ${{ matrix.test_markers }}
+          NEPTUNE_VERIFY_SSL: ${{ matrix.verify_ssl }}
+        run: |
+          pytest --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} "$TESTS_DIR"
 
       - name: Report
         uses: mikepenz/action-junit-report@v5
         if: always()
         with:
-          report_paths: "./neptune_fetcher/test-results/test-e2e*.xml"
+          report_paths: "./test-results/test-e2e*.xml"
           update_check: true
           include_passed: true
           annotate_notice: true
