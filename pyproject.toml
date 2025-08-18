@@ -1,6 +1,3 @@
-# This is pyproject.toml for neptune_query
-# neptune_fetcher's pyproject.toml is located in a subdirectory
-
 [build-system]
 requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
 build-backend = "poetry_dynamic_versioning.backend"
@@ -24,8 +21,8 @@ tqdm = { version = ">=4.66.0" }
 
 [tool.poetry]
 authors = ["neptune.ai <contact@neptune.ai>"]
-description = "Neptune Fetcher"
-repository = "https://github.com/neptune-ai/neptune-fetcher"
+description = "Neptune Query is a Python library for retrieving data from Neptune."
+repository = "https://github.com/neptune-ai/neptune-query"
 homepage = "https://neptune.ai/"
 documentation = "https://docs.neptune.ai/"
 license = "Apache License 2.0"
@@ -59,7 +56,7 @@ packages = [
 ]
 
 [tool.poetry.urls]
-"Tracker" = "https://github.com/neptune-ai/neptune-fetcher/issues"
+"Tracker" = "https://github.com/neptune-ai/neptune-query/issues"
 "Documentation" = "https://docs.neptune.ai/"
 
 [tool.black]
