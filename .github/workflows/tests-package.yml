@@ -14,7 +14,7 @@ jobs:
 
         neptune-version: [ "2.0.0a9", "2.0.0a8", "2.0.0a7", "2.0.0a6", "2.0.0a5", "2.0.0a4", "2.0.0a3", "2.0.0a2" ]
 
-    name: 'package test (neptune==${{ matrix.neptune-version }}, fetcher==.)'
+    name: 'package test (neptune==${{ matrix.neptune-version }}, query==.)'
     runs-on: ${{ matrix.os }}-latest
 
     steps:
@@ -35,14 +35,14 @@ jobs:
         run: |
           pip list
         shell: bash
-      - name: Import neptune then neptune-fetcher
+      - name: Import neptune then neptune-query
         run: |
-          python -c "import neptune; import neptune_fetcher;  print('Hello, world!')"
+          python -c "import neptune; import neptune_query;  print('Hello, world!')"
         shell: bash
 
-      - name: Import neptune-fetcher then neptune
+      - name: Import neptune-query then neptune
         run: |
-          python -c "import neptune_fetcher; import neptune;  print('Hello, world!')"
+          python -c "import neptune_query; import neptune;  print('Hello, world!')"
         shell: bash
 
       - name: Run tests
