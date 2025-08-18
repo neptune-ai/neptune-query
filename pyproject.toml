@@ -27,7 +27,7 @@ homepage = "https://neptune.ai/"
 documentation = "https://docs.neptune.ai/"
 license = "Apache License 2.0"
 name = "neptune-query"
-readme = "README-neptune-query.md"
+readme = "README.md"
 version = "0.1.0"
 classifiers = [
     "Development Status :: 4 - Beta",
