@@ -50,7 +50,7 @@ from ..retrieval import retry
 class SignedFile:
     url: str
     path: str
-    provider: Literal["azure", "gcp"]
+    provider: Literal["azure", "gcp", "aws"]
     project_identifier: identifiers.ProjectIdentifier
     permission: Literal["read", "write"]
 
@@ -87,13 +87,15 @@ def fetch_signed_urls(
     ]
 
 
-def _verify_provider(provider: Provider) -> Literal["azure", "gcp"]:
+def _verify_provider(provider: Provider) -> Literal["azure", "gcp", "aws"]:
     if provider == Provider.AZURE:
         return "azure"
     elif provider == Provider.GCP:
         return "gcp"
+    elif provider == Provider.AWS:
+        return "aws"
     else:
-        raise ValueError(f"Unsupported provider: {provider}")
+        raise ValueError(f"Unsupported storage provider: {provider}")
 
 
 def refresh_signed_file(
@@ -126,6 +128,8 @@ def download_file(
     if signed_file.provider == "azure":
         result = _download_file_azure(signed_file, target_path, max_concurrency, timeout)
     elif signed_file.provider == "gcp":
+        result = _download_file_requests(signed_file, target_path, timeout)
+    elif signed_file.provider == "aws":
         result = _download_file_requests(signed_file, target_path, timeout)
     else:
         raise ValueError(f"Unsupported provider: {signed_file.provider}")
