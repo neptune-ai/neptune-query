@@ -22,6 +22,7 @@ from typing import (
     Iterable,
     Optional,
     TypeVar,
+    Union,
 )
 
 from neptune_api.client import AuthenticatedClient
@@ -40,7 +41,7 @@ from ..retrieval.attribute_types import (
 )
 from .attributes import fetch_attribute_definitions
 
-T = TypeVar("T", covariant=True)
+T = TypeVar("T", bound=Union[filters._Filter, filters._Attribute, None])
 
 
 @dataclass
@@ -85,10 +86,6 @@ class InferenceState(Generic[T]):
     result: T
 
     @staticmethod
-    def empty() -> "InferenceState[None]":
-        return InferenceState(attributes=[], result=None)
-
-    @staticmethod
     def from_attribute(attribute: filters._Attribute) -> "InferenceState[filters._Attribute]":
         attribute_copy = copy.deepcopy(attribute)
 
@@ -103,7 +100,7 @@ class InferenceState(Generic[T]):
         return InferenceState(attributes=attribute_states, result=attribute_copy)
 
     @staticmethod
-    def from_filter(filter_: filters._Filter) -> "InferenceState[filters._Filter]":
+    def from_filter(filter_: filters._Filter) -> "InferenceState[Optional[filters._Filter]]":
         def _walk_attributes(experiment_filter: filters._Filter) -> Iterable[filters._Attribute]:
             if isinstance(experiment_filter, filters._AttributeValuePredicate):
                 yield experiment_filter.attribute
@@ -169,7 +166,7 @@ def infer_attribute_types_in_filter(
     fetch_attribute_definitions_executor: Executor,
 ) -> InferenceState[Optional[filters._Filter]]:
     if filter_ is None:
-        return InferenceState.empty()
+        return InferenceState(attributes=[], result=None)
 
     state = InferenceState.from_filter(filter_)
     if state.is_complete():

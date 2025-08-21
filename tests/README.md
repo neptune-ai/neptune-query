@@ -25,4 +25,3 @@ Importantly, your workspace needs the ability to set project visibility to 'work
   - If `NEPTUNE_E2E_REUSE_PROJECT=true`, the project name is `pye2e-runs-<hash>-v1`.\
   The name contains a hash of the data the tests need in this project.\
   If the project doesn't exist, it's created and populated.
-  

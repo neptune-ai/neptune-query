@@ -18,7 +18,10 @@ from neptune_query.internal.api_utils import (
     get_config_and_token_urls,
 )
 from neptune_query.internal.composition import concurrency
-from neptune_query.internal.context import set_project, set_api_token
+from neptune_query.internal.context import (
+    set_api_token,
+    set_project,
+)
 from neptune_query.internal.filters import _Filter
 from neptune_query.internal.identifiers import RunIdentifier
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
@@ -42,10 +45,12 @@ def api_token() -> str:
         raise RuntimeError("NEPTUNE_E2E_API_TOKEN environment variable is not set")
     return api_token
 
+
 @pytest.fixture(autouse=True)
 def set_api_token_auto(api_token) -> None:
     """Set the API token for the session."""
     set_api_token(api_token)
+
 
 @pytest.fixture(scope="session")
 def client(api_token) -> AuthenticatedClient:
