@@ -16,8 +16,7 @@ Example: `NEPTUNE_E2E_PROJECT="neptune/e2e-tests"`
 
 
 - The second project's name is generated depending on the `NEPTUNE_E2E_REUSE_PROJECT` env.\
-The project is created / expected in the workspace under the `NEPTUNE_E2E_WORKSPACE` env.\
-Importantly, your workspace needs the ability to set project visibility to 'workspace', since that's what our tests use
+The project is created / expected in the workspace under the `NEPTUNE_E2E_WORKSPACE` env.
 
   - If `NEPTUNE_E2E_REUSE_PROJECT=false` (the default), the project name is .e.g. `pye2e-runs-<datetime>-v1`.\
   The project is always created and populated with data.
