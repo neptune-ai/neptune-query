@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 import neptune_query as npt
