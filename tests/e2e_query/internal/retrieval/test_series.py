@@ -17,8 +17,6 @@ from tests.e2e_query.data import (
     TEST_DATA,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
-
 
 def test_fetch_series_values_does_not_exist(client, project, experiment_identifier):
     # given

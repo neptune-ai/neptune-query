@@ -19,7 +19,6 @@ from pytest import fixture
 import tests.e2e_query.v1.generator as data
 from tests.e2e_query.v1.generator import ALL_STATIC_RUNS
 
-API_TOKEN_ENV_NAME: str = "NEPTUNE_API_TOKEN"
 NEPTUNE_E2E_REUSE_PROJECT = os.environ.get("NEPTUNE_E2E_REUSE_PROJECT", "False").lower() in {"true", "1"}
 NEPTUNE_E2E_WORKSPACE = os.environ.get("NEPTUNE_E2E_WORKSPACE", "neptune-e2e")
 
@@ -46,7 +45,7 @@ def random_series(length=10, start_step=0):
 
 
 @fixture(scope="session")
-def new_project_id(client: AuthenticatedClient):
+def new_project_id(client: AuthenticatedClient, api_token):
     # Use a file lock to ensure that only one test session can create a project at a time to avoid 409 Conflict errors
 
     # TODO: account for the case where the file is owned by another user or otherwise not writable
@@ -62,14 +61,14 @@ def new_project_id(client: AuthenticatedClient):
             create_project(client, project_name, NEPTUNE_E2E_WORKSPACE)
 
             project_id = f"{NEPTUNE_E2E_WORKSPACE}/{project_name}"
-            data.log_runs(project_id, ALL_STATIC_RUNS)
+            data.log_runs(api_token, project_id, ALL_STATIC_RUNS)
             return project_id
     except filelock.Timeout:
         raise RuntimeError("Timeout while trying to create a new project. Another test session might be creating it.")
 
 
 def create_project(client, project_name, workspace):
-    body = {"organizationIdentifier": workspace, "name": project_name, "visibility": "workspace"}
+    body = {"organizationIdentifier": workspace, "name": project_name, "visibility": "priv"}
     args = {
         "method": "post",
         "url": "/api/backend/v1/projects",

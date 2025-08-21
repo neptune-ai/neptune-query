@@ -1,32 +1,28 @@
-# Important notes
+# Environment variables
 
-## Prepopulated test data
+* `NEPTUNE_E2E_API_TOKEN` - an API TOKEN to use in the e2e tests
+* `NEPTUNE_E2E_WORKSPACE` - a workspace that e2e tests can create projects in
+* `NEPTUNE_E2E_PROJECT` - a project to use for (some of) the e2e tests
+* `NEPTUNE_E2E_REUSE_PROJECT` - see below
+* `NEPTUNE_E2E_VERIFY_SSL` - whether to verify SSL certificates when running the e2e tests;
+   only required if the instance you're running the e2e tests against has an invalid cert
 
-A subset of the tests in the `e2e` directory are end-to-end tests that assume a
-specific data layout in a project.
+## Projects used and created in end-to-end tests
+Each e2e run uses 2 projects. You can control them with environment variables.
 
-This data is populated using the `populate_projects.py` script, which
-has comments explaining the layout.
+- The first project is specified explicitly.\
+If the data required by a test doesn't exist in this project, it's populated during the test run.\
+Example: `NEPTUNE_E2E_PROJECT="neptune/e2e-tests"`
 
-The script *must* be run only **once** on a fresh project to set up the
-necessary data for the tests to run successfully.
 
-The tests that rely on this data are:
+- The second project's name is generated depending on the `NEPTUNE_E2E_REUSE_PROJECT` env.\
+The project is created / expected in the workspace under the `NEPTUNE_E2E_WORKSPACE` env.\
+Importantly, your workspace needs the ability to set project visibility to 'workspace', since that's what our tests use
 
-* `test_dataframe_values.py`
-* `test_run_filtering.py`
-* `test_run_list.py`
+  - If `NEPTUNE_E2E_REUSE_PROJECT=false` (the default), the project name is .e.g. `pye2e-runs-<datetime>-v1`.\
+  The project is always created and populated with data.
 
-## Environment variables
-
-* `NEPTUNE_API_TOKEN` - API token to use
-* `NEPTUNE_E2E_PROJECT_PREPOPULATED` - project name to use for tests that require a project
-  with fixed data populated by `populate_projects.py` and **do not** populate the
-  project during execution. The test runner script creates a temporary project for
-  that purpose. If not set, `NEPTUNE_PROJECT` is used.
-* `NEPTUNE_E2E_PROJECT` - project name to use for tests that create Runs during
-  execution. This can be an existing project in which it's fine to create multiple
-  Runs with different data. If not set, `NEPTUNE_PROJECT` is used.
-* `NEPTUNE_E2E_CUSTOM_RUN_ID` (optional) - if set, it should be `sys/custom_run_id`
-  of an existing Run. This avoids creating a new Run for tests that log data,
-  if this is for some reason required.
+  - If `NEPTUNE_E2E_REUSE_PROJECT=true`, the project name is `pye2e-runs-<hash>-v1`.\
+  The name contains a hash of the data the tests need in this project.\
+  If the project doesn't exist, it's created and populated.
+  

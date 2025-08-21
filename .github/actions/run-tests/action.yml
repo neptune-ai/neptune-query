@@ -34,6 +34,5 @@ runs:
       with:
         report_paths: "${{ inputs.working-directory }}/test-results/test-${{ inputs.report-suffix }}.xml"
         update_check: true
-        include_passed: true
         annotate_notice: true
         job_name: ${{ inputs.report-job }}

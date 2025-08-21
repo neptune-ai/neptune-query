@@ -19,7 +19,6 @@ from neptune_query.internal.identifiers import (
 )
 from tests.e2e_query.conftest import extract_pages
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 TEST_DATA_VERSION = "2025-01-31"
 EXPERIMENT_NAME = f"pye2e-fetcher-test-internal-composition-attributes-{TEST_DATA_VERSION}"
 COMMON_PATH = f"test/test-internal-composition-attributes-{TEST_DATA_VERSION}"
@@ -29,7 +28,7 @@ FLOAT_SERIES_VALUES = [float(step**2) for step in range(10)]
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes(client, project):
+def run_with_attributes(client, api_token, project):
     import uuid
 
     from neptune_scale import Run
@@ -53,6 +52,7 @@ def run_with_attributes(client, project):
     run_id = str(uuid.uuid4())
 
     run = Run(
+        api_token=api_token,
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME,

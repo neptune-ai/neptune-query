@@ -35,7 +35,6 @@ except pytz.exceptions.UnknownTimeZoneError:
     SYSTEM_TZ = pytz.timezone("Europe/Warsaw")
 ONE_SECOND = timedelta(seconds=1)
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc)
 DATETIME_VALUE2 = datetime(2025, 2, 1, 0, 0, 0, 0, timezone.utc)
 EXPERIMENT_NAME = TEST_DATA.experiment_names[0]

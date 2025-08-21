@@ -21,8 +21,6 @@ from neptune_query.types import File
 from tests.e2e_query.conftest import extract_pages
 from tests.e2e_query.data import PATH
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
-
 
 @pytest.fixture
 def file_path(client, project, experiment_identifier):

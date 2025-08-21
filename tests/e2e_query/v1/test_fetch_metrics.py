@@ -36,8 +36,6 @@ from tests.e2e_query.data import (
     ExperimentData,
 )
 
-NEPTUNE_PROJECT: str = os.getenv("NEPTUNE_E2E_PROJECT")
-
 
 def create_expected_data(
     project: Project,

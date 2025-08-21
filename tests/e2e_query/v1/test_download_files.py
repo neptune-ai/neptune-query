@@ -15,7 +15,6 @@ from tests.e2e_query.data import (
     TEST_DATA,
 )
 
-NEPTUNE_PROJECT: str = os.getenv("NEPTUNE_E2E_PROJECT")
 EXPERIMENT_NAME = TEST_DATA.experiment_names[0]
 
 

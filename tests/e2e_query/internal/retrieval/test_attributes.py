@@ -1,5 +1,4 @@
 import math
-import os
 import re
 from datetime import (
     datetime,
@@ -40,8 +39,6 @@ from tests.e2e_query.data import (
     STRING_SERIES_PATHS,
     TEST_DATA,
 )
-
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 
 
 def test_fetch_attribute_definitions_project_does_not_exist(client, project):

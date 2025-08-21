@@ -21,8 +21,6 @@ from tests.e2e_query.data import (
     TEST_DATA_VERSION,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
-
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])
 def test__fetch_experiments_table(project, run_with_attributes, sort_direction):
