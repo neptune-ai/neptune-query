@@ -26,7 +26,7 @@ from neptune_query.internal.identifiers import (
 )
 from neptune_query.internal.output_format import create_series_dataframe
 from neptune_query.internal.retrieval.series import SeriesValue
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_STEPS,
     NOW,
     NUMBER_OF_STEPS,

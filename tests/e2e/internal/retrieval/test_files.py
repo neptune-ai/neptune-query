@@ -18,8 +18,8 @@ from neptune_query.internal.retrieval.files import (
     fetch_signed_urls,
 )
 from neptune_query.types import File
-from tests.e2e_query.conftest import extract_pages
-from tests.e2e_query.data import PATH
+from tests.e2e.conftest import extract_pages
+from tests.e2e.data import PATH
 
 
 @pytest.fixture

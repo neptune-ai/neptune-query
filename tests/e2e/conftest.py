@@ -22,7 +22,7 @@ from neptune_query.internal.context import set_project, set_api_token
 from neptune_query.internal.filters import _Filter
 from neptune_query.internal.identifiers import RunIdentifier
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_STEPS,
     NOW,
     PATH,

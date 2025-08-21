@@ -17,7 +17,7 @@ from neptune_query.internal.identifiers import (
     AttributeDefinition,
     RunIdentifier,
 )
-from tests.e2e_query.conftest import extract_pages
+from tests.e2e.conftest import extract_pages
 
 TEST_DATA_VERSION = "2025-01-31"
 EXPERIMENT_NAME = f"pye2e-fetcher-test-internal-composition-attributes-{TEST_DATA_VERSION}"

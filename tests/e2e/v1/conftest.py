@@ -16,8 +16,8 @@ from _pytest.outcomes import Failed
 from neptune_api import AuthenticatedClient
 from pytest import fixture
 
-import tests.e2e_query.v1.generator as data
-from tests.e2e_query.v1.generator import ALL_STATIC_RUNS
+import tests.e2e.v1.generator as data
+from tests.e2e.v1.generator import ALL_STATIC_RUNS
 
 NEPTUNE_E2E_REUSE_PROJECT = os.environ.get("NEPTUNE_E2E_REUSE_PROJECT", "False").lower() in {"true", "1"}
 NEPTUNE_E2E_WORKSPACE = os.environ.get("NEPTUNE_E2E_WORKSPACE", "neptune-e2e")

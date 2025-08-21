@@ -23,8 +23,8 @@ from neptune_query.internal.retrieval.series import (
     SeriesValue,
     fetch_series_values,
 )
-from tests.e2e_query.conftest import extract_pages
-from tests.e2e_query.data import (
+from tests.e2e.conftest import extract_pages
+from tests.e2e.data import (
     NOW,
     PATH,
     TEST_DATA,

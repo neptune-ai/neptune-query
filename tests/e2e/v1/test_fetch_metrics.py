@@ -28,8 +28,8 @@ from neptune_query.internal.identifiers import (
 )
 from neptune_query.internal.output_format import create_metrics_dataframe
 from neptune_query.internal.retrieval.metrics import FloatPointValue
-from tests.e2e_query.conftest import Project
-from tests.e2e_query.data import (
+from tests.e2e.conftest import Project
+from tests.e2e.data import (
     NOW,
     PATH,
     TEST_DATA,

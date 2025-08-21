@@ -14,7 +14,7 @@ from neptune_query.internal.composition.download_files import download_files
 from neptune_query.internal.context import Context
 from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.types import File
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_PATHS,
     PATH,
     TEST_DATA,

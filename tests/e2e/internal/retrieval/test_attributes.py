@@ -28,8 +28,8 @@ from neptune_query.internal.retrieval.attribute_values import (
     AttributeValue,
     fetch_attribute_values,
 )
-from tests.e2e_query.conftest import extract_pages
-from tests.e2e_query.data import (
+from tests.e2e.conftest import extract_pages
+from tests.e2e.data import (
     FILE_SERIES_PATHS,
     FILE_SERIES_STEPS,
     FLOAT_SERIES_PATHS,
