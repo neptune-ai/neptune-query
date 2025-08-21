@@ -31,6 +31,10 @@ jobs:
             env_suffix: "_GCP"
             test_markers: "files"
             verify_ssl: false
+          - env: "AWS"
+            env_suffix: "_AWS"
+            test_markers: "files"
+            verify_ssl: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
