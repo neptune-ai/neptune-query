@@ -206,11 +206,15 @@ class NeptuneRetryError(NeptuneError):
             """
 {h1}NeptuneRetryError: The Neptune server returned an error after {retries} retries, {time:.2f} seconds.{end}
 
-The retry logic is designed to handle rate limiting and network errors. Timeouts for retrying server requests are set
-using environment variables, which can be adjusted to suit your needs, currently set to:
+The retry logic handles rate limiting and network errors. To adjust the timeouts for retrying server requests,
+change the values of the following environment variables, which are currently set to:
 
 NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT={soft_limit}
 NEPTUNE_QUERY_RETRY_HARD_TIMEOUT={hard_limit}
+
+For details, see the docs:
+https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_soft_timeout
+https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_hard_timeout
 
 {status_code_line}
 {content_line}
