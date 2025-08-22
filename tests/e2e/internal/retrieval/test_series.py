@@ -1,4 +1,3 @@
-import os
 from datetime import timedelta
 
 import pytest
@@ -8,16 +7,14 @@ from neptune_query.internal.retrieval.series import (
     RunAttributeDefinition,
     fetch_series_values,
 )
-from tests.e2e_query.conftest import extract_pages
-from tests.e2e_query.data import (
+from tests.e2e.conftest import extract_pages
+from tests.e2e.data import (
     FILE_SERIES_PATHS,
     HISTOGRAM_SERIES_PATHS,
     NOW,
     STRING_SERIES_PATHS,
     TEST_DATA,
 )
-
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 
 
 def test_fetch_series_values_does_not_exist(client, project, experiment_identifier):

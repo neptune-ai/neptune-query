@@ -1,4 +1,3 @@
-import os
 from datetime import (
     datetime,
     timezone,
@@ -17,7 +16,6 @@ from neptune_query.internal.filters import (
 )
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 TEST_DATA_VERSION = "2025-01-31"
 EXPERIMENT_NAME = f"pye2e-fetcher-test-internal-composition-type-inference-a-{TEST_DATA_VERSION}"
 EXPERIMENT_NAME_B = f"pye2e-fetcher-test-internal-composition-type-inference-b-{TEST_DATA_VERSION}"
@@ -28,7 +26,7 @@ FLOAT_SERIES_VALUES = [float(step**2) for step in range(10)]
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes(client, project):
+def run_with_attributes(client, api_token, project):
     import uuid
 
     from neptune_scale import Run
@@ -50,6 +48,7 @@ def run_with_attributes(client, project):
     run_id = str(uuid.uuid4())
 
     run = Run(
+        api_token=api_token,
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME,
@@ -76,7 +75,7 @@ def run_with_attributes(client, project):
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes_b(client, project):
+def run_with_attributes_b(client, api_token, project):
     import uuid
 
     from neptune_scale import Run
@@ -98,6 +97,7 @@ def run_with_attributes_b(client, project):
     run_id = str(uuid.uuid4())
 
     run = Run(
+        api_token=api_token,
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME_B,

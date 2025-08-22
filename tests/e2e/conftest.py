@@ -18,18 +18,19 @@ from neptune_query.internal.api_utils import (
     get_config_and_token_urls,
 )
 from neptune_query.internal.composition import concurrency
-from neptune_query.internal.context import set_project
+from neptune_query.internal.context import (
+    set_api_token,
+    set_project,
+)
 from neptune_query.internal.filters import _Filter
 from neptune_query.internal.identifiers import RunIdentifier
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_STEPS,
     NOW,
     PATH,
     TEST_DATA,
 )
-
-API_TOKEN_ENV_NAME: str = "NEPTUNE_API_TOKEN"
 
 
 @dataclass
@@ -38,8 +39,21 @@ class Project:
 
 
 @pytest.fixture(scope="session")
-def client() -> AuthenticatedClient:
-    api_token = os.getenv(API_TOKEN_ENV_NAME)
+def api_token() -> str:
+    api_token = os.getenv("NEPTUNE_E2E_API_TOKEN")
+    if api_token is None:
+        raise RuntimeError("NEPTUNE_E2E_API_TOKEN environment variable is not set")
+    return api_token
+
+
+@pytest.fixture(autouse=True)
+def set_api_token_auto(api_token) -> None:
+    """Set the API token for the session."""
+    set_api_token(api_token)
+
+
+@pytest.fixture(scope="session")
+def client(api_token) -> AuthenticatedClient:
     credentials = Credentials.from_api_key(api_key=api_token)
     config, token_urls = get_config_and_token_urls(credentials=credentials, proxies=None)
     client = create_auth_api_client(
@@ -60,25 +74,15 @@ def executor() -> Executor:
 
 
 @pytest.fixture(scope="module")
-def project(request):
-    # Assume the project name and API token are set in the environment using the standard
-    # NEPTUNE_PROJECT and NEPTUNE_API_TOKEN variables.
-    #
-    # We also allow overriding the project name per module by setting the
-    # module-level `NEPTUNE_PROJECT` variable.
-    project_identifier = getattr(request.module, "NEPTUNE_PROJECT", None)
+def project():
+    project_identifier = os.getenv("NEPTUNE_E2E_PROJECT")
     if project_identifier is None:
-        project_identifier = os.getenv("NEPTUNE_PROJECT")
-        if project_identifier is None:
-            raise ValueError(
-                "Project identifier not provided. Set NEPTUNE_PROJECT environment variable or "
-                "define it in the module using `NEPTUNE_PROJECT = 'your_project_name'`."
-            )
+        raise RuntimeError("NEPTUNE_E2E_PROJECT environment variable is not set")
     return Project(project_identifier=project_identifier)
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes(project, client):
+def run_with_attributes(project, api_token, client):
     runs = {}
     for experiment in TEST_DATA.experiments:
         project_id = project.project_identifier
@@ -94,6 +98,7 @@ def run_with_attributes(project, client):
             continue
 
         run = Run(
+            api_token=api_token,
             project=project_id,
             run_id=experiment.run_id,
             experiment_name=experiment.name,

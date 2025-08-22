@@ -194,8 +194,9 @@ def timestamp_for_step(step: int):
     return FIXED_DATE + timedelta(minutes=step)
 
 
-def log_run(generated: GeneratedRun, e2e_alpha_project: str):
+def log_run(generated: GeneratedRun, api_token: str, e2e_alpha_project: str):
     with Run(
+        api_token=api_token,
         project=e2e_alpha_project,
         run_id=generated.custom_run_id,
         experiment_name=generated.experiment_name,
@@ -209,7 +210,7 @@ def log_run(generated: GeneratedRun, e2e_alpha_project: str):
                 run.log_metrics(step=step, data={metric_name: value}, timestamp=timestamp_for_step(step))
 
 
-def log_runs(e2e_alpha_project: str, runs: list[GeneratedRun]):
+def log_runs(api_token: str, e2e_alpha_project: str, runs: list[GeneratedRun]):
     max_level = max(run.fork_level or 0 for run in runs)
     with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
 
@@ -217,7 +218,7 @@ def log_runs(e2e_alpha_project: str, runs: list[GeneratedRun]):
             runs_to_log = [run for run in runs if (run.fork_level or 0) == level]
             futures = []
             for run in runs_to_log:
-                futures.append(executor.submit(log_run, run, e2e_alpha_project))
+                futures.append(executor.submit(log_run, run, api_token, e2e_alpha_project))
 
             for f in futures:
                 f.result()

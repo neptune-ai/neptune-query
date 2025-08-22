@@ -1,4 +1,3 @@
-import os
 from datetime import (
     datetime,
     timedelta,
@@ -20,7 +19,7 @@ from neptune_query.internal.retrieval.search import (
     ExperimentSysAttrs,
     fetch_experiment_sys_attrs,
 )
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_PATHS,
     FLOAT_SERIES_PATHS,
     HISTOGRAM_SERIES_PATHS,
@@ -35,7 +34,6 @@ except pytz.exceptions.UnknownTimeZoneError:
     SYSTEM_TZ = pytz.timezone("Europe/Warsaw")
 ONE_SECOND = timedelta(seconds=1)
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc)
 DATETIME_VALUE2 = datetime(2025, 2, 1, 0, 0, 0, 0, timezone.utc)
 EXPERIMENT_NAME = TEST_DATA.experiment_names[0]

@@ -13,13 +13,12 @@ from neptune_query.filters import AttributeFilter
 from neptune_query.internal.composition.download_files import download_files
 from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.types import File
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_PATHS,
     PATH,
     TEST_DATA,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 EXPERIMENT_NAME = TEST_DATA.experiment_names[0]
 
 

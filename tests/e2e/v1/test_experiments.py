@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 
 import pandas as pd
@@ -13,15 +12,13 @@ from neptune_query.filters import (
     AttributeFilter,
     Filter,
 )
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FLOAT_SERIES_PATHS,
     PATH,
     STRING_SERIES_PATHS,
     TEST_DATA,
     TEST_DATA_VERSION,
 )
-
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])

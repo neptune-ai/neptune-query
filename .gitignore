@@ -1,4 +1,3 @@
-poetry.lock
 # Neptune data
 .neptune/
 **/.neptune/
@@ -128,3 +127,5 @@ stream.bin
 
 # mocks
 MagicMock/
+
+poetry.lock

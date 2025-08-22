@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 import neptune_query as npt
@@ -23,14 +21,13 @@ from neptune_query.internal.retrieval.series import (
     SeriesValue,
     fetch_series_values,
 )
-from tests.e2e_query.conftest import extract_pages
-from tests.e2e_query.data import (
+from tests.e2e.conftest import extract_pages
+from tests.e2e.data import (
     NOW,
     PATH,
     TEST_DATA,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 LONG_PATH_CONFIGS = TEST_DATA.experiments[0].long_path_configs
 LONG_PATH_SERIES = TEST_DATA.experiments[0].long_path_series
 LONG_PATH_METRICS = TEST_DATA.experiments[0].long_path_metrics
@@ -89,6 +86,7 @@ def test_fetch_attribute_definitions_composition(client, project, experiment_ide
 
     #  when
     result = npt.list_attributes(
+        project=project.project_identifier,
         experiments=exp_names,
         attributes=_attribute_filter("int-value", attr_limit),
     )

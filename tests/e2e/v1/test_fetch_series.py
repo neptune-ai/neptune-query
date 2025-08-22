@@ -1,5 +1,4 @@
 import itertools as it
-import os
 from datetime import timedelta
 from typing import (
     List,
@@ -27,7 +26,7 @@ from neptune_query.internal.identifiers import (
 )
 from neptune_query.internal.output_format import create_series_dataframe
 from neptune_query.internal.retrieval.series import SeriesValue
-from tests.e2e_query.data import (
+from tests.e2e.data import (
     FILE_SERIES_STEPS,
     NOW,
     NUMBER_OF_STEPS,
@@ -35,14 +34,13 @@ from tests.e2e_query.data import (
     ExperimentData,
 )
 
-NEPTUNE_PROJECT: str = os.getenv("NEPTUNE_E2E_PROJECT")
-
 
 def create_expected_data_string_series(
     experiments: list[ExperimentData],
     include_time: Union[Literal["absolute"], None],
     step_range: Tuple[Optional[int], Optional[int]],
     tail_limit: Optional[int],
+    project_identifier: str,
 ) -> Tuple[pd.DataFrame, List[str], set[str]]:
     series_data: dict[RunAttributeDefinition, list[SeriesValue]] = {}
     sys_id_label_mapping: dict[SysId, str] = {}
@@ -60,7 +58,7 @@ def create_expected_data_string_series(
 
         for path, series in experiment.string_series.items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(NEPTUNE_PROJECT), SysId(experiment.run_id)),
+                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="string_series"),
             )
 
@@ -144,7 +142,7 @@ def test__fetch_string_series__filter_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_string_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -200,7 +198,7 @@ def test__fetch_string_series__step_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_string_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -256,7 +254,7 @@ def test__fetch_string_series__output_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_string_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -270,6 +268,7 @@ def create_expected_data_histogram_series(
     include_time: Union[Literal["absolute"], None],
     step_range: Tuple[Optional[int], Optional[int]],
     tail_limit: Optional[int],
+    project_identifier: str,
 ) -> Tuple[pd.DataFrame, List[str], set[str]]:
     series_data: dict[RunAttributeDefinition, list[SeriesValue]] = {}
     sys_id_label_mapping: dict[SysId, str] = {}
@@ -287,7 +286,7 @@ def create_expected_data_histogram_series(
 
         for path, series in experiment.fetcher_histogram_series().items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(NEPTUNE_PROJECT), SysId(experiment.run_id)),
+                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="histogram_series"),
             )
 
@@ -369,7 +368,7 @@ def test__fetch_histogram_series__filter_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_histogram_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -419,7 +418,7 @@ def test__fetch_histogram_series__step_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_histogram_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -475,7 +474,7 @@ def test__fetch_histogram_series__output_variants(
     )
 
     expected, columns, filtered_exps = create_expected_data_histogram_series(
-        experiments, include_time, step_range, tail_limit
+        experiments, include_time, step_range, tail_limit, project.project_identifier
     )
 
     pd.testing.assert_frame_equal(result, expected)
@@ -507,7 +506,7 @@ def create_expected_data_file_series(
 
         for path, series in experiment.file_series_matchers().items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(NEPTUNE_PROJECT), SysId(experiment.run_id)),
+                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="file_series"),
             )
 
