@@ -102,6 +102,7 @@ def run_with_attributes(project, api_token, client):
             project=project_id,
             run_id=experiment.run_id,
             experiment_name=experiment.name,
+            source_tracking_config=None,
         )
 
         run.log_configs(experiment.config)
