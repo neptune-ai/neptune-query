@@ -313,13 +313,18 @@ def test__fetch_metrics_unique__output_format_variants(
 
 
 @pytest.mark.parametrize(
-    "lineage_to_the_root,expected_steps",
+    "lineage_to_the_root,expected_values",
     [
-        (True, range(0, 12)),
-        (False, range(5, 12)),
+        (
+            True,
+            [(step, step * 0.1) for step in range(0, 5)]
+            + [(step, step * 0.2) for step in range(5, 9)]
+            + [(step, step * 0.3) for step in range(9, 12)],
+        ),
+        (False, [(step, step * 0.2) for step in range(5, 9)] + [(step, step * 0.3) for step in range(9, 12)]),
     ],
 )
-def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_steps):
+def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_values):
     df = fetch_metrics(
         project=new_project_id,
         experiments=[MULT_EXPERIMENT_HISTORY_EXP_2],
@@ -330,7 +335,7 @@ def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_s
     expected = create_metrics_dataframe(
         metrics_data={
             _to_run_attribute_definition(new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "metrics/m1"): [
-                _to_float_point_value(step, step * 0.1) for step in expected_steps
+                _to_float_point_value(step, value) for step, value in expected_values
             ]
         },
         sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},

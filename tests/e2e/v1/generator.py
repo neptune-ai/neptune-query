@@ -210,7 +210,7 @@ MULTI_EXPERIMENT_HISTORY = [
         fork_point=4,
         fork_run_id="mult_exp_history_run_1",
         metrics={
-            "metrics/m1": {step: step * 0.1 for step in range(5, 9)},
+            "metrics/m1": {step: step * 0.2 for step in range(5, 9)},
         },
         string_series={
             "string_series/s1": {step: f"val_run2_{step}" for step in range(5, 9)},
@@ -223,7 +223,7 @@ MULTI_EXPERIMENT_HISTORY = [
         fork_point=8,
         fork_run_id="mult_exp_history_run_2",
         metrics={
-            "metrics/m1": {step: step * 0.1 for step in range(9, 12)},
+            "metrics/m1": {step: step * 0.3 for step in range(9, 12)},
         },
         string_series={
             "string_series/s1": {step: f"val_run3_{step}" for step in range(9, 12)},
