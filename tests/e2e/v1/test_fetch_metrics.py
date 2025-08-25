@@ -12,6 +12,10 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
+from e2e.v1.generator import (
+    MULT_EXPERIMENT_HISTORY_EXP_2,
+    timestamp_for_step,
+)
 
 from neptune_query import fetch_metrics
 from neptune_query.filters import (
@@ -34,6 +38,17 @@ from tests.e2e.data import (
     TEST_DATA,
     ExperimentData,
 )
+
+
+def _to_run_attribute_definition(project, run, metric_name):
+    return RunAttributeDefinition(
+        RunIdentifier(ProjectIdentifier(project), SysId(run)),
+        AttributeDefinition(metric_name, "float_series"),
+    )
+
+
+def _to_float_point_value(step, value):
+    return int(timestamp_for_step(step).timestamp() * 1000), step, value, False, 1.0
 
 
 def create_expected_data(
@@ -295,3 +310,34 @@ def test__fetch_metrics_unique__output_format_variants(
     assert result.columns.tolist() == columns
     assert result.index.names == ["experiment", "step"]
     assert {t[0] for t in result.index.tolist()} == filtred_exps
+
+
+@pytest.mark.parametrize(
+    "lineage_to_the_root,expected_steps",
+    [
+        (True, range(0, 12)),
+        (False, range(4, 12)),
+    ],
+)
+def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_steps):
+    df = fetch_metrics(
+        project=new_project_id,
+        experiments=[MULT_EXPERIMENT_HISTORY_EXP_2],
+        attributes=r"metrics/m1",
+        lineage_to_the_root=lineage_to_the_root,
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={
+            _to_run_attribute_definition(new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "metrics/m1"): [
+                _to_float_point_value(step, step * 0.1) for step in expected_steps
+            ]
+        },
+        sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        timestamp_column_name=None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)

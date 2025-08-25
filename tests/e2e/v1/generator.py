@@ -186,7 +186,54 @@ FORKED_HISTORY_TREE = [
     ),
 ]
 
-ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE
+# Tree structure:
+#
+# multi_experiment_history:
+# root (level: None, experiment: exp_with_multi_experiment_history_1)
+#   └── fork1 (level: 1, fork_point: 4, experiment: exp_with_multi_experiment_history_2)
+#         └── fork2 (level: 2, fork_point: 8, experiment: exp_with_multi_experiment_history_2)
+MULT_EXPERIMENT_HISTORY_EXP_1 = "exp_with_multi_experiment_history_1"
+MULT_EXPERIMENT_HISTORY_EXP_2 = "exp_with_multi_experiment_history_2"
+MULTI_EXPERIMENT_HISTORY = [
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_1",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_1,
+        fork_level=None,
+        fork_point=None,
+        fork_run_id=None,
+        tags=[],
+        configs={},
+        metrics={
+            "metrics/m1": {step: step * 0.1 for step in range(0, 5)},
+        },
+    ),
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_2",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_2,
+        fork_level=1,
+        fork_point=4,
+        fork_run_id="mult_exp_history_run_1",
+        tags=[],
+        configs={},
+        metrics={
+            "metrics/m1": {step: step * 0.1 for step in range(5, 9)},
+        },
+    ),
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_3",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_2,
+        fork_level=2,
+        fork_point=8,
+        fork_run_id="mult_exp_history_run_2",
+        tags=[],
+        configs={},
+        metrics={
+            "metrics/m1": {step: step * 0.1 for step in range(9, 12)},
+        },
+    ),
+]
+
+ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE + MULTI_EXPERIMENT_HISTORY
 RUN_BY_ID = {run.custom_run_id: run for run in ALL_STATIC_RUNS}
 
 
