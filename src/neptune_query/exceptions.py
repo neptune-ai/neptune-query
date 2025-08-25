@@ -206,6 +206,16 @@ class NeptuneRetryError(NeptuneError):
             """
 {h1}NeptuneRetryError: The Neptune server returned an error after {retries} retries, {time:.2f} seconds.{end}
 
+The retry logic handles rate limiting and network errors. To adjust the timeouts for retrying server requests,
+change the values of the following environment variables, which are currently set to:
+
+NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT={soft_limit}
+NEPTUNE_QUERY_RETRY_HARD_TIMEOUT={hard_limit}
+
+For details, see the docs:
+https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_soft_timeout
+https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_hard_timeout
+
 {status_code_line}
 {content_line}
 """,
@@ -213,6 +223,8 @@ class NeptuneRetryError(NeptuneError):
             time=time,
             status_code_line=f"Last response status: {last_status_code}" if last_status_code is not None else "",
             content_line=f"Last response content: {content_str}" if last_content is not None else "",
+            soft_limit=env.NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT.get(),
+            hard_limit=env.NEPTUNE_QUERY_RETRY_HARD_TIMEOUT.get(),
         )
 
 
@@ -301,7 +313,7 @@ def warn_unsupported_value_type(type_: str) -> None:
     _warned_types.add(type_)
     warnings.warn(
         f"A value of type `{type_}` was returned by your query. This type is not supported by your installed version "
-        "of neptune-fetcher. Values will evaluate to `None` and empty DataFrames. "
-        "Upgrade neptune-fetcher to access this data.",
+        "of neptune-query. Values will evaluate to `None` and empty DataFrames. "
+        "Upgrade neptune-query to access this data.",
         NeptuneWarning,
     )
