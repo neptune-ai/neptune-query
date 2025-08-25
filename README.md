@@ -11,7 +11,7 @@ With the Query API, you can:
 ## Installation
 
 ```bash
-pip install "neptune-query>=1.0.0,<2.0.0"
+pip install "neptune-query>=1.2.0,<2.0.0"
 ```
 
 Set your Neptune API token and project name as environment variables:
