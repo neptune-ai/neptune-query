@@ -35,7 +35,7 @@ class GeneratedRun:
     tags: list[str] = field(default_factory=list)
 
     def attributes(self):
-        return set().union(self.configs.keys(), self.metrics.keys())
+        return set().union(self.configs.keys(), self.metrics.keys(), self.string_series.keys())
 
     def metrics_values(self, name: AttributeName) -> list[tuple[Step, Value]]:
         return list(self.metrics[name].items())
