@@ -244,6 +244,7 @@ def test_fetch_series_patched(sys_id_length, exp_count, attr_name_length, attr_c
                 run_attribute_definitions=run_attribute_definitions[start:end],
                 client=ANY,
                 include_inherited=ANY,
+                container_type=ANY,
                 step_range=ANY,
                 tail_limit=ANY,
             )
@@ -323,6 +324,7 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
                 client=ANY,
                 run_attribute_definitions=exp_attributes[start:end],
                 include_inherited=ANY,
+                container_type=ANY,
                 include_preview=ANY,
                 step_range=ANY,
                 tail_limit=ANY,

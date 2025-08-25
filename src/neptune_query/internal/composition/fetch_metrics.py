@@ -171,6 +171,7 @@ def _fetch_metrics(
                         run_attribute_definitions=run_attribute_definitions_split,
                         include_inherited=lineage_to_the_root,
                         include_preview=include_point_previews,
+                        container_type=container_type,
                         step_range=step_range,
                         tail_limit=tail_limit,
                     )

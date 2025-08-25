@@ -33,6 +33,7 @@ from ..retrieval import (
     retry,
     util,
 )
+from .search import ContainerType
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ def fetch_multiple_series_values(
     client: AuthenticatedClient,
     run_attribute_definitions: list[identifiers.RunAttributeDefinition],
     include_inherited: bool,
+    container_type: ContainerType,
     include_preview: bool,
     step_range: tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
@@ -81,6 +83,7 @@ def fetch_multiple_series_values(
                     },
                     "attribute": run_attribute.attribute_definition.name,
                     "lineage": "FULL" if include_inherited else "NONE",
+                    "lineageEntityType": "EXPERIMENT" if container_type == ContainerType.EXPERIMENT else "RUN",
                     "includePreview": include_preview,
                 },
             }

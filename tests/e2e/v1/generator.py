@@ -1,5 +1,8 @@
 import concurrent.futures
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+    field,
+)
 from datetime import (
     datetime,
     timedelta,
@@ -23,15 +26,16 @@ FIXED_DATE = datetime(2025, 2, 10, 12, 0, 0, 0, timezone.utc)
 class GeneratedRun:
     custom_run_id: str
     experiment_name: str
-    fork_run_id: Union[str, None]
-    fork_level: Optional[int]
-    fork_point: Optional[int]
-    configs: dict[AttributeName, Union[float, bool, int, str, datetime, list, set, tuple]]
-    metrics: dict[AttributeName, dict[Step, Value]]
-    tags: list[str]
+    fork_run_id: Union[str, None] = None
+    fork_level: Optional[int] = None
+    fork_point: Optional[int] = None
+    configs: dict[AttributeName, Union[float, bool, int, str, datetime, list, set, tuple]] = field(default_factory=dict)
+    metrics: dict[AttributeName, dict[Step, Value]] = field(default_factory=dict)
+    string_series: dict[AttributeName, dict[Step, str]] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
 
     def attributes(self):
-        return set().union(self.configs.keys(), self.metrics.keys())
+        return set().union(self.configs.keys(), self.metrics.keys(), self.string_series.keys())
 
     def metrics_values(self, name: AttributeName) -> list[tuple[Step, Value]]:
         return list(self.metrics[name].items())
@@ -51,9 +55,6 @@ LINEAR_HISTORY_TREE = [
     GeneratedRun(
         custom_run_id="linear_history_root",
         experiment_name=LINEAR_TREE_EXP_NAME,
-        fork_level=None,
-        fork_point=None,
-        fork_run_id=None,
         tags=["linear_root", "linear"],
         configs={
             "int-value": 1,
@@ -127,9 +128,6 @@ FORKED_HISTORY_TREE = [
     GeneratedRun(
         custom_run_id="forked_history_root",
         experiment_name=FORKED_TREE_EXP_NAME,
-        fork_level=None,
-        fork_point=None,
-        fork_run_id=None,
         tags=["forked_history_root", "forked_history"],
         configs={
             "int-value": 1,
@@ -186,7 +184,54 @@ FORKED_HISTORY_TREE = [
     ),
 ]
 
-ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE
+# Tree structure:
+#
+# multi_experiment_history:
+# root (level: None, experiment: exp_with_multi_experiment_history_1)
+#   └── fork1 (level: 1, fork_point: 4, experiment: exp_with_multi_experiment_history_2)
+#         └── fork2 (level: 2, fork_point: 8, experiment: exp_with_multi_experiment_history_2)
+MULT_EXPERIMENT_HISTORY_EXP_1 = "exp_with_multi_experiment_history_1"
+MULT_EXPERIMENT_HISTORY_EXP_2 = "exp_with_multi_experiment_history_2"
+MULTI_EXPERIMENT_HISTORY = [
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_1",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_1,
+        metrics={
+            "metrics/m1": {step: step * 0.1 for step in range(0, 5)},
+        },
+        string_series={
+            "string_series/s1": {step: f"val_run1_{step}" for step in range(0, 5)},
+        },
+    ),
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_2",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_2,
+        fork_level=1,
+        fork_point=4,
+        fork_run_id="mult_exp_history_run_1",
+        metrics={
+            "metrics/m1": {step: step * 0.2 for step in range(5, 9)},
+        },
+        string_series={
+            "string_series/s1": {step: f"val_run2_{step}" for step in range(5, 9)},
+        },
+    ),
+    GeneratedRun(
+        custom_run_id="mult_exp_history_run_3",
+        experiment_name=MULT_EXPERIMENT_HISTORY_EXP_2,
+        fork_level=2,
+        fork_point=8,
+        fork_run_id="mult_exp_history_run_2",
+        metrics={
+            "metrics/m1": {step: step * 0.3 for step in range(9, 12)},
+        },
+        string_series={
+            "string_series/s1": {step: f"val_run3_{step}" for step in range(9, 12)},
+        },
+    ),
+]
+
+ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE + MULTI_EXPERIMENT_HISTORY
 RUN_BY_ID = {run.custom_run_id: run for run in ALL_STATIC_RUNS}
 
 
@@ -208,6 +253,10 @@ def log_run(generated: GeneratedRun, api_token: str, e2e_alpha_project: str):
         for metric_name, metric_values in generated.metrics.items():
             for step, value in metric_values.items():
                 run.log_metrics(step=step, data={metric_name: value}, timestamp=timestamp_for_step(step))
+
+        for string_series_name, string_series_values in generated.string_series.items():
+            for step, value in string_series_values.items():
+                run.log_string_series(step=step, data={string_series_name: value}, timestamp=timestamp_for_step(step))
 
 
 def log_runs(api_token: str, e2e_alpha_project: str, runs: list[GeneratedRun]):

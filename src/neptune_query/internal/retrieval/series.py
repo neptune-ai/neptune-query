@@ -43,6 +43,7 @@ from ..retrieval.attribute_types import (
     File,
     Histogram,
 )
+from .search import ContainerType
 
 SeriesValue = NamedTuple("SeriesValue", [("step", float), ("value", Any), ("timestamp_millis", float)])
 
@@ -51,6 +52,7 @@ def fetch_series_values(
     client: AuthenticatedClient,
     run_attribute_definitions: Iterable[RunAttributeDefinition],
     include_inherited: bool,
+    container_type: ContainerType,
     step_range: Tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
 ) -> Generator[util.Page[tuple[RunAttributeDefinition, list[SeriesValue]]], None, None]:
@@ -75,6 +77,7 @@ def fetch_series_values(
                     },
                     "attribute": run_definition.attribute_definition.name,
                     "lineage": "FULL" if include_inherited else "NONE",
+                    "lineageEntityType": "EXPERIMENT" if container_type == ContainerType.EXPERIMENT else "RUN",
                 },
             }
             for request_id, run_definition in request_id_to_run_attr_definition.items()

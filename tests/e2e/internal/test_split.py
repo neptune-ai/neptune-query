@@ -17,6 +17,7 @@ from neptune_query.internal.retrieval.attribute_values import (
     fetch_attribute_values,
 )
 from neptune_query.internal.retrieval.metrics import fetch_multiple_series_values
+from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.internal.retrieval.series import (
     SeriesValue,
     fetch_series_values,
@@ -186,7 +187,12 @@ def test_fetch_string_series_values_retrieval(client, project, experiment_identi
     try:
         result = extract_pages(
             fetch_series_values(
-                client, attribute_definitions, include_inherited=True, step_range=(None, None), tail_limit=None
+                client,
+                attribute_definitions,
+                include_inherited=True,
+                container_type=ContainerType.EXPERIMENT,
+                step_range=(None, None),
+                tail_limit=None,
             )
         )
     except (NeptuneRetryError, NeptuneUnexpectedResponseError) as e:
@@ -265,6 +271,7 @@ def test_fetch_float_series_values_retrieval(client, project, experiment_identif
             client,
             attribute_definitions,
             include_inherited=True,
+            container_type=ContainerType.EXPERIMENT,
             include_preview=False,
             step_range=(None, None),
             tail_limit=None,
