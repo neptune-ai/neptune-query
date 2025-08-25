@@ -11,7 +11,6 @@ from typing import (
 import numpy as np
 import pandas as pd
 import pytest
-from e2e.v1.generator import MULT_EXPERIMENT_HISTORY_EXP_2
 
 from neptune_query import fetch_series
 from neptune_query.filters import (
@@ -34,6 +33,7 @@ from tests.e2e.data import (
     TEST_DATA,
     ExperimentData,
 )
+from tests.e2e.v1.generator import MULT_EXPERIMENT_HISTORY_EXP_2
 
 
 def _to_run_attribute_definition(project, run, series_name, series_type):
