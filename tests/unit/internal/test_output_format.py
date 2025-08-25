@@ -5,20 +5,27 @@ from datetime import (
     timedelta,
     timezone,
 )
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal
 
+import neptune_query as npt
 from neptune_query.exceptions import ConflictingAttributeTypes
-from neptune_query.internal import identifiers
+from neptune_query.filters import AttributeFilter
+from neptune_query.internal import (
+    context,
+    identifiers,
+)
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
     SysId,
+    SysName,
 )
 from neptune_query.internal.output_format import (
     convert_table_to_dataframe,
@@ -26,6 +33,7 @@ from neptune_query.internal.output_format import (
     create_metrics_dataframe,
     create_series_dataframe,
 )
+from neptune_query.internal.retrieval import util
 from neptune_query.internal.retrieval.attribute_types import File as IFile
 from neptune_query.internal.retrieval.attribute_types import (
     FileSeriesAggregations,
@@ -38,7 +46,10 @@ from neptune_query.internal.retrieval.attribute_types import (
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metrics import FloatPointValue
-from neptune_query.internal.retrieval.search import ContainerType
+from neptune_query.internal.retrieval.search import (
+    ContainerType,
+    ExperimentSysAttrs,
+)
 from neptune_query.internal.retrieval.series import SeriesValue
 from neptune_query.types import File as OFile
 from neptune_query.types import Histogram as OHistogram
@@ -1195,3 +1206,45 @@ def test_create_files_dataframe_index_name_attribute_conflict():
     expected_df.columns.names = ["attribute"]
     expected_df.index.names = [index_column_name, "step"]
     assert_frame_equal(dataframe, expected_df)
+
+
+@pytest.mark.parametrize("include_time", [None, "absolute"])
+def test_fetch_series_duplicate_values(include_time):
+    #  given
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    experiments = [ExperimentSysAttrs(sys_id=SysId("sysid0"), sys_name=SysName("irrelevant"))]
+    attributes = [AttributeDefinition(name="attribute0", type="irrelevant")]
+    run_attribute_definitions = [
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=experiments[0].sys_id),
+            attribute_definition=attributes[0],
+        )
+    ]
+    series_values = [
+        (run_attribute_definitions[0], [SeriesValue(step=i, value=float(i), timestamp_millis=i) for i in range(100)])
+    ] * 2
+
+    # when
+    with (
+        patch("neptune_query.internal.composition.fetch_series.get_client") as get_client,
+        patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
+        patch(
+            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
+        ) as fetch_attribute_definitions_single_filter,
+        patch("neptune_query.internal.retrieval.series.fetch_series_values") as fetch_series_values,
+    ):
+        get_client.return_value = None
+        fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
+        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_series_values.return_value = iter([util.Page(series_values)])
+
+        df = npt.fetch_series(
+            project=project,
+            experiments="ignored",
+            attributes=AttributeFilter(name="ignored"),
+            include_time=include_time,
+        )
+
+    # then
+    assert df.shape == (100, 1 if not include_time else 2)
