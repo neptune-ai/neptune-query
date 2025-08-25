@@ -247,6 +247,7 @@ def log_run(generated: GeneratedRun, api_token: str, e2e_alpha_project: str):
         experiment_name=generated.experiment_name,
         fork_run_id=generated.fork_run_id,
         fork_step=generated.fork_point,
+        source_tracking_config=None,
     ) as run:
         run.log_configs(data=generated.configs)
         run.add_tags(generated.tags)

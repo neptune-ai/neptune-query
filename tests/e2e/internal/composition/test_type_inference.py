@@ -16,10 +16,10 @@ from neptune_query.internal.filters import (
 )
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
 
-TEST_DATA_VERSION = "2025-01-31"
-EXPERIMENT_NAME = f"pye2e-fetcher-test-internal-composition-type-inference-a-{TEST_DATA_VERSION}"
-EXPERIMENT_NAME_B = f"pye2e-fetcher-test-internal-composition-type-inference-b-{TEST_DATA_VERSION}"
-PATH = f"test/test-internal-infer-{TEST_DATA_VERSION}"
+TEST_DATA_VERSION = "2025-08-22"
+EXPERIMENT_NAME = f"pye2e-query-test-internal-composition-type-inference-a-{TEST_DATA_VERSION}"
+EXPERIMENT_NAME_B = f"pye2e-query-test-internal-composition-type-inference-b-{TEST_DATA_VERSION}"
+PATH = f"test/test-query-internal-infer-{TEST_DATA_VERSION}"
 DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc)
 FLOAT_SERIES_STEPS = [step * 0.5 for step in range(10)]
 FLOAT_SERIES_VALUES = [float(step**2) for step in range(10)]
@@ -52,6 +52,7 @@ def run_with_attributes(client, api_token, project):
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME,
+        source_tracking_config=None,
     )
 
     data = {
@@ -101,6 +102,7 @@ def run_with_attributes_b(client, api_token, project):
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME_B,
+        source_tracking_config=None,
     )
 
     data = {
