@@ -11,15 +11,16 @@ from typing import (
 import numpy as np
 import pandas as pd
 import pytest
+from e2e.v1.generator import MULT_EXPERIMENT_HISTORY_EXP_2
 
 from neptune_query import fetch_series
 from neptune_query.filters import (
     AttributeFilter,
     Filter,
 )
-from neptune_query.internal import identifiers
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
+    ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
     SysId,
@@ -33,6 +34,21 @@ from tests.e2e.data import (
     TEST_DATA,
     ExperimentData,
 )
+
+
+def _to_run_attribute_definition(project, run, series_name, series_type):
+    return RunAttributeDefinition(
+        RunIdentifier(ProjectIdentifier(project), SysId(run)),
+        AttributeDefinition(series_name, series_type),
+    )
+
+
+def _to_series_value(step, value):
+    return SeriesValue(
+        step=step,
+        value=value,
+        timestamp_millis=int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
+    )
 
 
 def create_expected_data_string_series(
@@ -58,7 +74,7 @@ def create_expected_data_string_series(
 
         for path, series in experiment.string_series.items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
+                RunIdentifier(ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="string_series"),
             )
 
@@ -286,7 +302,7 @@ def create_expected_data_histogram_series(
 
         for path, series in experiment.fetcher_histogram_series().items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
+                RunIdentifier(ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="histogram_series"),
             )
 
@@ -506,7 +522,7 @@ def create_expected_data_file_series(
 
         for path, series in experiment.file_series_matchers().items():
             run_attr = RunAttributeDefinition(
-                RunIdentifier(identifiers.ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
+                RunIdentifier(ProjectIdentifier(project_identifier), SysId(experiment.run_id)),
                 AttributeDefinition(path, type="file_series"),
             )
 
@@ -701,3 +717,32 @@ def test__fetch_file_series__output_variants(
     assert result.columns.tolist() == columns
     assert result.index.names == ["experiment", "step"]
     assert {t[0] for t in result.index.tolist()} == filtered_exps
+
+
+@pytest.mark.parametrize(
+    "lineage_to_the_root,expected_steps",
+    [
+        (True, range(0, 12)),
+        (False, range(5, 12)),
+    ],
+)
+def test__fetch_series__lineage(new_project_id, lineage_to_the_root, expected_steps):
+    df = fetch_series(
+        project=new_project_id,
+        experiments=[MULT_EXPERIMENT_HISTORY_EXP_2],
+        attributes=r"string_series/s1",
+        lineage_to_the_root=lineage_to_the_root,
+    )
+
+    expected = create_series_dataframe(
+        series_data={
+            _to_run_attribute_definition(
+                new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "string_series/s1", "string_series"
+            ): [_to_series_value(step, f"val_{step}") for step in expected_steps]
+        },
+        project_identifier=new_project_id,
+        sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},
+        index_column_name="experiment",
+        timestamp_column_name=None,
+    )
+    pd.testing.assert_frame_equal(df, expected)

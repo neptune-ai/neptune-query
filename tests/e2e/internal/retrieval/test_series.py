@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 
 from neptune_query.internal.identifiers import AttributeDefinition
+from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.internal.retrieval.series import (
     RunAttributeDefinition,
     fetch_series_values,
@@ -27,6 +28,7 @@ def test_fetch_series_values_does_not_exist(client, project, experiment_identifi
             client,
             [run_definition],
             include_inherited=False,
+            container_type=ContainerType.EXPERIMENT,
         )
     )
 
@@ -59,6 +61,7 @@ def test_fetch_series_values_single_series(
             client,
             [run_definition],
             include_inherited=False,
+            container_type=ContainerType.EXPERIMENT,
         )
     )
 
@@ -110,7 +113,13 @@ def test_fetch_series_values_single_series_stop_range(
 
     #  when
     series = extract_pages(
-        fetch_series_values(client, [run_definition], include_inherited=False, step_range=step_range)
+        fetch_series_values(
+            client,
+            [run_definition],
+            include_inherited=False,
+            container_type=ContainerType.EXPERIMENT,
+            step_range=step_range,
+        )
     )
 
     # then
@@ -149,7 +158,13 @@ def test_fetch_series_values_single_series_tail_limit(
 
     #  when
     series = extract_pages(
-        fetch_series_values(client, [run_definition], include_inherited=False, tail_limit=tail_limit)
+        fetch_series_values(
+            client,
+            [run_definition],
+            include_inherited=False,
+            container_type=ContainerType.EXPERIMENT,
+            tail_limit=tail_limit,
+        )
     )
 
     # then

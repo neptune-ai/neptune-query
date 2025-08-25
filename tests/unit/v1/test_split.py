@@ -244,6 +244,7 @@ def test_fetch_series_patched(sys_id_length, exp_count, attr_name_length, attr_c
                 run_attribute_definitions=run_attribute_definitions[start:end],
                 client=ANY,
                 include_inherited=ANY,
+                container_type=ANY,
                 step_range=ANY,
                 tail_limit=ANY,
             )

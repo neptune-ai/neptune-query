@@ -316,7 +316,7 @@ def test__fetch_metrics_unique__output_format_variants(
     "lineage_to_the_root,expected_steps",
     [
         (True, range(0, 12)),
-        (False, range(4, 12)),
+        (False, range(5, 12)),
     ],
 )
 def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_steps):
