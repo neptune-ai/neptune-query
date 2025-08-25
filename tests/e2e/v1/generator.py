@@ -200,7 +200,7 @@ MULTI_EXPERIMENT_HISTORY = [
             "metrics/m1": {step: step * 0.1 for step in range(0, 5)},
         },
         string_series={
-            "string_series/s1": {step: f"val_{step}" for step in range(0, 5)},
+            "string_series/s1": {step: f"val_run1_{step}" for step in range(0, 5)},
         },
     ),
     GeneratedRun(
@@ -213,7 +213,7 @@ MULTI_EXPERIMENT_HISTORY = [
             "metrics/m1": {step: step * 0.1 for step in range(5, 9)},
         },
         string_series={
-            "string_series/s1": {step: f"val_{step}" for step in range(5, 9)},
+            "string_series/s1": {step: f"val_run2_{step}" for step in range(5, 9)},
         },
     ),
     GeneratedRun(
@@ -226,7 +226,7 @@ MULTI_EXPERIMENT_HISTORY = [
             "metrics/m1": {step: step * 0.1 for step in range(9, 12)},
         },
         string_series={
-            "string_series/s1": {step: f"val_{step}" for step in range(9, 12)},
+            "string_series/s1": {step: f"val_run3_{step}" for step in range(9, 12)},
         },
     ),
 ]

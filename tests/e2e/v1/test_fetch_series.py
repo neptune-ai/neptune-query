@@ -720,13 +720,22 @@ def test__fetch_file_series__output_variants(
 
 
 @pytest.mark.parametrize(
-    "lineage_to_the_root,expected_steps",
+    "lineage_to_the_root,expected_values",
     [
-        (True, range(0, 12)),
-        (False, range(5, 12)),
+        (
+            True,
+            [(step, f"val_run1_{step}") for step in range(0, 5)]
+            + [(step, f"val_run2_{step}") for step in range(5, 9)]
+            + [(step, f"val_run3_{step}") for step in range(9, 12)],
+        ),
+        (
+            False,
+            [(step, f"val_run2_{step}") for step in range(5, 9)]
+            + [(step, f"val_run3_{step}") for step in range(9, 12)],
+        ),
     ],
 )
-def test__fetch_series__lineage(new_project_id, lineage_to_the_root, expected_steps):
+def test__fetch_series__lineage(new_project_id, lineage_to_the_root, expected_values):
     df = fetch_series(
         project=new_project_id,
         experiments=[MULT_EXPERIMENT_HISTORY_EXP_2],
@@ -738,7 +747,7 @@ def test__fetch_series__lineage(new_project_id, lineage_to_the_root, expected_st
         series_data={
             _to_run_attribute_definition(
                 new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "string_series/s1", "string_series"
-            ): [_to_series_value(step, f"val_{step}") for step in expected_steps]
+            ): [_to_series_value(step, value) for step, value in expected_values]
         },
         project_identifier=new_project_id,
         sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},
