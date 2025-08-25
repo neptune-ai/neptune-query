@@ -111,8 +111,8 @@ def list_attributes(
         project: Path of the Neptune project, as `WorkspaceName/ProjectName`.
             If not provided, the NEPTUNE_PROJECT environment variable is used.
         runs: Filter specifying which runs to include.
-            If a string is provided, it's treated as a regex pattern that the names must match.
-            If a list of strings is provided, it's treated as exact experiment names to match.
+            If a string is provided, it's treated as a regex pattern that the run IDs must match.
+            If a list of strings is provided, it's treated as exact run IDs to match.
             To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
         attributes: Filter specifying which attributes to include.
             If a string is provided, it's treated as a regex pattern that the attribute names must match.
@@ -183,8 +183,8 @@ def fetch_metrics(
         include_time: To include absolute timestamps, pass `"absolute"` as the value.
             If set, each metric column has an additional sub-column with requested timestamp values.
         step_range: Tuple specifying the range of steps to include. Can represent an open interval.
-        lineage_to_the_root: If True (default), includes all points from the complete experiment history.
-            If False, only includes points from the most recent experiment in the lineage.
+        lineage_to_the_root: If True (default), includes all points from the complete run history.
+            If False, only includes points from the most recent run in the lineage.
         tail_limit: From the tail end of each series, how many points to include at most.
         type_suffix_in_column_names: If True, columns of the returned DataFrame
             are suffixed with ":<type>", e.g. "attribute1:float_series", "attribute1:string".
@@ -324,8 +324,8 @@ def fetch_series(
         include_time: To include absolute timestamps, pass `"absolute"` as the value.
             If set, each metric column has an additional sub-column with requested timestamp values.
         step_range: Tuple specifying the range of steps to include. Can represent an open interval.
-        lineage_to_the_root: If True (default), includes all values from the complete experiment history.
-            If False, only includes values from the most recent experiment in the lineage.
+        lineage_to_the_root: If True (default), includes all values from the complete run history.
+            If False, only includes values from the most recent run in the lineage.
         tail_limit: From the tail end of each series, how many values to include at most.
 
     Example:
