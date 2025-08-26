@@ -12,10 +12,6 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
-from e2e.v1.generator import (
-    RUN_BY_ID,
-    RUN_ID_INF_NAN_RUN,
-)
 
 from neptune_query import fetch_metrics
 from neptune_query.filters import (
@@ -41,6 +37,8 @@ from tests.e2e.data import (
 from tests.e2e.v1.generator import (
     EXP_NAME_INF_NAN_RUN,
     MULT_EXPERIMENT_HISTORY_EXP_2,
+    RUN_BY_ID,
+    RUN_ID_INF_NAN_RUN,
     timestamp_for_step,
 )
 

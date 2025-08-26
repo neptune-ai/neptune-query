@@ -248,9 +248,9 @@ SINGLE_RUNS = [
         },
         metrics={
             "series-containing-inf": dict(zip(range(10), [inf, 1, -inf, 3, 4, inf, 6, -inf, 8, 9])),
-            "series-ending-with-inf": dict(zip(range(10), [1, 2, 3, 4, 5, 6, 7, 8, 9, inf])),
+            "series-ending-with-inf": dict(zip(range(10), [0, 1, 2, 3, 4, 5, 6, 7, 8, inf])),
             "series-containing-nan": dict(zip(range(10), [nan, 1, nan, 3, 4, nan, 6, nan, 8, 9])),
-            "series-ending-with-nan": dict(zip(range(10), [1, 2, 3, 4, 5, 6, 7, 8, 9, nan])),
+            "series-ending-with-nan": dict(zip(range(10), [0, 1, 2, 3, 4, 5, 6, 7, 8, nan])),
         },
     ),
 ]
