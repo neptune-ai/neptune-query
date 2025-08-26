@@ -412,11 +412,18 @@ def _pivot_and_reindex_df(
 
     if include_point_previews or timestamp_column_name:
         # if there are multiple value columns, don't specify them and rely on pandas to create the column multi-index
-        df = df.pivot_table(index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True)
+        df = df.pivot_table(
+            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=False
+        )
     else:
         # when there's only "value", define values explicitly, to make pandas generate a flat index
         df = df.pivot_table(
-            index=[index_column_name, "step"], columns="path", values="value", aggfunc="first", observed=True
+            index=[index_column_name, "step"],
+            columns="path",
+            values="value",
+            aggfunc="first",
+            observed=True,
+            dropna=False,
         )
 
     df = df.reset_index()

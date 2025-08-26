@@ -8,6 +8,10 @@ from datetime import (
     timedelta,
     timezone,
 )
+from math import (
+    inf,
+    nan,
+)
 from typing import (
     Optional,
     Union,
@@ -231,7 +235,27 @@ MULTI_EXPERIMENT_HISTORY = [
     ),
 ]
 
-ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE + MULTI_EXPERIMENT_HISTORY
+EXP_NAME_INF_NAN_RUN = "exp_inf_nan_run"
+RUN_ID_INF_NAN_RUN = "inf_nan_run"
+SINGLE_RUNS = [
+    GeneratedRun(
+        custom_run_id=RUN_ID_INF_NAN_RUN,
+        experiment_name=EXP_NAME_INF_NAN_RUN,
+        configs={
+            "inf-float": float("inf"),
+            "nan-float": float("nan"),
+            "neg-inf-float": float("-inf"),
+        },
+        metrics={
+            "series-containing-inf": dict(zip(range(10), [inf, 1, -inf, 3, 4, inf, 6, -inf, 8, 9])),
+            "series-ending-with-inf": dict(zip(range(10), [1, 2, 3, 4, 5, 6, 7, 8, 9, inf])),
+            "series-containing-nan": dict(zip(range(10), [nan, 1, nan, 3, 4, nan, 6, nan, 8, 9])),
+            "series-ending-with-nan": dict(zip(range(10), [1, 2, 3, 4, 5, 6, 7, 8, 9, nan])),
+        },
+    ),
+]
+
+ALL_STATIC_RUNS = LINEAR_HISTORY_TREE + FORKED_HISTORY_TREE + MULTI_EXPERIMENT_HISTORY + SINGLE_RUNS
 RUN_BY_ID = {run.custom_run_id: run for run in ALL_STATIC_RUNS}
 
 
