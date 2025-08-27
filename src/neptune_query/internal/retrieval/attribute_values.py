@@ -57,14 +57,13 @@ def fetch_attribute_values(
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE.get(),
 ) -> Generator[util.Page[AttributeValue], None, None]:
     attribute_definitions_set: set[identifiers.AttributeDefinition] = set(attribute_definitions)
-    experiments = [str(e) for e in run_identifiers]
 
     if not attribute_definitions_set or not run_identifiers:
         yield from []
         return
 
     params: dict[str, Any] = {
-        "experimentIdsFilter": experiments,
+        "experimentIdsFilter": [str(e) for e in run_identifiers],
         "attributeNamesFilter": [ad.name for ad in attribute_definitions],
         "nextPage": {"limit": batch_size},
     }
@@ -107,6 +106,7 @@ def _process_attribute_values_page(
             project_identifier=project_identifier, sys_id=identifiers.SysId(entry.experimentShortId)
         )
 
+        items_added = 0
         for attr in entry.attributes:
             attr_definition = identifiers.AttributeDefinition(
                 name=attr.name, type=map_attribute_type_backend_to_python(attr.type)
@@ -124,6 +124,9 @@ def _process_attribute_values_page(
                 run_identifier=run_identifier,
             )
             items.append(attr_value)
+            items_added += 1
+
+        print(f"Expected: {len(attribute_definitions_set)}. Added: {items_added}. Ratio: {items_added / len(attribute_definitions_set):.2%}")
 
     return util.Page(items=items)
 
