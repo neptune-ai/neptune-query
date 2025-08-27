@@ -52,6 +52,7 @@ def run_with_attributes(client, api_token, project):
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME,
+        source_tracking_config=None,
     )
 
     data = {
@@ -101,6 +102,7 @@ def run_with_attributes_b(client, api_token, project):
         project=project_identifier,
         run_id=run_id,
         experiment_name=EXPERIMENT_NAME_B,
+        source_tracking_config=None,
     )
 
     data = {
