@@ -26,15 +26,12 @@ jobs:
           - env: "AZURE"
             env_suffix: ""
             test_markers: ""
-            verify_ssl: true
           - env: "GCP"
             env_suffix: "_GCP"
             test_markers: "files"
-            verify_ssl: false
           - env: "AWS"
             env_suffix: "_AWS"
             test_markers: "files"
-            verify_ssl: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -55,8 +52,6 @@ jobs:
           NEPTUNE_E2E_PROJECT: ${{ secrets[format('E2E_PROJECT{0}', matrix.env_suffix)] }}
           NEPTUNE_E2E_API_TOKEN: ${{ secrets[format('E2E_API_TOKEN{0}', matrix.env_suffix)] }}
           TEST_MARKERS: ${{ matrix.test_markers }}
-          NEPTUNE_VERIFY_SSL: ${{ matrix.verify_ssl }}
-          NEPTUNE_ALLOW_SELF_SIGNED_CERTIFICATE: ${{ matrix.verify_ssl && 'false' || 'true' }}
         run: |
           pytest --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
 
