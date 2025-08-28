@@ -228,6 +228,8 @@ def _expire_signed_url(provider: str, signed_url: str) -> str:
         return _modify_signed_url(
             signed_url, **{"X-Goog-Date": [expired_time.strftime("%Y%m%dT%H%M%SZ")], "X-Goog-Expires": ["1"]}
         )
+    elif provider == "aws":
+        return _modify_signed_url(signed_url, **{"X-Amz-Expires": expired_time.strftime("%Y%m%dT%H%M%SZ")})
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
