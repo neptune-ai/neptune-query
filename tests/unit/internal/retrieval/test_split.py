@@ -173,7 +173,6 @@ def test_split_series_attributes(attributes, expected):
     groups = list(split_series_attributes(run_attributes))
 
     # then
-    print(len(groups), [len(g) for g in groups])
     assert groups == expected
 
 
@@ -197,6 +196,9 @@ def test_split_series_attributes(attributes, expected):
         (3, 3 * ATTRIBUTE_DEFINITION_SIZE, 500, [3]),
         (3, 4 * ATTRIBUTE_DEFINITION_SIZE, 500, [3]),
         (10, 10 * ATTRIBUTE_DEFINITION_SIZE, 3, [3, 3, 3, 1]),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 17, [16] * 4),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 16, [16] * 4),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 15, [15, 15, 15, 15, 4]),
     ],
 )
 def test_split_series_attributes_custom_envs(monkeypatch, given_num, query_size_limit, batch_size, expected_nums):
