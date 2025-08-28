@@ -152,6 +152,16 @@ def test_split_sys_ids_attributes_custom_envs(
         ([], []),
         ([ATTRIBUTE_DEFINITION], [[ATTRIBUTE_DEFINITION]]),
         ([ATTRIBUTE_DEFINITION] * 2, [[ATTRIBUTE_DEFINITION] * 2]),
+        ([ATTRIBUTE_DEFINITION] * 9, [[ATTRIBUTE_DEFINITION] * 5, [ATTRIBUTE_DEFINITION] * 4]),
+        ([ATTRIBUTE_DEFINITION] * 27, [[ATTRIBUTE_DEFINITION] * 9] * 3),
+        ([ATTRIBUTE_DEFINITION] * 64, [[ATTRIBUTE_DEFINITION] * 16] * 4),
+        ([ATTRIBUTE_DEFINITION] * 729, [[ATTRIBUTE_DEFINITION] * 81] * 9),
+        ([ATTRIBUTE_DEFINITION] * 4096, [[ATTRIBUTE_DEFINITION] * 256] * 16),
+        ([ATTRIBUTE_DEFINITION] * 32768, [[ATTRIBUTE_DEFINITION] * 1024] * 32),
+        (
+            [ATTRIBUTE_DEFINITION] * 35937,
+            [[ATTRIBUTE_DEFINITION] * 1124] * 31 + [[ATTRIBUTE_DEFINITION] * 1093],
+        ),  # MAX_WORKERS=32 takes over
     ],
 )
 def test_split_series_attributes(attributes, expected):
@@ -163,6 +173,7 @@ def test_split_series_attributes(attributes, expected):
     groups = list(split_series_attributes(run_attributes))
 
     # then
+    print(len(groups), [len(g) for g in groups])
     assert groups == expected
 
 
