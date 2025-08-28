@@ -15,6 +15,7 @@
 
 import functools as ft
 import logging
+import threading
 from typing import (
     Any,
     Optional,
@@ -146,6 +147,7 @@ def _process_metrics_page(
             )
             for point in series.series.values
         ]
+    print(f"[{threading.get_ident()}] Result size: {sum(len(v) for v in result.values())}")
     return util.Page(items=list(result.items()))
 
 

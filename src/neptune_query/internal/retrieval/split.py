@@ -15,10 +15,11 @@
 
 from __future__ import annotations
 
+import math
 from typing import (
     Generator,
     Iterable,
-    TypeVar,
+    TypeVar, Sequence,
 )
 
 from .. import (
@@ -138,7 +139,7 @@ def _split_attribute_definitions(
     return attribute_batches
 
 
-def split_series_attributes(items: Iterable[RunAttributeDefinition]) -> Generator[list[RunAttributeDefinition]]:
+def split_series_attributes(items: Sequence[RunAttributeDefinition]) -> Generator[list[RunAttributeDefinition]]:
     """
     Splits a list of classes containing an attribute_definition into batches so that:
     When the lengths of attribute paths are added, the total length is at most `NEPTUNE_QUERY_MAX_REQUEST_SIZE`.
@@ -146,11 +147,18 @@ def split_series_attributes(items: Iterable[RunAttributeDefinition]) -> Generato
 
     Intended for use before fetching (string, float) series.
     """
-    query_size_limit = env.NEPTUNE_QUERY_MAX_REQUEST_SIZE.get()
-    batch_size_limit = env.NEPTUNE_QUERY_SERIES_BATCH_SIZE.get()
-
     if not items:
         return
+
+    query_size_limit = env.NEPTUNE_QUERY_MAX_REQUEST_SIZE.get()
+    batch_size_limit_env = env.NEPTUNE_QUERY_SERIES_BATCH_SIZE.get()
+    max_workers = env.NEPTUNE_QUERY_MAX_WORKERS.get()
+
+    items_len = len(items)
+    batch_size_limit_heuristic = max(1, max(items_len // max_workers, math.ceil(items_len ** 0.666)))
+    batch_size_limit = min(batch_size_limit_env, batch_size_limit_heuristic)
+    print(f"Series attributes batch size limit: {batch_size_limit} (env: {batch_size_limit_env}, heuristic: {batch_size_limit_heuristic}, items: {items_len})")
+    # batch_size_limit = batch_size_limit_env  # ignores the heuristic for test
 
     batch: list[RunAttributeDefinition] = []
     batch_size = 0

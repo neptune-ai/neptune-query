@@ -120,6 +120,7 @@ def retry_backoff(
                 if remaining_time <= 0:
                     break
                 sleep_time = min(remaining_time, sleep_time)
+                print(f"Retrying after {sleep_time:.2f} seconds... extension: {rate_limit_time_extension:.2f}")
                 time.sleep(sleep_time)
 
             # No more retries left
