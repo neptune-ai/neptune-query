@@ -19,6 +19,7 @@ from tests.e2e.data import (
     TEST_DATA,
     TEST_DATA_VERSION,
 )
+from tests.e2e.v1.generator import EXP_NAME_INF_NAN_RUN
 
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])
@@ -310,6 +311,38 @@ def test__fetch_experiments_table_with_attributes_regex_filter_for_metrics(
     assert df.shape == (3, 3)
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
+
+
+@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
+def test__fetch_experiments_table_nan_inf(new_project_id):
+    df = fetch_experiments_table(
+        project=new_project_id,
+        experiments=[EXP_NAME_INF_NAN_RUN],
+        attributes=[
+            "inf-float",
+            "nan-float",
+            "neg-inf-float",
+            "series-containing-inf",
+            "series-ending-with-inf",
+            "series-containing-nan",
+            "series-ending-with-nan",
+        ],
+    )
+
+    expected = pd.DataFrame(
+        {
+            "experiment": [EXP_NAME_INF_NAN_RUN],
+            "inf-float": [float("inf")],
+            "nan-float": [float("nan")],
+            "neg-inf-float": [float("-inf")],
+            "series-containing-inf": [9.0],
+            "series-ending-with-inf": [float("inf")],
+            "series-containing-nan": [9.0],
+            "series-ending-with-nan": [float("nan")],
+        }
+    ).set_index("experiment", drop=True)
+    assert df.shape == (1, 7)
+    pd.testing.assert_frame_equal(df[expected.columns], expected)
 
 
 @pytest.mark.parametrize(
