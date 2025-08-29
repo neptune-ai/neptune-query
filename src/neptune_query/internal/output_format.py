@@ -406,6 +406,20 @@ def _pivot_and_reindex_df(
     index_column_name: str,
     timestamp_column_name: Optional[str],
 ) -> pd.DataFrame:
+    # Holds all existing (experiment, step) pairs
+    # This is needed because pivot_table will add rows for all combinations of (experiment, step)
+    # even if they don't exist in the original data, filling the rows with NaNs.
+    observed_idx = pd.MultiIndex.from_frame(
+        df[[index_column_name, "step"]]
+        .astype(
+            {
+                index_column_name: "category",
+                "step": "float64",
+            }
+        )
+        .drop_duplicates()
+    )
+
     if df.empty and timestamp_column_name:
         # Handle empty DataFrame case to avoid pandas dtype errors
         df[timestamp_column_name] = pd.Series(dtype="datetime64[ns]")
@@ -413,7 +427,7 @@ def _pivot_and_reindex_df(
     if include_point_previews or timestamp_column_name:
         # if there are multiple value columns, don't specify them and rely on pandas to create the column multi-index
         df = df.pivot_table(
-            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=False
+            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=False, sort=False
         )
     else:
         # when there's only "value", define values explicitly, to make pandas generate a flat index
@@ -424,14 +438,19 @@ def _pivot_and_reindex_df(
             aggfunc="first",
             observed=True,
             dropna=False,
+            sort=False,
         )
 
-    df = df.reset_index()
-    df[index_column_name] = df[index_column_name].astype(str)
-    df = df.sort_values(by=[index_column_name, "step"], ignore_index=True)
-    df = df.set_index([index_column_name, "step"])
+    # Include only observed (experiment, step) pairs
+    df = df.reindex(index=observed_idx)
 
-    return df
+    # Replace categorical codes in `index_column_name` with strings
+    df.index = df.index.set_levels(
+        df.index.get_level_values(index_column_name).unique().astype(str),
+        level=index_column_name,
+    )
+
+    return df.sort_index(level=[index_column_name, "step"])
 
 
 def _restore_path_column_names(
