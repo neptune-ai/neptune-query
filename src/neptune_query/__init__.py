@@ -20,6 +20,7 @@ __all__ = [
     "list_attributes",
     "fetch_experiments_table",
     "fetch_metrics",
+    "fetch_metrics_buckets",
     "fetch_series",
     "download_files",
 ]
@@ -45,11 +46,13 @@ from neptune_query._internal import (
     resolve_destination_path,
     resolve_experiments_filter,
     resolve_files,
+    resolve_metrics_y,
     resolve_sort_by,
 )
 from neptune_query.exceptions import NeptuneUserError
 from neptune_query.internal.composition import download_files as _download_files
 from neptune_query.internal.composition import fetch_metrics as _fetch_metrics
+from neptune_query.internal.composition import fetch_metrics_buckets as _fetch_metrics_buckets
 from neptune_query.internal.composition import fetch_series as _fetch_series
 from neptune_query.internal.composition import fetch_table as _fetch_table
 from neptune_query.internal.composition import list_attributes as _list_attributes
@@ -422,5 +425,32 @@ def download_files(
     return _download_files.download_files(
         files=file_list,
         destination=destination_path,
+        container_type=_search.ContainerType.EXPERIMENT,
+    )
+
+
+@use_query_metadata(api_function="fetch_metrics_buckets")
+def fetch_metrics_buckets(
+    *,
+    project: Optional[str] = None,
+    experiments: Union[str, list[str], filters.Filter],
+    x: Union[Literal["step"]] = "step",
+    y: Union[str, list[str], filters.AttributeFilter],
+    limit: Optional[int] = None,
+    lineage_to_the_root: bool = True,
+    include_point_previews: bool = False,
+) -> _pandas.DataFrame:
+    project_identifier = get_default_project_identifier(project)
+    experiments_filter = resolve_experiments_filter(experiments)
+    resolved_y = resolve_metrics_y(y)
+
+    return _fetch_metrics_buckets.fetch_metrics_buckets(
+        project_identifier=project_identifier,
+        filter_=experiments_filter,
+        x=x,
+        y=resolved_y,
+        limit=limit,
+        lineage_to_the_root=lineage_to_the_root,
+        include_point_previews=include_point_previews,
         container_type=_search.ContainerType.EXPERIMENT,
     )

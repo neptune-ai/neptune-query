@@ -94,6 +94,13 @@ def validate_limit(limit: Optional[int]) -> None:
     _validate_optional_positive_int(limit, "limit")
 
 
+def validate_metrics_x(x: Literal["step"]) -> Literal["step"]:
+    """Validate that x is 'step' (the only valid value for now)."""
+    if x not in ("step",):
+        raise ValueError(f"x '{x}' is invalid; must be 'step'")
+    return x
+
+
 def validate_sort_direction(sort_direction: Literal["asc", "desc"]) -> Literal["asc", "desc"]:
     """Validate that sort_direction is either 'asc' or 'desc'."""
     if sort_direction not in ("asc", "desc"):

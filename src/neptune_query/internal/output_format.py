@@ -28,6 +28,7 @@ from .. import types
 from ..exceptions import ConflictingAttributeTypes
 from . import identifiers
 from .retrieval import (
+    buckets,
     metrics,
     series,
 )
@@ -51,6 +52,7 @@ __all__ = (
     "create_metrics_dataframe",
     "create_series_dataframe",
     "create_files_dataframe",
+    "create_metrics_buckets_dataframe",
 )
 
 
@@ -400,6 +402,81 @@ def create_series_dataframe(
     return df
 
 
+def create_metrics_buckets_dataframe(
+    buckets_data: dict[identifiers.RunAttributeDefinition, list[buckets.BucketMetric]],
+    sys_id_label_mapping: dict[identifiers.SysId, str],
+    *,
+    index_column_name: str,
+) -> pd.DataFrame:
+    """
+    Output Example:
+
+    experiment    experiment_1                                        experiment_2
+    series        metrics/loss            metrics/accuracy            metrics/loss            metrics/accuracy
+    bucket                   x          y                x          y            x          y               x          y
+    (0.0, 20.0]       0.766337  46.899769         0.629231  29.418603     0.793347   3.618248        0.445641  16.923348
+    (20.0, 40.0]     20.435899  42.001229        20.825488  11.989595    20.151307  21.244816       20.720397  20.515981
+    (40.0, 60.0]     40.798869  10.429626        40.640794  10.276835    40.338434  33.692977       40.381568  15.954130
+    (60.0, 80.0]     60.856616  20.633254        60.033832   0.927636    60.002655  37.048722       60.713322  49.537098
+    (80.0, 100.0]    80.522183   6.084259        80.019450  39.666397    80.003379  22.569435       80.745987  42.658697
+    """
+
+    path_mapping: dict[str, int] = {}
+    sys_id_mapping: dict[str, int] = {}
+    label_mapping: list[str] = []
+
+    for run_attr_definition in buckets_data:
+        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
+            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
+            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+
+        if run_attr_definition.attribute_definition.name not in path_mapping:
+            path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
+
+    def generate_categorized_rows() -> Generator[Tuple, None, None]:
+        for attribute, bucket_metrics in buckets_data.items():
+            exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
+            path_category = path_mapping[attribute.attribute_definition.name]
+
+            for bucket in bucket_metrics:
+                yield (
+                    exp_category,
+                    path_category,
+                    f"({bucket.from_x}, {bucket.to_x}]",
+                    bucket.local_min,
+                    bucket.local_max,
+                )
+
+    types = [
+        (index_column_name, "uint32"),
+        ("path", "uint32"),
+        ("bucket", "object"),
+        ("local_min", "float64"),
+        ("local_max", "float64"),
+    ]
+
+    df = pd.DataFrame(
+        np.fromiter(generate_categorized_rows(), dtype=types),
+    )
+
+    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
+    df[index_column_name] = pd.Categorical.from_codes(df[index_column_name], dtype=experiment_dtype)
+
+    df = df.pivot_table(index="bucket", columns=[index_column_name, "path"], values=["local_min", "local_max"])
+    df.columns = df.columns.set_levels(
+        df.columns.get_level_values(index_column_name).unique().astype(str),
+        level=index_column_name,
+    )
+
+    df = _restore_path_column_names(df, path_mapping, None)
+
+    df = df.reorder_levels([1, 2, 0], axis=1)
+    df = df.sort_index(axis=1, level=[0, 1])
+    df.columns.names = (index_column_name, "series", None)
+
+    return df
+
+
 def _pivot_and_reindex_df(
     df: pd.DataFrame,
     include_point_previews: bool,
@@ -460,6 +537,13 @@ def _restore_path_column_names(
     Accepts an DF in an intermediate format in _create_dataframe, and the mapping of column names.
     Restores colum names in the DF based on the mapping.
     """
+    # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
+    if df.columns.empty:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.set_levels(df.columns.get_level_values("path").astype(str), level="path")
+        else:
+            df.columns = df.columns.astype(str)
+        return df
 
     # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
     if df.columns.empty:
