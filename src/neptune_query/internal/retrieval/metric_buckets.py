@@ -21,6 +21,20 @@ from typing import (
 )
 
 from neptune_api.client import AuthenticatedClient
+from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import (
+    AttributesHolderIdentifier,
+    ProtoCustomExpression,
+    ProtoGetTimeseriesBucketsRequest,
+    ProtoLineage,
+    ProtoPointFilters,
+    ProtoScale,
+    ProtoView,
+    ProtoXAxis,
+    XCustom,
+    XEpochMillis,
+    XRelativeTime,
+    XSteps,
+)
 
 from ..identifiers import RunAttributeDefinition
 from .search import ContainerType
@@ -50,6 +64,43 @@ def fetch_time_series_buckets(
         return {}
 
     run_attribute_definitions = list(run_attribute_definitions)
+
+    lineage = ProtoLineage.FULL if lineage_to_the_root else ProtoLineage.ONLY_OWNED
+
+    protobuf_msg = ProtoGetTimeseriesBucketsRequest(
+        expressions=[
+            ProtoCustomExpression(
+                requestId="abc",
+                holder=AttributesHolderIdentifier(
+                    entityType=container_type.value,
+                    identifier=run_attribute_definition.run_identifier.identifier,
+                ),
+                customYFormula=run_attribute_definition.attribute_definition.name,
+                includePreview=include_point_previews,
+                lineage=lineage,
+            )
+            for run_attribute_definition in run_attribute_definitions
+        ],
+        view=ProtoView(
+            to=1.0,
+            pointFilters=ProtoPointFilters(),
+            maxBuckets=100,
+            xScale=ProtoScale.linear,
+            yScale=ProtoScale.linear,
+            xAxis=ProtoXAxis(
+                # if x=step:
+                steps=XSteps(),
+                # from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import XEpochMillis
+                # epochMillis=XEpochMillis(),
+                # from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import XRelativeTime
+                # relativeTime=XRelativeTime(),
+                # from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import XCustom
+                # custom=XCustom(),
+            ),
+        ),
+    )
+    print(str(protobuf_msg))
+    alksdjfljkasdf()
 
     result = {}
     for run_attribute_definition in run_attribute_definitions:
