@@ -911,8 +911,6 @@ def test_create_metrics_dataframe_random_order():
 def test_create_empty_metrics_dataframe(
     type_suffix_in_column_names: bool, include_preview: bool, timestamp_column_name: str
 ):
-    # Given empty dataframe
-
     # When
     df = create_metrics_dataframe(
         metrics_data={},
@@ -924,21 +922,18 @@ def test_create_empty_metrics_dataframe(
     )
 
     # Then
-    if include_preview or timestamp_column_name:
-        expected_df = pd.DataFrame(
-            index=pd.MultiIndex.from_tuples([], names=["experiment", "step"]),
-            columns=pd.MultiIndex.from_tuples([], names=["path", "metric"]),  # Create empty MultiIndex for columns
-        )
-        expected_df.columns.names = None, None
-    else:
-        expected_df = pd.DataFrame(
-            {
-                "experiment": [],
-                "step": [],
-            }
-        ).set_index(["experiment", "step"])
+    expected_df = (
+        pd.DataFrame(data={"experiment": [], "step": []})
+        .astype(dtype={"experiment": "object", "step": "float64"})
+        .set_index(["experiment", "step"])
+    )
 
-    pd.testing.assert_frame_equal(df, expected_df, check_index_type=False)
+    # With previews or timestamps, MultiIndex columns are returned
+    if include_preview or timestamp_column_name:
+        expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
+        # the comparator seems not to delve into the exact column names on the 2nd level when the 1st level is empty..
+
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
@@ -955,21 +950,16 @@ def test_create_empty_series_dataframe(timestamp_column_name: str):
     )
 
     # Then
-    if timestamp_column_name:
-        expected_df = pd.DataFrame(
-            index=pd.MultiIndex.from_tuples([], names=["experiment", "step"]),
-            columns=pd.MultiIndex.from_tuples([], names=["path", "metric"]),  # Create empty MultiIndex for columns
-        )
-        expected_df.columns.names = None, None
-    else:
-        expected_df = pd.DataFrame(
-            {
-                "experiment": [],
-                "step": [],
-            }
-        ).set_index(["experiment", "step"])
+    expected_df = (
+        pd.DataFrame(data={"experiment": [], "step": []})
+        .astype(dtype={"experiment": "object", "step": "float64"})
+        .set_index(["experiment", "step"])
+    )
 
-    pd.testing.assert_frame_equal(df, expected_df, check_index_type=False)
+    if timestamp_column_name:
+        expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
+
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize(

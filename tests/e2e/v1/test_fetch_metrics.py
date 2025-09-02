@@ -35,7 +35,10 @@ from tests.e2e.data import (
     ExperimentData,
 )
 from tests.e2e.v1.generator import (
+    EXP_NAME_INF_NAN_RUN,
     MULT_EXPERIMENT_HISTORY_EXP_2,
+    RUN_BY_ID,
+    RUN_ID_INF_NAN_RUN,
     timestamp_for_step,
 )
 
@@ -51,6 +54,54 @@ def _to_float_point_value(step, value):
     return int(timestamp_for_step(step).timestamp() * 1000), step, value, False, 1.0
 
 
+def _sys_id_label_mapping(experiments: list[ExperimentData]) -> dict[SysId, str]:
+    return {SysId(experiment.name): experiment.name for experiment in experiments}
+
+
+def _run_attribute_definition(
+    project: Project,
+    experiment_name: str,
+    float_series_path: str,
+) -> RunAttributeDefinition:
+    return RunAttributeDefinition(
+        RunIdentifier(ProjectIdentifier(project.project_identifier), SysId(experiment_name)),
+        AttributeDefinition(float_series_path, "float_series"),
+    )
+
+
+def _float_point_value(step, value) -> FloatPointValue:
+    return (
+        int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
+        step,
+        value,
+        False,
+        1.0,
+    )
+
+
+def _metrics_data(
+    project: Project,
+    experiment_name_to_metrics: dict[str, dict[str, list[float]]],
+    steps: list[float],
+    step_range: Tuple[Optional[int], Optional[int]],
+    tail_limit: Optional[int],
+) -> dict[RunAttributeDefinition, list[FloatPointValue]]:
+    step_filter = (
+        step_range[0] if step_range[0] is not None else -np.inf,
+        step_range[1] if step_range[1] is not None else np.inf,
+    )
+
+    apply_tail_limit = lambda points: points[-tail_limit:] if tail_limit is not None else points  # noqa: E731
+
+    return {
+        _run_attribute_definition(project, experiment_name, path): apply_tail_limit(
+            [_float_point_value(step, values[int(step)]) for step in steps if step_filter[0] <= step <= step_filter[1]]
+        )
+        for experiment_name, metrics in experiment_name_to_metrics.items()
+        for path, values in metrics.items()
+    }
+
+
 def create_expected_data(
     project: Project,
     experiments: list[ExperimentData],
@@ -60,10 +111,9 @@ def create_expected_data(
     tail_limit: Optional[int],
 ) -> Tuple[pd.DataFrame, List[str], set[str]]:
     metrics_data: dict[RunAttributeDefinition, list[FloatPointValue]] = {}
-    sys_id_label_mapping: dict[SysId, str] = {SysId(experiment.name): experiment.name for experiment in experiments}
 
     columns = set()
-    filtered_exps = set()
+    filtered_experiments = set()
 
     step_filter = (
         step_range[0] if step_range[0] is not None else -np.inf,
@@ -72,12 +122,12 @@ def create_expected_data(
     for experiment in experiments:
         steps = experiment.float_series[f"{PATH}/metrics/step"]
 
-        for path, series in chain.from_iterable([experiment.float_series.items(), experiment.unique_series.items()]):
+        for path, series in experiment.float_series.items():
             filtered = []
             for step in steps:
                 if step_filter[0] <= step <= step_filter[1]:
                     columns.add(f"{path}:float_series" if type_suffix_in_column_names else path)
-                    filtered_exps.add(experiment.name)
+                    filtered_experiments.add(experiment.name)
                     filtered.append(
                         (
                             int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
@@ -97,7 +147,7 @@ def create_expected_data(
 
     df = create_metrics_dataframe(
         metrics_data=metrics_data,
-        sys_id_label_mapping=sys_id_label_mapping,
+        sys_id_label_mapping=_sys_id_label_mapping(experiments),
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=False,
         timestamp_column_name="absolute_time" if include_time == "absolute" else None,
@@ -107,9 +157,9 @@ def create_expected_data(
     sorted_columns = list(sorted(columns))
     if include_time == "absolute":
         absolute_columns = [[(c, "absolute_time"), (c, "value")] for c in sorted_columns]
-        return df, list(chain.from_iterable(absolute_columns)), filtered_exps
+        return df, list(chain.from_iterable(absolute_columns)), filtered_experiments
     else:
-        return df, sorted_columns, filtered_exps
+        return df, sorted_columns, filtered_experiments
 
 
 @pytest.mark.parametrize(
@@ -180,14 +230,14 @@ def test__fetch_metrics_unique__filter_variants(
             project=project.project_identifier,
         )
 
-    expected, columns, filtered_exps = create_expected_data(
+    expected, columns, filtered_experiments = create_expected_data(
         project, experiments, type_suffix_in_column_names, include_time, step_range, tail_limit
     )
 
     pd.testing.assert_frame_equal(result, expected)
     assert result.columns.tolist() == columns
     assert result.index.names == ["experiment", "step"]
-    assert {t[0] for t in result.index.tolist()} == filtered_exps
+    assert {t[0] for t in result.index.tolist()} == filtered_experiments
 
 
 @pytest.mark.parametrize("step_range", [(0, 5), (0, None), (None, 5), (None, None), (100, 200)])
@@ -240,14 +290,14 @@ def test__fetch_metrics_unique__step_variants(
             project=project.project_identifier,
         )
 
-    expected, columns, filtred_exps = create_expected_data(
+    expected, columns, filtered_experiments = create_expected_data(
         project, experiments, type_suffix_in_column_names, include_time, step_range, tail_limit
     )
 
     pd.testing.assert_frame_equal(result, expected)
     assert result.columns.tolist() == columns
     assert result.index.names == ["experiment", "step"]
-    assert {t[0] for t in result.index.tolist()} == filtred_exps
+    assert {t[0] for t in result.index.tolist()} == filtered_experiments
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -302,14 +352,14 @@ def test__fetch_metrics_unique__output_format_variants(
             project=project.project_identifier,
         )
 
-    expected, columns, filtred_exps = create_expected_data(
+    expected, columns, filtered_experiments = create_expected_data(
         project, experiments, type_suffix_in_column_names, include_time, step_range, tail_limit
     )
 
     pd.testing.assert_frame_equal(result, expected)
     assert result.columns.tolist() == columns
     assert result.index.names == ["experiment", "step"]
-    assert {t[0] for t in result.index.tolist()} == filtred_exps
+    assert {t[0] for t in result.index.tolist()} == filtered_experiments
 
 
 @pytest.mark.parametrize(
@@ -339,6 +389,37 @@ def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_v
             ]
         },
         sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        timestamp_column_name=None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)
+
+
+@pytest.mark.parametrize(
+    "series_name,expected_values",
+    [
+        ("series-containing-inf", RUN_BY_ID[RUN_ID_INF_NAN_RUN].metrics_values("series-containing-inf")),
+        ("series-containing-nan", RUN_BY_ID[RUN_ID_INF_NAN_RUN].metrics_values("series-containing-nan")),
+    ],
+)
+@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
+def test__fetch_metrics_nan_inf(new_project_id, series_name, expected_values):
+    df = fetch_metrics(
+        project=new_project_id,
+        experiments=[EXP_NAME_INF_NAN_RUN],
+        attributes=[series_name],
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={
+            _to_run_attribute_definition(new_project_id, EXP_NAME_INF_NAN_RUN, series_name): [
+                _to_float_point_value(step, value) for step, value in expected_values
+            ]
+        },
+        sys_id_label_mapping={SysId(EXP_NAME_INF_NAN_RUN): EXP_NAME_INF_NAN_RUN},
         type_suffix_in_column_names=False,
         include_point_previews=False,
         timestamp_column_name=None,
