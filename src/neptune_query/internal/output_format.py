@@ -52,7 +52,7 @@ __all__ = (
     "create_metrics_dataframe",
     "create_series_dataframe",
     "create_files_dataframe",
-    "create_metrics_buckets_dataframe",
+    "create_metric_buckets_dataframe",
 )
 
 
@@ -402,11 +402,11 @@ def create_series_dataframe(
     return df
 
 
-def create_metrics_buckets_dataframe(
+def create_metric_buckets_dataframe(
     buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.BucketMetric]],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
-    index_column_name: str,
+    container_column_name: str,
 ) -> pd.DataFrame:
     """
     Output Example:
@@ -444,17 +444,17 @@ def create_metrics_buckets_dataframe(
                     path_category,
                     bucket.from_x,
                     bucket.to_x,
-                    bucket.local_min,
-                    bucket.local_max,
+                    bucket.last_x,
+                    bucket.last_y,
                 )
 
     types = [
-        (index_column_name, "uint32"),
+        (container_column_name, "uint32"),
         ("path", "uint32"),
         ("from_x", "float64"),
         ("to_x", "float64"),
-        ("local_min", "float64"),
-        ("local_max", "float64"),
+        ("x", "float64"),
+        ("y", "float64"),
     ]
 
     df = pd.DataFrame(
@@ -464,19 +464,26 @@ def create_metrics_buckets_dataframe(
     df = df.drop(columns=["from_x", "to_x"])
 
     experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
-    df[index_column_name] = pd.Categorical.from_codes(df[index_column_name], dtype=experiment_dtype)
+    df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
 
-    df = df.pivot_table(index="bucket", columns=[index_column_name, "path"], values=["local_min", "local_max"])
+    df = df.pivot_table(
+        index="bucket",
+        columns=[container_column_name, "path"],
+        values=["x", "y"],
+        observed=True,
+        dropna=True,
+        sort=False,
+    )
     df.columns = df.columns.set_levels(
-        df.columns.get_level_values(index_column_name).unique().astype(str),
-        level=index_column_name,
+        df.columns.get_level_values(container_column_name).unique().astype(str),
+        level=container_column_name,
     )
 
     df = _restore_path_column_names(df, path_mapping, None)
 
-    df = df.reorder_levels([1, 2, 0], axis=1)
-    df = df.sort_index(axis=1, level=[0, 1])
-    df.columns.names = (index_column_name, "series", None)
+    df = df.reorder_levels([1, 2, 0], axis="columns")
+    df = df.sort_index(axis="columns", level=[0, 1])
+    df.columns.names = (container_column_name, "series", None)
 
     return df
 
@@ -562,11 +569,11 @@ def _sort_indices(df: pd.DataFrame) -> pd.DataFrame:
     # We also sort columns, but only after the original names have been restored.
     if isinstance(df.columns, pd.MultiIndex):
         df.columns.names = (None, None)
-        df = df.swaplevel(axis=1)
-        return df.sort_index(axis=1, level=0)
+        df = df.swaplevel(axis="columns")
+        return df.sort_index(axis="columns", level=0)
     else:
         df.columns.name = None
-        return df.sort_index(axis=1)
+        return df.sort_index(axis="columns")
 
 
 def create_files_dataframe(

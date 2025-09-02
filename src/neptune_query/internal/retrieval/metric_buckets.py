@@ -31,8 +31,10 @@ class BucketMetric:
     index: int
     from_x: float
     to_x: float
-    local_min: float
-    local_max: float
+    first_x: float
+    first_y: float
+    last_x: float
+    last_y: float
 
 
 def fetch_time_series_buckets(
@@ -56,8 +58,10 @@ def fetch_time_series_buckets(
                 index=i,
                 from_x=20 * i,
                 to_x=20 * (i + 1),
-                local_min=-random.random(),
-                local_max=random.random(),
+                first_x=-random.random(),
+                first_y=random.random(),
+                last_x=-random.random(),
+                last_y=random.random(),
             )
             for i in range(5)
         ]

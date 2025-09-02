@@ -40,7 +40,7 @@ from ..filters import (
     _BaseAttributeFilter,
     _Filter,
 )
-from ..output_format import create_metrics_buckets_dataframe
+from ..output_format import create_metric_buckets_dataframe
 from ..retrieval import (
     metric_buckets,
     search,
@@ -98,10 +98,10 @@ def fetch_metric_buckets(
             container_type=container_type,
         )
 
-        df = create_metrics_buckets_dataframe(
+        df = create_metric_buckets_dataframe(
             buckets_data=metric_buckets_data,
             sys_id_label_mapping=sys_id_to_label_mapping,
-            index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
+            container_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
         )
 
     return df
