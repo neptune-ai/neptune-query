@@ -461,6 +461,14 @@ def _restore_path_column_names(
     Restores colum names in the DF based on the mapping.
     """
 
+    # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
+    if df.columns.empty:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.set_levels(df.columns.get_level_values("path").astype(str), level="path")
+        else:
+            df.columns = df.columns.astype(str)
+        return df
+
     # We need to reverse the mapping to index -> column name
     if type_suffix:
         reverse_mapping = {index: f"{path}:{type_suffix}" for path, index in path_mapping.items()}

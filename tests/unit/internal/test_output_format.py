@@ -930,9 +930,10 @@ def test_create_empty_metrics_dataframe(
 
     # With previews or timestamps, MultiIndex columns are returned
     if include_preview or timestamp_column_name:
-        expected_df.columns = pd.MultiIndex.from_tuples([], names=[None, None])
+        expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
+        # the comparator seems not to delve into the exact column names on the 2nd level when the 1st level is empty..
 
-    pd.testing.assert_frame_equal(df, expected_df, check_column_type=False)
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
@@ -956,9 +957,9 @@ def test_create_empty_series_dataframe(timestamp_column_name: str):
     )
 
     if timestamp_column_name:
-        expected_df.columns = pd.MultiIndex.from_tuples([], names=[None, None])
+        expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
 
-    pd.testing.assert_frame_equal(df, expected_df, check_index_type=False, check_column_type=False)
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize(
