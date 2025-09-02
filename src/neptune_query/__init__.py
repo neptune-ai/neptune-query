@@ -20,7 +20,7 @@ __all__ = [
     "list_attributes",
     "fetch_experiments_table",
     "fetch_metrics",
-    "fetch_metrics_buckets",
+    "fetch_metric_buckets",
     "fetch_series",
     "download_files",
 ]
@@ -51,8 +51,8 @@ from neptune_query._internal import (
 )
 from neptune_query.exceptions import NeptuneUserError
 from neptune_query.internal.composition import download_files as _download_files
+from neptune_query.internal.composition import fetch_metric_buckets as _fetch_metric_buckets
 from neptune_query.internal.composition import fetch_metrics as _fetch_metrics
-from neptune_query.internal.composition import fetch_metrics_buckets as _fetch_metrics_buckets
 from neptune_query.internal.composition import fetch_series as _fetch_series
 from neptune_query.internal.composition import fetch_table as _fetch_table
 from neptune_query.internal.composition import list_attributes as _list_attributes
@@ -429,8 +429,8 @@ def download_files(
     )
 
 
-@use_query_metadata(api_function="fetch_metrics_buckets")
-def fetch_metrics_buckets(
+@use_query_metadata(api_function="fetch_metric_buckets")
+def fetch_metric_buckets(
     *,
     project: Optional[str] = None,
     experiments: Union[str, list[str], filters.Filter],
@@ -444,7 +444,7 @@ def fetch_metrics_buckets(
     experiments_filter = resolve_experiments_filter(experiments)
     resolved_y = resolve_metrics_y(y)
 
-    return _fetch_metrics_buckets.fetch_metrics_buckets(
+    return _fetch_metric_buckets.fetch_metric_buckets(
         project_identifier=project_identifier,
         filter_=experiments_filter,
         x=x,

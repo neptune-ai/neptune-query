@@ -46,7 +46,7 @@ from neptune_query.internal.retrieval.attribute_types import (
     StringSeriesAggregations,
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
-from neptune_query.internal.retrieval.buckets import BucketMetric
+from neptune_query.internal.retrieval.metric_buckets import BucketMetric
 from neptune_query.internal.retrieval.metrics import FloatPointValue
 from neptune_query.internal.retrieval.search import (
     ContainerType,

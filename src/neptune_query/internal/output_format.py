@@ -28,7 +28,7 @@ from .. import types
 from ..exceptions import ConflictingAttributeTypes
 from . import identifiers
 from .retrieval import (
-    buckets,
+    metric_buckets,
     metrics,
     series,
 )
@@ -403,7 +403,7 @@ def create_series_dataframe(
 
 
 def create_metrics_buckets_dataframe(
-    buckets_data: dict[identifiers.RunAttributeDefinition, list[buckets.BucketMetric]],
+    buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.BucketMetric]],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     index_column_name: str,
@@ -434,11 +434,11 @@ def create_metrics_buckets_dataframe(
             path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
-        for attribute, bucket_metrics in buckets_data.items():
+        for attribute, buckets in buckets_data.items():
             exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
             path_category = path_mapping[attribute.attribute_definition.name]
 
-            for bucket in bucket_metrics:
+            for bucket in buckets:
                 yield (
                     exp_category,
                     path_category,

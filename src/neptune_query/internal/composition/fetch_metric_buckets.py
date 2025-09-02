@@ -42,16 +42,17 @@ from ..filters import (
 )
 from ..output_format import create_metrics_buckets_dataframe
 from ..retrieval import (
-    buckets,
+    metric_buckets,
     search,
 )
+from ..retrieval.metric_buckets import BucketMetric
 from ..retrieval.search import ContainerType
 from .attributes import fetch_attribute_definitions
 
-__all__ = ("fetch_metrics_buckets",)
+__all__ = ("fetch_metric_buckets",)
 
 
-def fetch_metrics_buckets(
+def fetch_metric_buckets(
     *,
     project_identifier: identifiers.ProjectIdentifier,
     filter_: Optional[_Filter],
@@ -83,7 +84,7 @@ def fetch_metrics_buckets(
         inferred_filter = inference_result.get_result_or_raise()
         inference_result.emit_warnings()
 
-        metric_buckets_data, sys_id_to_label_mapping = _fetch_metrics_buckets(
+        metric_buckets_data, sys_id_to_label_mapping = _fetch_metric_buckets(
             filter_=inferred_filter,
             x=x,
             y=restricted_y,
@@ -106,7 +107,7 @@ def fetch_metrics_buckets(
     return df
 
 
-def _fetch_metrics_buckets(
+def _fetch_metric_buckets(
     filter_: Optional[_Filter],
     x: Literal["step"],
     y: _BaseAttributeFilter,
@@ -118,7 +119,7 @@ def _fetch_metrics_buckets(
     include_point_previews: bool,
     limit: Optional[int],
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[buckets.BucketMetric]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, list[BucketMetric]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
@@ -164,7 +165,7 @@ def _fetch_metrics_buckets(
     for result in results:
         run_attribute_definitions.extend(result)
 
-    buckets_data = buckets.fetch_time_series_buckets(
+    buckets_data = metric_buckets.fetch_time_series_buckets(
         client=client,
         x=x,
         run_attribute_definitions=run_attribute_definitions,
