@@ -442,7 +442,8 @@ def create_metrics_buckets_dataframe(
                 yield (
                     exp_category,
                     path_category,
-                    f"({bucket.from_x}, {bucket.to_x}]",
+                    bucket.from_x,
+                    bucket.to_x,
                     bucket.local_min,
                     bucket.local_max,
                 )
@@ -450,7 +451,8 @@ def create_metrics_buckets_dataframe(
     types = [
         (index_column_name, "uint32"),
         ("path", "uint32"),
-        ("bucket", "object"),
+        ("from_x", "float64"),
+        ("to_x", "float64"),
         ("local_min", "float64"),
         ("local_max", "float64"),
     ]
@@ -458,6 +460,8 @@ def create_metrics_buckets_dataframe(
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
+    df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
+    df = df.drop(columns=["from_x", "to_x"])
 
     experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
     df[index_column_name] = pd.Categorical.from_codes(df[index_column_name], dtype=experiment_dtype)
@@ -537,14 +541,6 @@ def _restore_path_column_names(
     Accepts an DF in an intermediate format in _create_dataframe, and the mapping of column names.
     Restores colum names in the DF based on the mapping.
     """
-    # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
-    if df.columns.empty:
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.set_levels(df.columns.get_level_values("path").astype(str), level="path")
-        else:
-            df.columns = df.columns.astype(str)
-        return df
-
     # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
     if df.columns.empty:
         if isinstance(df.columns, pd.MultiIndex):

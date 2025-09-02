@@ -1330,7 +1330,9 @@ def test_create_empty_metrics_buckets_dataframe():
     )
 
     # Then
-    expected_df = pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "object"}).set_index("bucket")
+    expected_df = (
+        pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "interval[float64, right]"}).set_index("bucket")
+    )
     expected_df.columns = pd.MultiIndex.from_product(
         [[], [], ["local_min", "local_max"]], names=["experiment", "series", None]
     )
