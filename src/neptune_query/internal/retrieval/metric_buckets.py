@@ -12,15 +12,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import random
+
 from dataclasses import dataclass
+from io import BytesIO
 from typing import (
     Iterable,
     Literal,
     Optional,
 )
 
+from neptune_api.api.retrieval import get_timeseries_buckets_proto
 from neptune_api.client import AuthenticatedClient
+from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import (
+    LineageEntityType,
+    ProtoCustomExpression,
+    ProtoGetTimeseriesBucketsRequest,
+    ProtoLineage,
+    ProtoScale,
+    ProtoView,
+    ProtoXAxis,
+    XSteps,
+)
+from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.series_values_pb2 import ProtoTimeseriesBucketsDTO
+from neptune_api.types import File
 
 from ..identifiers import RunAttributeDefinition
 from .search import ContainerType
@@ -37,6 +51,27 @@ class BucketMetric:
     last_y: float
 
 
+# Build once at module import
+ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP = {
+    ord("\\"): r"\\",
+    ord("$"): r"\$",
+    ord("{"): r"\{",
+    ord("}"): r"\}",
+}
+
+DEFAULT_MAX_BUCKETS = 100
+
+
+def attribute_name_to_formula(attribute_name: str) -> str:
+    return "${" + attribute_name.translate(ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP) + "}"
+
+
+def int_to_uuid(num: int) -> str:
+    # Generate a UUID from an integer in a deterministic way
+    # This is a simple implementation and can be replaced with a more robust one if needed
+    return f"00000000-0000-0000-0000-{num:012d}"
+
+
 def fetch_time_series_buckets(
     client: AuthenticatedClient,
     run_attribute_definitions: Iterable[RunAttributeDefinition],
@@ -46,23 +81,91 @@ def fetch_time_series_buckets(
     include_point_previews: bool,
     limit: Optional[int],
 ) -> dict[RunAttributeDefinition, list[BucketMetric]]:
-    if not run_attribute_definitions:
-        return {}
-
     run_attribute_definitions = list(run_attribute_definitions)
 
-    result = {}
-    for run_attribute_definition in run_attribute_definitions:
-        result[run_attribute_definition] = [
+    lineage = ProtoLineage.FULL if lineage_to_the_root else ProtoLineage.ONLY_OWNED
+    lineage_entity_type = LineageEntityType.RUN if container_type == ContainerType.RUN else LineageEntityType.EXPERIMENT
+
+    if x == "step":
+        xAxis = ProtoXAxis(steps=XSteps())
+    # elif x == "relativeTime":
+    #     xAxis = ProtoXAxis(relativeTime=XRelativeTime())
+    # elif x == "epochMillis":
+    #     xAxis = ProtoXAxis(epochMillis=XEpochMillis())
+    # elif x == "custom":
+    #     xAxis = ProtoXAxis(custom=XCustom())
+    else:
+        raise ValueError('Unsupported x value. Only "step" is supported')
+
+    expressions = {}
+    request_id_to_request_mapping = {}
+    for num, run_attribute_definition in enumerate(run_attribute_definitions):
+        if num >= 1000:
+            raise ValueError("Cannot fetch more than 1000 time series at once")
+
+        request_id = int_to_uuid(num)
+        request_id_to_request_mapping[request_id] = run_attribute_definition
+
+        expressions[request_id] = ProtoCustomExpression(
+            requestId=request_id,
+            runId=str(run_attribute_definition.run_identifier),
+            entityType=lineage_entity_type,
+            lineage=lineage,
+            customYFormula=attribute_name_to_formula(run_attribute_definition.attribute_definition.name),
+            includePreview=include_point_previews,
+        )
+
+    view = ProtoView(
+        # from=0.0,
+        # to=1.0,
+        # pointFilters=ProtoPointFilters(),
+        maxBuckets=limit or DEFAULT_MAX_BUCKETS,
+        xScale=ProtoScale.linear,
+        yScale=ProtoScale.linear,
+        xAxis=xAxis,
+    )
+
+    request_object = ProtoGetTimeseriesBucketsRequest(
+        expressions=expressions.values(),
+        view=view,
+    )
+
+    print(f"\n== REQUEST ==\n{request_object}\n")
+
+    response = get_timeseries_buckets_proto.sync_detailed(
+        client=client,
+        body=File(payload=BytesIO(request_object.SerializeToString())),
+        x_neptune_client_metadata="gabrys-test-1",
+    )
+
+    result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
+
+    print(f"\n== RESPONSE ==\n{result_object}\n")
+
+    out: dict[RunAttributeDefinition, list[BucketMetric]] = {}
+
+    for entry in result_object.entries:
+        request = request_id_to_request_mapping.get(entry.requestId, None)
+        if request is None:
+            raise RuntimeError("Received unknown requestId from the server")
+
+        if request in out:
+            raise RuntimeError("Received duplicate requestId from the server")
+
+        out[request] = [
             BucketMetric(
-                index=i,
-                from_x=20 * i,
-                to_x=20 * (i + 1),
-                first_x=-random.random(),
-                first_y=random.random(),
-                last_x=-random.random(),
-                last_y=random.random(),
+                index=bucket.index,
+                from_x=bucket.fromX,
+                to_x=bucket.toX,
+                first_x=bucket.first.x,
+                first_y=bucket.first.y,
+                last_x=bucket.last.x,
+                last_y=bucket.last.y,
             )
-            for i in range(5)
+            for bucket in entry.bucket
         ]
-    return result
+
+    if not all(request in out for request in run_attribute_definitions):
+        raise RuntimeError("Didn't get data for all the requests from the server")
+
+    return out

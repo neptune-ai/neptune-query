@@ -42,6 +42,7 @@ R = TypeVar("R")
 
 
 def handle_errors_default(func: Callable[T, Response[R]]) -> Callable[T, Response[R]]:
+    return handle_api_errors(func)
     return retry_backoff(
         max_tries=None,
         soft_max_time=env.NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT.get(),
