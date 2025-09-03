@@ -76,7 +76,7 @@ def fetch_attribute_values(
         if not attribute_definitions_set or not run_identifiers:
             yield from []
             return
-        params["attributeNamesFilter"] = ([ad.name for ad in attribute_definitions_set],)
+        params["attributeNamesFilter"] = [ad.name for ad in attribute_definitions_set]
 
     yield from util.fetch_pages(
         client=client,
