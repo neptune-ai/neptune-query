@@ -403,7 +403,7 @@ def create_series_dataframe(
 
 
 def create_metric_buckets_dataframe(
-    buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.BucketMetric]],
+    buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.TimeseriesBucket]],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     container_column_name: str,

@@ -40,7 +40,7 @@ from .search import ContainerType
 
 
 @dataclass(frozen=True)
-class BucketMetric:
+class TimeseriesBucket:
     index: int
     from_x: float
     to_x: float
@@ -48,6 +48,15 @@ class BucketMetric:
     first_y: float
     last_x: float
     last_y: float
+
+    # statistics:
+    y_min: float
+    y_max: float
+    finite_point_count: int
+    nan_count: int
+    positive_inf_count: int
+    negative_inf_count: int
+    finite_points_sum: float
 
 
 # Build once at module import
@@ -79,7 +88,7 @@ def fetch_time_series_buckets(
     lineage_to_the_root: bool,
     include_point_previews: bool,
     limit: int,
-) -> dict[RunAttributeDefinition, list[BucketMetric]]:
+) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
     run_attribute_definitions = list(run_attribute_definitions)
 
     lineage = ProtoLineage.FULL if lineage_to_the_root else ProtoLineage.ONLY_OWNED
@@ -137,7 +146,7 @@ def fetch_time_series_buckets(
 
     result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
 
-    out: dict[RunAttributeDefinition, list[BucketMetric]] = {}
+    out: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
 
     for entry in result_object.entries:
         request = request_id_to_request_mapping.get(entry.requestId, None)
@@ -148,7 +157,7 @@ def fetch_time_series_buckets(
             raise RuntimeError(f"Received duplicate requestId from the server: {request_id}")
 
         out[request] = [
-            BucketMetric(
+            TimeseriesBucket(
                 index=bucket.index,
                 from_x=bucket.fromX,
                 to_x=bucket.toX,
@@ -156,6 +165,13 @@ def fetch_time_series_buckets(
                 first_y=bucket.first.y,
                 last_x=bucket.last.x,
                 last_y=bucket.last.y,
+                y_min=bucket.localMin,
+                y_max=bucket.localMax,
+                finite_point_count=bucket.finitePointCount,
+                nan_count=bucket.nanCount,
+                positive_inf_count=bucket.positiveInfCount,
+                negative_inf_count=bucket.negativeInfCount,
+                finite_points_sum=bucket.localSum,
             )
             for bucket in entry.bucket
         ]

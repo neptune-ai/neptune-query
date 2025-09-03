@@ -48,7 +48,7 @@ from ..retrieval import (
     util,
 )
 from ..retrieval.attribute_values import AttributeValue
-from ..retrieval.metric_buckets import BucketMetric
+from ..retrieval.metric_buckets import TimeseriesBucket
 from ..retrieval.search import ContainerType
 from .attribute_components import fetch_attribute_values_by_filter_split
 
@@ -122,7 +122,7 @@ def _fetch_metric_buckets(
     include_point_previews: bool,
     limit: int,
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[BucketMetric]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, list[TimeseriesBucket]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
