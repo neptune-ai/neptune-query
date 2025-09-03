@@ -34,7 +34,6 @@ from .. import (
     filters,
     identifiers,
 )
-from ..identifiers import RunAttributeDefinition
 from ..retrieval import (
     retry,
     util,
@@ -151,28 +150,3 @@ def _make_new_attribute_values_page_params(
 
     params["nextPage"]["nextPageToken"] = next_page_token
     return params
-
-
-def _process_run_attribute_definitions_page(
-    data: ProtoQueryAttributesResultDTO,
-    project_identifier: identifiers.ProjectIdentifier,
-) -> util.Page[RunAttributeDefinition]:
-    items = []
-
-    for entry in data.entries:
-        run_identifier = identifiers.RunIdentifier(
-            project_identifier=project_identifier, sys_id=identifiers.SysId(entry.experimentShortId)
-        )
-
-        for attr in entry.attributes:
-            attr_definition = identifiers.AttributeDefinition(
-                name=attr.name, type=map_attribute_type_backend_to_python(attr.type)
-            )
-
-            run_attribute_definition = RunAttributeDefinition(
-                run_identifier=run_identifier,
-                attribute_definition=attr_definition,
-            )
-            items.append(run_attribute_definition)
-
-    return util.Page(items=items)
