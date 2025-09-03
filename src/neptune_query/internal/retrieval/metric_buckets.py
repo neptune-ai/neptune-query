@@ -67,8 +67,6 @@ ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP = {
     ord("}"): r"\}",
 }
 
-DEFAULT_MAX_BUCKETS = 100
-
 
 def attribute_name_to_formula(attribute_name: str) -> str:
     return "${" + attribute_name.translate(ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP) + "}"
@@ -141,7 +139,6 @@ def fetch_time_series_buckets(
     response = get_timeseries_buckets_proto.sync_detailed(
         client=client,
         body=File(payload=BytesIO(request_object.SerializeToString())),
-        x_neptune_client_metadata="gabrys-test-1",
     )
 
     result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
