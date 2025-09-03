@@ -37,7 +37,7 @@ from ..retrieval import (
     split,
     util,
 )
-from .run_attributes import fetch_run_attribute_definitions
+from . import attributes
 
 
 def fetch_attribute_definitions_split(
@@ -166,27 +166,27 @@ def fetch_attribute_values_split(
     )
 
 
-def fetch_run_attribute_definitions_split(
+def fetch_attribute_values_by_filter_split(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
-    attribute_filter: filters._BaseAttributeFilter,
     executor: Executor,
     fetch_attribute_definitions_executor: Executor,
     sys_ids: list[identifiers.SysId],
-    downstream: Callable[[util.Page[identifiers.RunAttributeDefinition]], concurrency.OUT],
+    attribute_filter: filters._BaseAttributeFilter,
+    downstream: Callable[[util.Page[att_vals.AttributeValue]], concurrency.OUT],
 ) -> concurrency.OUT:
     return concurrency.generate_concurrently(
         items=split.split_sys_ids(sys_ids),
         executor=executor,
-        downstream=lambda sys_ids_split: concurrency.generate_concurrently(
-            fetch_run_attribute_definitions(
+        downstream=lambda split: concurrency.generate_concurrently(
+            items=attributes.fetch_attribute_values(
                 client=client,
                 project_identifier=project_identifier,
-                run_identifiers=[identifiers.RunIdentifier(project_identifier, sys_id) for sys_id in sys_ids_split],
+                run_identifiers=[identifiers.RunIdentifier(project_identifier, s) for s in split],
                 attribute_filter=attribute_filter,
                 executor=fetch_attribute_definitions_executor,
             ),
             executor=executor,
-            downstream=lambda run_definitions: downstream(run_definitions),
+            downstream=downstream,
         ),
     )

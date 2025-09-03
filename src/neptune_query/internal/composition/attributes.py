@@ -31,6 +31,7 @@ from .. import (
 )
 from ..composition import concurrency
 from ..retrieval import attribute_definitions as att_defs
+from ..retrieval import attribute_values as att_vals
 from ..retrieval import util
 from ..retrieval.attribute_filter import split_attribute_filters
 from ..retrieval.attribute_types import TYPE_AGGREGATIONS
@@ -136,6 +137,56 @@ def _fetch_attribute_definitions(
             items=go_fetch_single(filter_),
             executor=executor,
             downstream=lambda _page: concurrency.return_value((_page, filter_)),
+        ),
+    )
+    yield from concurrency.gather_results(output)
+
+
+def fetch_attribute_values(
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    run_identifiers: Iterable[identifiers.RunIdentifier],
+    attribute_filter: filters._BaseAttributeFilter,
+    executor: Executor,
+    batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
+) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
+    pages_filters = _fetch_attribute_values(
+        client, project_identifier, run_identifiers, attribute_filter, batch_size, executor
+    )
+
+    seen_items: set[att_vals.AttributeValue] = set()
+    for page in pages_filters:
+        new_items = [item for item in page.items if item not in seen_items]
+        seen_items.update(new_items)
+        yield util.Page(items=new_items)
+
+
+def _fetch_attribute_values(
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    run_identifiers: Iterable[identifiers.RunIdentifier],
+    attribute_filter: filters._BaseAttributeFilter,
+    batch_size: int,
+    executor: Executor,
+) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
+    def go_fetch_single(filter_: filters._AttributeFilter) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
+        return att_vals.fetch_attribute_values(
+            client=client,
+            project_identifier=project_identifier,
+            run_identifiers=run_identifiers,
+            attribute_definitions=filter_,
+            batch_size=batch_size,
+        )
+
+    filters_ = split_attribute_filters(attribute_filter)
+
+    output = concurrency.generate_concurrently(
+        items=(filter_ for filter_ in filters_),
+        executor=executor,
+        downstream=lambda filter_: concurrency.generate_concurrently(
+            items=go_fetch_single(filter_),
+            executor=executor,
+            downstream=lambda _page: concurrency.return_value(_page),
         ),
     )
     yield from concurrency.gather_results(output)

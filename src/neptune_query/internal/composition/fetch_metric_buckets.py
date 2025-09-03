@@ -40,15 +40,17 @@ from ..filters import (
     _BaseAttributeFilter,
     _Filter,
 )
+from ..identifiers import RunAttributeDefinition
 from ..output_format import create_metric_buckets_dataframe
 from ..retrieval import (
     metric_buckets,
     search,
     util,
 )
+from ..retrieval.attribute_values import AttributeValue
 from ..retrieval.metric_buckets import BucketMetric
 from ..retrieval.search import ContainerType
-from .attribute_components import fetch_run_attribute_definitions_split
+from .attribute_components import fetch_attribute_values_by_filter_split
 
 __all__ = ("fetch_metric_buckets",)
 
@@ -138,7 +140,7 @@ def _fetch_metric_buckets(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: fetch_run_attribute_definitions_split(
+        downstream=lambda sys_ids: fetch_attribute_values_by_filter_split(
             client=client,
             project_identifier=project_identifier,
             sys_ids=sys_ids,
@@ -149,11 +151,15 @@ def _fetch_metric_buckets(
         ),
     )
 
-    results: Generator[util.Page[identifiers.RunAttributeDefinition], None, None] = concurrency.gather_results(output)
+    results: Generator[util.Page[AttributeValue], None, None] = concurrency.gather_results(output)
 
     run_attribute_definitions = []
-    for result in results:
-        run_attribute_definitions.extend(result.items)
+    for page in results:
+        for value in page.items:
+            run_attribute_definition = RunAttributeDefinition(
+                run_identifier=value.run_identifier, attribute_definition=value.attribute_definition
+            )
+            run_attribute_definitions.append(run_attribute_definition)
 
     buckets_data = metric_buckets.fetch_time_series_buckets(
         client=client,
