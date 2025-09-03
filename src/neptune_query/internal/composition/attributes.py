@@ -32,6 +32,7 @@ from .. import (
 from ..composition import concurrency
 from ..retrieval import attribute_definitions as att_defs
 from ..retrieval import util
+from ..retrieval.attribute_filter import split_attribute_filters
 from ..retrieval.attribute_types import TYPE_AGGREGATIONS
 
 
@@ -126,7 +127,7 @@ def _fetch_attribute_definitions(
             batch_size=batch_size,
         )
 
-    filters_ = att_defs.split_attribute_filters(attribute_filter)
+    filters_ = split_attribute_filters(attribute_filter)
 
     output = concurrency.generate_concurrently(
         items=(filter_ for filter_ in filters_),
