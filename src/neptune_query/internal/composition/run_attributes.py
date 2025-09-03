@@ -14,11 +14,9 @@
 # limitations under the License.
 
 from concurrent.futures import Executor
-from dataclasses import dataclass
 from typing import (
     Generator,
     Iterable,
-    Literal,
     Optional,
 )
 
@@ -30,25 +28,25 @@ from .. import (
     identifiers,
 )
 from ..composition import concurrency
-from ..retrieval import attribute_definitions as att_defs
+from ..retrieval import attribute_values as att_vals
 from ..retrieval import util
-from ..retrieval.attribute_types import TYPE_AGGREGATIONS
+from ..retrieval.attribute_filter import split_attribute_filters
 
 
 def fetch_run_attribute_definitions(
     client: AuthenticatedClient,
-    project_identifiers: Iterable[identifiers.ProjectIdentifier],
+    project_identifier: identifiers.ProjectIdentifier,
     run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
     attribute_filter: filters._BaseAttributeFilter,
     executor: Executor,
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
 ) -> Generator[util.Page[identifiers.RunAttributeDefinition], None, None]:
     pages_filters = _fetch_run_attribute_definitions(
-        client, project_identifiers, run_identifiers, attribute_filter, batch_size, executor
+        client, project_identifier, run_identifiers, attribute_filter, batch_size, executor
     )
 
     seen_items: set[identifiers.RunAttributeDefinition] = set()
-    for page, filter_ in pages_filters:
+    for page in pages_filters:
         new_items = [item for item in page.items if item not in seen_items]
         seen_items.update(new_items)
         yield util.Page(items=new_items)
@@ -56,7 +54,7 @@ def fetch_run_attribute_definitions(
 
 def _fetch_run_attribute_definitions(
     client: AuthenticatedClient,
-    project_identifiers: Iterable[identifiers.ProjectIdentifier],
+    project_identifier: identifiers.ProjectIdentifier,
     run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
     attribute_filter: filters._BaseAttributeFilter,
     batch_size: int,
@@ -64,16 +62,16 @@ def _fetch_run_attribute_definitions(
 ) -> Generator[util.Page[identifiers.RunAttributeDefinition], None, None]:
     def go_fetch_single(
         filter_: filters._AttributeFilter,
-    ) -> Generator[util.Page[identifiers.AttributeDefinition], None, None]:
-        return att_defs.fetch_attribute_definitions_single_filter(
+    ) -> Generator[util.Page[identifiers.RunAttributeDefinition], None, None]:
+        return att_vals.fetch_run_attribute_definitions_single_filter(
             client=client,
-            project_identifiers=project_identifiers,
+            project_identifier=project_identifier,
             run_identifiers=run_identifiers,
             attribute_filter=filter_,
             batch_size=batch_size,
         )
 
-    filters_ = att_defs.split_attribute_filters(attribute_filter)
+    filters_ = split_attribute_filters(attribute_filter)
 
     output = concurrency.generate_concurrently(
         items=(filter_ for filter_ in filters_),

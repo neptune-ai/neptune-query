@@ -30,8 +30,10 @@ from neptune_query.internal.query_metadata_context import with_neptune_client_me
 
 from .. import (
     env,
+    filters,
     identifiers,
 )
+from ..identifiers import RunAttributeDefinition
 from ..retrieval import (
     retry,
     util,
@@ -40,6 +42,7 @@ from ..retrieval.attribute_types import (
     extract_value,
     map_attribute_type_backend_to_python,
 )
+from .attribute_filter import transform_attribute_filter_into_params
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,35 @@ def fetch_attribute_values(
         process_page=ft.partial(
             _process_attribute_values_page,
             attribute_definitions_set=attribute_definitions_set,
+            project_identifier=project_identifier,
+        ),
+        make_new_page_params=_make_new_attribute_values_page_params,
+        params=params,
+    )
+
+
+def fetch_run_attribute_definitions_single_filter(
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
+    attribute_filter: filters._AttributeFilter,
+    batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE.get(),
+) -> Generator[util.Page[RunAttributeDefinition], None, None]:
+    params: dict[str, Any] = {
+        "nextPage": {"limit": batch_size},
+    }
+
+    if run_identifiers is not None:
+        params["experimentIdsFilter"] = [str(e) for e in run_identifiers]
+
+    attribute_filter_params = transform_attribute_filter_into_params(attribute_filter)
+    params.update(attribute_filter_params)
+
+    yield from util.fetch_pages(
+        client=client,
+        fetch_page=ft.partial(_fetch_attribute_values_page, project_identifier=project_identifier),
+        process_page=ft.partial(
+            _process_run_attribute_definitions_page,
             project_identifier=project_identifier,
         ),
         make_new_page_params=_make_new_attribute_values_page_params,
@@ -142,3 +174,28 @@ def _make_new_attribute_values_page_params(
 
     params["nextPage"]["nextPageToken"] = next_page_token
     return params
+
+
+def _process_run_attribute_definitions_page(
+    data: ProtoQueryAttributesResultDTO,
+    project_identifier: identifiers.ProjectIdentifier,
+) -> util.Page[RunAttributeDefinition]:
+    items = []
+
+    for entry in data.entries:
+        run_identifier = identifiers.RunIdentifier(
+            project_identifier=project_identifier, sys_id=identifiers.SysId(entry.experimentShortId)
+        )
+
+        for attr in entry.attributes:
+            attr_definition = identifiers.AttributeDefinition(
+                name=attr.name, type=map_attribute_type_backend_to_python(attr.type)
+            )
+
+            run_attribute_definition = RunAttributeDefinition(
+                run_identifier=run_identifier,
+                attribute_definition=attr_definition,
+            )
+            items.append(run_attribute_definition)
+
+    return util.Page(items=items)
