@@ -15,6 +15,7 @@ from neptune_query.internal.filters import (
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
+    RunAttributeDefinition,
     RunIdentifier,
     SysId,
 )
@@ -27,6 +28,7 @@ from neptune_query.internal.retrieval.attribute_types import (
 from neptune_query.internal.retrieval.attribute_values import (
     AttributeValue,
     fetch_attribute_values,
+    fetch_run_attribute_definitions_single_filter,
 )
 from tests.e2e.conftest import extract_pages
 from tests.e2e.data import (
@@ -693,6 +695,57 @@ def test_fetch_attribute_values_paging(client, project, experiment_identifier):
         AttributeDefinition("sys/modification_time", "datetime"),
         AttributeDefinition("sys/ping_time", "datetime"),
     }
+
+
+def test_fetch_run_attribute_definitions_single(client, project, experiment_identifier):
+    # given
+    project_identifier = project.project_identifier
+
+    #  when
+    attribute_filter = _AttributeFilter(name_eq="sys/name", type_in=["string"])
+    result = extract_pages(
+        fetch_run_attribute_definitions_single_filter(
+            client,
+            project_identifier,
+            [experiment_identifier],
+            attribute_filter=attribute_filter,
+        )
+    )
+
+    # then
+    all_run_definitions = [RunAttributeDefinition(experiment_identifier, AttributeDefinition("sys/name", "string"))]
+    assert result == all_run_definitions
+
+
+def test_fetch_run_attribute_definitions_multiple(client, project, experiment_identifiers):
+    # given
+    project_identifier = project.project_identifier
+
+    #  when
+    attribute_filter = _AttributeFilter(
+        name_eq=[f"{PATH}/int-value", f"{PATH}/files/file-value"],
+    )
+    result = extract_pages(
+        fetch_run_attribute_definitions_single_filter(
+            client,
+            project_identifier,
+            [
+                experiment_identifiers[0],
+                experiment_identifiers[1],
+                RunIdentifier(project_identifier, SysId("does-not-exist")),
+            ],
+            attribute_filter=attribute_filter,
+        )
+    )
+
+    # then
+    all_run_definitions = {
+        RunAttributeDefinition(experiment_identifiers[0], AttributeDefinition(f"{PATH}/int-value", "int")),
+        RunAttributeDefinition(experiment_identifiers[0], AttributeDefinition(f"{PATH}/files/file-value", "file")),
+        RunAttributeDefinition(experiment_identifiers[1], AttributeDefinition(f"{PATH}/int-value", "int")),
+        # assumption: only the first experiment has file-value attribute in the test data
+    }
+    assert set(result) == all_run_definitions
 
 
 def assert_items_equal(a: list[AttributeDefinition], b: list[AttributeDefinition]):
