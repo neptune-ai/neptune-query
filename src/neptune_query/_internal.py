@@ -22,7 +22,10 @@ from typing import (
 
 import pandas as pd
 
-from neptune_query import filters
+from neptune_query import (
+    NeptuneUserError,
+    filters,
+)
 from neptune_query.exceptions import NeptuneProjectNotProvided
 from neptune_query.internal import filters as _filters
 from neptune_query.internal.context import get_context
@@ -157,3 +160,10 @@ def resolve_destination_path(destination: Optional[Union[str, pathlib.Path]]) ->
         return destination.resolve()
     else:
         return pathlib.Path(destination).resolve()
+
+
+def validate_limit(limit: int, max_limit: int) -> None:
+    if limit <= 0:
+        raise NeptuneUserError(f"Limit must be a positive integer. Got: {limit}")
+    if limit > max_limit:
+        raise NeptuneUserError(f"Limit cannot be greater than {max_limit}. Got: {limit}")

@@ -18,7 +18,6 @@ from io import BytesIO
 from typing import (
     Iterable,
     Literal,
-    Optional,
 )
 
 from neptune_api.api.retrieval import get_timeseries_buckets_proto
@@ -79,7 +78,7 @@ def fetch_time_series_buckets(
     x: Literal["step"],
     lineage_to_the_root: bool,
     include_point_previews: bool,
-    limit: Optional[int],
+    limit: int,
 ) -> dict[RunAttributeDefinition, list[BucketMetric]]:
     run_attribute_definitions = list(run_attribute_definitions)
 
@@ -119,7 +118,7 @@ def fetch_time_series_buckets(
         # from=0.0,
         # to=1.0,
         # pointFilters=ProtoPointFilters(),
-        maxBuckets=limit or DEFAULT_MAX_BUCKETS,
+        maxBuckets=limit,
         xScale=ProtoScale.linear,
         yScale=ProtoScale.linear,
         xAxis=xAxis,
@@ -130,8 +129,6 @@ def fetch_time_series_buckets(
         view=view,
     )
 
-    print(f"\n== REQUEST ==\n{request_object}\n")
-
     response = get_timeseries_buckets_proto.sync_detailed(
         client=client,
         body=File(payload=BytesIO(request_object.SerializeToString())),
@@ -140,17 +137,15 @@ def fetch_time_series_buckets(
 
     result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
 
-    print(f"\n== RESPONSE ==\n{result_object}\n")
-
     out: dict[RunAttributeDefinition, list[BucketMetric]] = {}
 
     for entry in result_object.entries:
         request = request_id_to_request_mapping.get(entry.requestId, None)
         if request is None:
-            raise RuntimeError("Received unknown requestId from the server")
+            raise RuntimeError(f"Received unknown requestId from the server: {request_id}")
 
         if request in out:
-            raise RuntimeError("Received duplicate requestId from the server")
+            raise RuntimeError(f"Received duplicate requestId from the server: {request_id}")
 
         out[request] = [
             BucketMetric(
@@ -165,7 +160,8 @@ def fetch_time_series_buckets(
             for bucket in entry.bucket
         ]
 
-    if not all(request in out for request in run_attribute_definitions):
-        raise RuntimeError("Didn't get data for all the requests from the server")
+    for request in run_attribute_definitions:
+        if request not in out:
+            raise RuntimeError("Didn't get data for all the requests from the server. " f"Missing request {request_id}")
 
     return out

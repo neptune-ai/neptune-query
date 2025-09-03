@@ -61,7 +61,7 @@ def fetch_metric_buckets(
     filter_: Optional[_Filter],
     x: Union[Literal["step"]] = "step",
     y: _BaseAttributeFilter,
-    limit: Optional[int],
+    limit: int,
     lineage_to_the_root: bool,
     include_point_previews: bool,
     context: Optional[Context] = None,
@@ -120,7 +120,7 @@ def _fetch_metric_buckets(
     fetch_attribute_definitions_executor: Executor,
     lineage_to_the_root: bool,
     include_point_previews: bool,
-    limit: Optional[int],
+    limit: int,
     container_type: ContainerType,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[BucketMetric]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
