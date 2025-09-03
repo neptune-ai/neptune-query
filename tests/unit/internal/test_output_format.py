@@ -528,6 +528,13 @@ def _generate_bucket_metric(index: int) -> TimeseriesBucket:
         first_y=90.0 * index,
         last_x=20.0 * (index + 1) - 2,
         last_y=100.0 * index,
+        y_min=80.0 * index,
+        y_max=110.0 * index,
+        finite_point_count=10 + index,
+        nan_count=5 - index,
+        positive_inf_count=2 * index,
+        negative_inf_count=index,
+        finite_points_sum=950.0 * index,
     )
 
 
