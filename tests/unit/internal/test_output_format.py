@@ -1298,17 +1298,15 @@ def test_fetch_metrics_duplicate_values(include_time):
         patch("neptune_query.internal.composition.fetch_metrics.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
         patch(
-            "neptune_query.internal.retrieval.attribute_values.fetch_run_attribute_definitions_single_filter"
-        ) as fetch_run_attribute_definitions_single_filter,
+            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
+        ) as fetch_attribute_definitions_single_filter,
         patch(
             "neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values"
         ) as fetch_multiple_series_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_run_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter(
-            [util.Page(run_attribute_definitions)]
-        )
+        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
         fetch_multiple_series_values.return_value = series_values
 
         df = npt.fetch_metrics(

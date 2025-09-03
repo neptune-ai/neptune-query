@@ -30,7 +30,7 @@ from ..composition import (
     type_inference,
     validation,
 )
-from ..composition.attribute_components import fetch_run_attribute_definitions_split
+from ..composition.attribute_components import fetch_attribute_definitions_split
 from ..context import (
     Context,
     get_context,
@@ -145,15 +145,25 @@ def _fetch_metrics(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: fetch_run_attribute_definitions_split(
+        downstream=lambda sys_ids: fetch_attribute_definitions_split(
             client=client,
             project_identifier=project_identifier,
             attribute_filter=attributes,
             executor=executor,
             fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
             sys_ids=sys_ids,
-            downstream=lambda run_definitions_page: concurrency.generate_concurrently(
-                items=split.split_series_attributes(items=run_definitions_page.items),
+            downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
+                items=split.split_series_attributes(
+                    items=(
+                        identifiers.RunAttributeDefinition(
+                            run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
+                            attribute_definition=definition,
+                        )
+                        for sys_id in sys_ids_split
+                        for definition in definitions_page.items
+                        if definition.type == "float_series"
+                    )
+                ),
                 executor=executor,
                 downstream=lambda run_attribute_definitions_split: concurrency.return_value(
                     fetch_multiple_series_values(
