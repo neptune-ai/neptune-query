@@ -12,22 +12,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import random
+
 from dataclasses import dataclass
+from io import BytesIO
 from typing import (
     Iterable,
     Literal,
-    Optional,
 )
 
+from neptune_api.api.retrieval import get_timeseries_buckets_proto
 from neptune_api.client import AuthenticatedClient
+from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
+    LineageEntityType,
+    ProtoCustomExpression,
+    ProtoGetTimeseriesBucketsRequest,
+    ProtoLineage,
+    ProtoScale,
+    ProtoView,
+    ProtoXAxis,
+    XSteps,
+)
+from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoTimeseriesBucketsDTO
+from neptune_api.types import File
 
 from ..identifiers import RunAttributeDefinition
 from .search import ContainerType
 
 
 @dataclass(frozen=True)
-class BucketMetric:
+class TimeseriesBucket:
     index: int
     from_x: float
     to_x: float
@@ -35,6 +48,34 @@ class BucketMetric:
     first_y: float
     last_x: float
     last_y: float
+
+    # statistics:
+    y_min: float
+    y_max: float
+    finite_point_count: int
+    nan_count: int
+    positive_inf_count: int
+    negative_inf_count: int
+    finite_points_sum: float
+
+
+# Build once at module import
+ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP = {
+    ord("\\"): r"\\",
+    ord("$"): r"\$",
+    ord("{"): r"\{",
+    ord("}"): r"\}",
+}
+
+
+def attribute_name_to_formula(attribute_name: str) -> str:
+    return "${" + attribute_name.translate(ATTRIBUTE_NAME_TO_FORMULA_ESCAPE_MAP) + "}"
+
+
+def int_to_uuid(num: int) -> str:
+    # Generate a UUID from an integer in a deterministic way
+    # This is a simple implementation and can be replaced with a more robust one if needed
+    return f"00000000-0000-0000-0000-{num:012d}"
 
 
 def fetch_time_series_buckets(
@@ -44,25 +85,96 @@ def fetch_time_series_buckets(
     x: Literal["step"],
     lineage_to_the_root: bool,
     include_point_previews: bool,
-    limit: Optional[int],
-) -> dict[RunAttributeDefinition, list[BucketMetric]]:
-    if not run_attribute_definitions:
-        return {}
-
+    limit: int,
+) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
     run_attribute_definitions = list(run_attribute_definitions)
 
-    result = {}
-    for run_attribute_definition in run_attribute_definitions:
-        result[run_attribute_definition] = [
-            BucketMetric(
-                index=i,
-                from_x=20 * i,
-                to_x=20 * (i + 1),
-                first_x=-random.random(),
-                first_y=random.random(),
-                last_x=-random.random(),
-                last_y=random.random(),
+    lineage = ProtoLineage.FULL if lineage_to_the_root else ProtoLineage.ONLY_OWNED
+    lineage_entity_type = LineageEntityType.RUN if container_type == ContainerType.RUN else LineageEntityType.EXPERIMENT
+
+    if x == "step":
+        xAxis = ProtoXAxis(steps=XSteps())
+    # elif x == "relativeTime":
+    #     xAxis = ProtoXAxis(relativeTime=XRelativeTime())
+    # elif x == "epochMillis":
+    #     xAxis = ProtoXAxis(epochMillis=XEpochMillis())
+    # elif x == "custom":
+    #     xAxis = ProtoXAxis(custom=XCustom())
+    else:
+        raise ValueError('Unsupported x value. Only "step" is supported')
+
+    expressions = {}
+    request_id_to_request_mapping = {}
+    for num, run_attribute_definition in enumerate(run_attribute_definitions):
+        if num >= 1000:
+            raise ValueError("Cannot fetch more than 1000 time series at once")
+
+        request_id = int_to_uuid(num)
+        request_id_to_request_mapping[request_id] = run_attribute_definition
+
+        expressions[request_id] = ProtoCustomExpression(
+            requestId=request_id,
+            runId=str(run_attribute_definition.run_identifier),
+            entityType=lineage_entity_type,
+            lineage=lineage,
+            customYFormula=attribute_name_to_formula(run_attribute_definition.attribute_definition.name),
+            includePreview=include_point_previews,
+        )
+
+    view = ProtoView(
+        # from=0.0,
+        # to=1.0,
+        # pointFilters=ProtoPointFilters(),
+        maxBuckets=limit,
+        xScale=ProtoScale.linear,
+        yScale=ProtoScale.linear,
+        xAxis=xAxis,
+    )
+
+    request_object = ProtoGetTimeseriesBucketsRequest(
+        expressions=expressions.values(),
+        view=view,
+    )
+
+    response = get_timeseries_buckets_proto.sync_detailed(
+        client=client,
+        body=File(payload=BytesIO(request_object.SerializeToString())),
+    )
+
+    result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
+
+    out: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
+
+    for entry in result_object.entries:
+        request = request_id_to_request_mapping.get(entry.requestId, None)
+        if request is None:
+            raise RuntimeError(f"Received unknown requestId from the server: {request_id}")
+
+        if request in out:
+            raise RuntimeError(f"Received duplicate requestId from the server: {request_id}")
+
+        out[request] = [
+            TimeseriesBucket(
+                index=bucket.index,
+                from_x=bucket.fromX,
+                to_x=bucket.toX,
+                first_x=bucket.first.x,
+                first_y=bucket.first.y,
+                last_x=bucket.last.x,
+                last_y=bucket.last.y,
+                y_min=bucket.localMin,
+                y_max=bucket.localMax,
+                finite_point_count=bucket.finitePointCount,
+                nan_count=bucket.nanCount,
+                positive_inf_count=bucket.positiveInfCount,
+                negative_inf_count=bucket.negativeInfCount,
+                finite_points_sum=bucket.localSum,
             )
-            for i in range(5)
+            for bucket in entry.bucket
         ]
-    return result
+
+    for request in run_attribute_definitions:
+        if request not in out:
+            raise RuntimeError("Didn't get data for all the requests from the server. " f"Missing request {request_id}")
+
+    return out

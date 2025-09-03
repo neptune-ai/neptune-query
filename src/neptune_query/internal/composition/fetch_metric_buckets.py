@@ -48,7 +48,7 @@ from ..retrieval import (
     util,
 )
 from ..retrieval.attribute_values import AttributeValue
-from ..retrieval.metric_buckets import BucketMetric
+from ..retrieval.metric_buckets import TimeseriesBucket
 from ..retrieval.search import ContainerType
 from .attribute_components import fetch_attribute_values_by_filter_split
 
@@ -61,7 +61,7 @@ def fetch_metric_buckets(
     filter_: Optional[_Filter],
     x: Union[Literal["step"]] = "step",
     y: _BaseAttributeFilter,
-    limit: Optional[int],
+    limit: int,
     lineage_to_the_root: bool,
     include_point_previews: bool,
     context: Optional[Context] = None,
@@ -120,9 +120,9 @@ def _fetch_metric_buckets(
     fetch_attribute_definitions_executor: Executor,
     lineage_to_the_root: bool,
     include_point_previews: bool,
-    limit: Optional[int],
+    limit: int,
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[BucketMetric]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, list[TimeseriesBucket]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:

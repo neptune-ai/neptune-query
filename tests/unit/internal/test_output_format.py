@@ -46,7 +46,7 @@ from neptune_query.internal.retrieval.attribute_types import (
     StringSeriesAggregations,
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
-from neptune_query.internal.retrieval.metric_buckets import BucketMetric
+from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
 from neptune_query.internal.retrieval.metrics import FloatPointValue
 from neptune_query.internal.retrieval.search import (
     ContainerType,
@@ -491,7 +491,7 @@ def _generate_float_point_values(
 
 def _generate_bucket_metrics(
     experiments: int, paths: int, buckets: int
-) -> dict[RunAttributeDefinition, list[BucketMetric]]:
+) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
     return {
         _generate_run_attribute_definition(experiment, path): [_generate_bucket_metric(index=i) for i in range(buckets)]
         for experiment in range(experiments)
@@ -519,8 +519,8 @@ def _generate_run_attribute_definition(
     )
 
 
-def _generate_bucket_metric(index: int) -> BucketMetric:
-    return BucketMetric(
+def _generate_bucket_metric(index: int) -> TimeseriesBucket:
+    return TimeseriesBucket(
         index=index,
         from_x=20.0 * index,
         to_x=20.0 * (index + 1),
@@ -528,6 +528,13 @@ def _generate_bucket_metric(index: int) -> BucketMetric:
         first_y=90.0 * index,
         last_x=20.0 * (index + 1) - 2,
         last_y=100.0 * index,
+        y_min=80.0 * index,
+        y_max=110.0 * index,
+        finite_point_count=10 + index,
+        nan_count=5 - index,
+        positive_inf_count=2 * index,
+        negative_inf_count=index,
+        finite_points_sum=950.0 * index,
     )
 
 
