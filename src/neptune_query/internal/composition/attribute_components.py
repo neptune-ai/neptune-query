@@ -37,7 +37,8 @@ from ..retrieval import (
     split,
     util,
 )
-from .run_attributes import fetch_run_attribute_definitions
+from ..retrieval.attribute_filter import split_attribute_filters
+from ..retrieval.attribute_values import AttributeValue
 
 
 def fetch_attribute_definitions_split(
@@ -166,25 +167,31 @@ def fetch_attribute_values_split(
     )
 
 
-def fetch_run_attribute_definitions_split(
+def fetch_attribute_values_by_filter_split(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     attribute_filter: filters._BaseAttributeFilter,
     executor: Executor,
-    fetch_attribute_definitions_executor: Executor,
     sys_ids: list[identifiers.SysId],
-    downstream: Callable[[util.Page[identifiers.RunAttributeDefinition]], concurrency.OUT],
+    downstream: Callable[[util.Page[AttributeValue]], concurrency.OUT],
 ) -> concurrency.OUT:
+    sys_id_splits_with_filter = [
+        (sys_id_split, filter_)
+        for sys_id_split in split.split_sys_ids(sys_ids)
+        for filter_ in split_attribute_filters(attribute_filter)
+    ]
+
     return concurrency.generate_concurrently(
-        items=split.split_sys_ids(sys_ids),
+        items=(x for x in sys_id_splits_with_filter),
         executor=executor,
-        downstream=lambda sys_ids_split: concurrency.generate_concurrently(
-            fetch_run_attribute_definitions(
+        downstream=lambda sys_ids_with_filter: concurrency.generate_concurrently(
+            att_vals.fetch_attribute_values(
                 client=client,
                 project_identifier=project_identifier,
-                run_identifiers=[identifiers.RunIdentifier(project_identifier, sys_id) for sys_id in sys_ids_split],
-                attribute_filter=attribute_filter,
-                executor=fetch_attribute_definitions_executor,
+                run_identifiers=[
+                    identifiers.RunIdentifier(project_identifier, sys_id) for sys_id in sys_ids_with_filter[0]
+                ],
+                attribute_definitions=sys_ids_with_filter[1],
             ),
             executor=executor,
             downstream=lambda run_definitions: downstream(run_definitions),

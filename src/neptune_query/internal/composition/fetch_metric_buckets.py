@@ -46,9 +46,10 @@ from ..retrieval import (
     search,
     util,
 )
+from ..retrieval.attribute_values import AttributeValue
 from ..retrieval.metric_buckets import BucketMetric
 from ..retrieval.search import ContainerType
-from .attribute_components import fetch_run_attribute_definitions_split
+from .attribute_components import fetch_attribute_values_by_filter_split
 
 __all__ = ("fetch_metric_buckets",)
 
@@ -95,7 +96,6 @@ def fetch_metric_buckets(
             lineage_to_the_root=lineage_to_the_root,
             include_point_previews=include_point_previews,
             executor=executor,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
             container_type=container_type,
         )
 
@@ -115,12 +115,11 @@ def _fetch_metric_buckets(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     executor: Executor,
-    fetch_attribute_definitions_executor: Executor,
     lineage_to_the_root: bool,
     include_point_previews: bool,
     limit: Optional[int],
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[BucketMetric]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[AttributeValue, list[BucketMetric]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
@@ -138,27 +137,26 @@ def _fetch_metric_buckets(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: fetch_run_attribute_definitions_split(
+        downstream=lambda sys_ids: fetch_attribute_values_by_filter_split(
             client=client,
             project_identifier=project_identifier,
+            executor=executor,
             sys_ids=sys_ids,
             attribute_filter=y,
-            executor=executor,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
             downstream=concurrency.return_value,
         ),
     )
 
-    results: Generator[util.Page[identifiers.RunAttributeDefinition], None, None] = concurrency.gather_results(output)
+    results: Generator[util.Page[AttributeValue], None, None] = concurrency.gather_results(output)
 
-    run_attribute_definitions = []
+    attribute_values = []
     for result in results:
-        run_attribute_definitions.extend(result.items)
+        attribute_values.extend(result.items)
 
     buckets_data = metric_buckets.fetch_time_series_buckets(
         client=client,
         x=x,
-        run_attribute_definitions=run_attribute_definitions,
+        attribute_values=attribute_values,
         lineage_to_the_root=lineage_to_the_root,
         include_point_previews=include_point_previews,
         limit=limit,

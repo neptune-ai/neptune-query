@@ -22,7 +22,7 @@ from typing import (
 
 from neptune_api.client import AuthenticatedClient
 
-from ..identifiers import RunAttributeDefinition
+from .attribute_values import AttributeValue
 from .search import ContainerType
 
 
@@ -39,20 +39,18 @@ class BucketMetric:
 
 def fetch_time_series_buckets(
     client: AuthenticatedClient,
-    run_attribute_definitions: Iterable[RunAttributeDefinition],
+    attribute_values: Iterable[AttributeValue],
     container_type: ContainerType,
     x: Literal["step"],
     lineage_to_the_root: bool,
     include_point_previews: bool,
     limit: Optional[int],
-) -> dict[RunAttributeDefinition, list[BucketMetric]]:
-    if not run_attribute_definitions:
+) -> dict[AttributeValue, list[BucketMetric]]:
+    if not attribute_values:
         return {}
 
-    run_attribute_definitions = list(run_attribute_definitions)
-
     result = {}
-    for run_attribute_definition in run_attribute_definitions:
+    for run_attribute_definition in list(attribute_values):
         result[run_attribute_definition] = [
             BucketMetric(
                 index=i,

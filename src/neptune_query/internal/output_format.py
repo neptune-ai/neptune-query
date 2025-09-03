@@ -403,7 +403,7 @@ def create_series_dataframe(
 
 
 def create_metric_buckets_dataframe(
-    buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.BucketMetric]],
+    buckets_data: dict[AttributeValue, list[metric_buckets.BucketMetric]],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     container_column_name: str,
@@ -425,13 +425,13 @@ def create_metric_buckets_dataframe(
     sys_id_mapping: dict[str, int] = {}
     label_mapping: list[str] = []
 
-    for run_attr_definition in buckets_data:
-        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
-            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+    for attribute_value in buckets_data:
+        if attribute_value.run_identifier.sys_id not in sys_id_mapping:
+            sys_id_mapping[attribute_value.run_identifier.sys_id] = len(sys_id_mapping)
+            label_mapping.append(sys_id_label_mapping[attribute_value.run_identifier.sys_id])
 
-        if run_attr_definition.attribute_definition.name not in path_mapping:
-            path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
+        if attribute_value.attribute_definition.name not in path_mapping:
+            path_mapping[attribute_value.attribute_definition.name] = len(path_mapping)
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
         for attribute, buckets in buckets_data.items():

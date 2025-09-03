@@ -19,6 +19,7 @@ from typing import (
     Generator,
     Iterable,
     Optional,
+    Union,
 )
 
 from neptune_api.api.retrieval import query_attributes_within_project_proto
@@ -33,7 +34,6 @@ from .. import (
     filters,
     identifiers,
 )
-from ..identifiers import RunAttributeDefinition
 from ..retrieval import (
     retry,
     util,
@@ -56,21 +56,31 @@ def fetch_attribute_values(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     run_identifiers: Iterable[identifiers.RunIdentifier],
-    attribute_definitions: Iterable[identifiers.AttributeDefinition],
+    attribute_definitions: Union[Iterable[identifiers.AttributeDefinition], filters._AttributeFilter],
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE.get(),
 ) -> Generator[util.Page[AttributeValue], None, None]:
-    attribute_definitions_set: set[identifiers.AttributeDefinition] = set(attribute_definitions)
-    experiments = [str(e) for e in run_identifiers]
+    attribute_definitions_set: Optional[set[identifiers.AttributeDefinition]] = (
+        None if isinstance(attribute_definitions, filters._AttributeFilter) else set(attribute_definitions)
+    )
 
-    if not attribute_definitions_set or not run_identifiers:
-        yield from []
-        return
+    # if we're filtering by attribute definitions, but have none or no runs, return empty
+    if not isinstance(attribute_definitions, filters._AttributeFilter):
+        if not attribute_definitions_set or not run_identifiers:
+            yield from []
+            return
 
     params: dict[str, Any] = {
-        "experimentIdsFilter": experiments,
-        "attributeNamesFilter": [ad.name for ad in attribute_definitions],
+        "experimentIdsFilter": [str(e) for e in run_identifiers],
         "nextPage": {"limit": batch_size},
     }
+
+    if isinstance(attribute_definitions, filters._AttributeFilter):
+        attribute_filter_params = transform_attribute_filter_into_params(attribute_definitions)
+        params.update(attribute_filter_params)
+    elif attribute_definitions_set is not None:
+        params["attributeNamesFilter"] = [ad.name for ad in attribute_definitions_set]
+    else:
+        raise ValueError("attribute_definitions must be either a filter or an iterable of AttributeDefinition")
 
     yield from util.fetch_pages(
         client=client,
@@ -78,35 +88,6 @@ def fetch_attribute_values(
         process_page=ft.partial(
             _process_attribute_values_page,
             attribute_definitions_set=attribute_definitions_set,
-            project_identifier=project_identifier,
-        ),
-        make_new_page_params=_make_new_attribute_values_page_params,
-        params=params,
-    )
-
-
-def fetch_run_attribute_definitions_single_filter(
-    client: AuthenticatedClient,
-    project_identifier: identifiers.ProjectIdentifier,
-    run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
-    attribute_filter: filters._AttributeFilter,
-    batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE.get(),
-) -> Generator[util.Page[RunAttributeDefinition], None, None]:
-    params: dict[str, Any] = {
-        "nextPage": {"limit": batch_size},
-    }
-
-    if run_identifiers is not None:
-        params["experimentIdsFilter"] = [str(e) for e in run_identifiers]
-
-    attribute_filter_params = transform_attribute_filter_into_params(attribute_filter)
-    params.update(attribute_filter_params)
-
-    yield from util.fetch_pages(
-        client=client,
-        fetch_page=ft.partial(_fetch_attribute_values_page, project_identifier=project_identifier),
-        process_page=ft.partial(
-            _process_run_attribute_definitions_page,
             project_identifier=project_identifier,
         ),
         make_new_page_params=_make_new_attribute_values_page_params,
@@ -130,7 +111,7 @@ def _fetch_attribute_values_page(
 
 def _process_attribute_values_page(
     data: ProtoQueryAttributesResultDTO,
-    attribute_definitions_set: set[identifiers.AttributeDefinition],
+    attribute_definitions_set: Optional[set[identifiers.AttributeDefinition]],
     project_identifier: identifiers.ProjectIdentifier,
 ) -> util.Page[AttributeValue]:
     items = []
@@ -143,7 +124,7 @@ def _process_attribute_values_page(
             attr_definition = identifiers.AttributeDefinition(
                 name=attr.name, type=map_attribute_type_backend_to_python(attr.type)
             )
-            if attr_definition not in attribute_definitions_set:
+            if attribute_definitions_set is not None and attr_definition not in attribute_definitions_set:
                 continue
 
             item_value = extract_value(attr)
@@ -174,28 +155,3 @@ def _make_new_attribute_values_page_params(
 
     params["nextPage"]["nextPageToken"] = next_page_token
     return params
-
-
-def _process_run_attribute_definitions_page(
-    data: ProtoQueryAttributesResultDTO,
-    project_identifier: identifiers.ProjectIdentifier,
-) -> util.Page[RunAttributeDefinition]:
-    items = []
-
-    for entry in data.entries:
-        run_identifier = identifiers.RunIdentifier(
-            project_identifier=project_identifier, sys_id=identifiers.SysId(entry.experimentShortId)
-        )
-
-        for attr in entry.attributes:
-            attr_definition = identifiers.AttributeDefinition(
-                name=attr.name, type=map_attribute_type_backend_to_python(attr.type)
-            )
-
-            run_attribute_definition = RunAttributeDefinition(
-                run_identifier=run_identifier,
-                attribute_definition=attr_definition,
-            )
-            items.append(run_attribute_definition)
-
-    return util.Page(items=items)
