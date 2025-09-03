@@ -22,11 +22,11 @@ from typing import (
 
 import pandas as pd
 
-from neptune_query import (
+from neptune_query import filters
+from neptune_query.exceptions import (
+    NeptuneProjectNotProvided,
     NeptuneUserError,
-    filters,
 )
-from neptune_query.exceptions import NeptuneProjectNotProvided
 from neptune_query.internal import filters as _filters
 from neptune_query.internal.context import get_context
 from neptune_query.internal.identifiers import ProjectIdentifier
