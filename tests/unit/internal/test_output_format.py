@@ -30,6 +30,7 @@ from neptune_query.internal.identifiers import (
 from neptune_query.internal.output_format import (
     convert_table_to_dataframe,
     create_files_dataframe,
+    create_metric_buckets_dataframe,
     create_metrics_dataframe,
     create_series_dataframe,
 )
@@ -45,6 +46,7 @@ from neptune_query.internal.retrieval.attribute_types import (
     StringSeriesAggregations,
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
+from neptune_query.internal.retrieval.metric_buckets import BucketMetric
 from neptune_query.internal.retrieval.metrics import FloatPointValue
 from neptune_query.internal.retrieval.search import (
     ContainerType,
@@ -472,33 +474,61 @@ def test_convert_experiment_table_to_dataframe_index_column_name_custom():
 EXPERIMENTS = 5
 PATHS = 5
 STEPS = 10
+BUCKETS = 5
 
 
 def _generate_float_point_values(
     experiments: int, paths: int, steps: int, preview: bool
 ) -> dict[RunAttributeDefinition, list[FloatPointValue]]:
-    result = {}
+    return {
+        _generate_run_attribute_definition(experiment, path): [
+            _generate_float_point_value(step, preview) for step in range(steps)
+        ]
+        for experiment in range(experiments)
+        for path in range(paths)
+    }
 
-    for experiment in range(experiments):
-        for path in range(paths):
-            attribute_run = RunAttributeDefinition(
-                RunIdentifier(ProjectIdentifier("foo/bar"), SysId(f"sysid{experiment}")),
-                AttributeDefinition(f"path{path}", "float_series"),
-            )
-            points = result.setdefault(attribute_run, [])
 
-            for step in range(steps):
-                timestamp = datetime(2023, 1, 1, 0, 0, 0, 0, timezone.utc) + timedelta(seconds=step)
-                points.append(
-                    (
-                        timestamp.timestamp(),
-                        float(step),
-                        float(step) * 100,
-                        preview,
-                        1.0 - (float(step) / 1000.0),
-                    )
-                )
-    return result
+def _generate_bucket_metrics(
+    experiments: int, paths: int, buckets: int
+) -> dict[RunAttributeDefinition, list[BucketMetric]]:
+    return {
+        _generate_run_attribute_definition(experiment, path): [_generate_bucket_metric(index=i) for i in range(buckets)]
+        for experiment in range(experiments)
+        for path in range(paths)
+    }
+
+
+def _generate_float_point_value(step: int, preview: bool) -> FloatPointValue:
+    timestamp = datetime(2023, 1, 1, 0, 0, 0, 0, timezone.utc) + timedelta(seconds=step)
+    return (
+        timestamp.timestamp(),
+        float(step),
+        float(step) * 100,
+        preview,
+        1.0 - (float(step) / 1000.0),
+    )
+
+
+def _generate_run_attribute_definition(
+    experiment: int, path: int, attribute_type="float_series"
+) -> RunAttributeDefinition:
+    return RunAttributeDefinition(
+        RunIdentifier(ProjectIdentifier("foo/bar"), SysId(f"sysid{experiment}")),
+        AttributeDefinition(f"path{path}", attribute_type),
+    )
+
+
+def _generate_bucket_metric(index: int) -> BucketMetric:
+    return BucketMetric(
+        index=index,
+        from_x=20.0 * index,
+        to_x=20.0 * (index + 1),
+        first_x=20.0 * index + 2,
+        first_y=90.0 * index,
+        last_x=20.0 * (index + 1) - 2,
+        last_y=100.0 * index,
+    )
 
 
 def _format_path_name(path: str, type_suffix_in_column_names: bool) -> str:
@@ -1288,3 +1318,106 @@ def test_fetch_metrics_duplicate_values(include_time):
 
     # then
     assert df.shape == (100, 1 if not include_time else 2)
+
+
+def test_create_empty_metric_buckets_dataframe():
+    # given
+    buckets_data = {}
+    sys_id_label_mapping = {}
+
+    # when
+    df = create_metric_buckets_dataframe(
+        buckets_data=buckets_data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    expected_df = (
+        pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "interval[float64, right]"}).set_index("bucket")
+    )
+    expected_df.columns = pd.MultiIndex.from_product(
+        [[], [], ["local_min", "local_max"]], names=["experiment", "series", None]
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+
+def test_create_metric_buckets_dataframe():
+    buckets_data = _generate_bucket_metrics(EXPERIMENTS, PATHS, BUCKETS)
+    sys_id_label_mapping = {SysId(f"sysid{experiment}"): f"exp{experiment}" for experiment in range(EXPERIMENTS)}
+
+    """Test the creation of a flat DataFrame from float point values."""
+    df = create_metric_buckets_dataframe(
+        buckets_data=buckets_data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Check if the DataFrame is not empty
+    assert not df.empty, "DataFrame should not be empty"
+
+    # Check the shape of the DataFrame
+    num_expected_rows = BUCKETS
+    assert df.shape[0] == num_expected_rows, f"DataFrame should have {num_expected_rows} rows"
+
+    # Check the columns of the DataFrame
+    METRICS = ["x", "y"]
+    expected_columns = {
+        (sys_id_label_mapping[key.run_identifier.sys_id], key.attribute_definition.name, metric)
+        for key in buckets_data.keys()
+        for metric in METRICS
+    }
+
+    assert set(df.columns) == expected_columns, f"DataFrame should have {expected_columns} columns"
+    assert (
+        df.columns.get_level_values(0).nunique() == EXPERIMENTS
+    ), f"DataFrame should have {EXPERIMENTS} experiment names"
+    assert df.columns.get_level_values(1).nunique() == PATHS, f"DataFrame should have {PATHS} paths"
+    assert df.columns.get_level_values(2).nunique() == len(METRICS), f"DataFrame should have {METRICS} metrics"
+
+
+def test_create_metric_buckets_dataframe_missing_values():
+    # Given
+    data = {
+        _generate_run_attribute_definition(experiment=1, path=1): [
+            _generate_bucket_metric(index=0),
+            _generate_bucket_metric(index=1),
+        ],
+        _generate_run_attribute_definition(experiment=1, path=2): [
+            _generate_bucket_metric(index=1),
+            _generate_bucket_metric(index=2),
+        ],
+        _generate_run_attribute_definition(experiment=2, path=1): [
+            _generate_bucket_metric(index=0),
+            _generate_bucket_metric(index=2),
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+        SysId("sysid2"): "exp2",
+    }
+
+    df = create_metric_buckets_dataframe(
+        buckets_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    expected = {
+        ("exp1", "path1", "x"): [18.0, 38.0, np.nan],
+        ("exp1", "path1", "y"): [0.0, 100.0, np.nan],
+        ("exp1", "path2", "x"): [np.nan, 38.0, 58.0],
+        ("exp1", "path2", "y"): [np.nan, 100.0, 200.0],
+        ("exp2", "path1", "x"): [18.0, np.nan, 58.0],
+        ("exp2", "path1", "y"): [0.0, np.nan, 200.00],
+    }
+
+    expected_df = pd.DataFrame(
+        dict(sorted(expected.items())),
+        index=pd.IntervalIndex.from_tuples([(0.0, 20.0), (20.0, 40.0), (40.0, 60.0)], name="bucket"),
+    )
+    expected_df.columns.names = ["experiment", "series", None]
+
+    pd.testing.assert_frame_equal(df, expected_df)
