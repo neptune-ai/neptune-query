@@ -128,7 +128,7 @@ def retry_backoff(
                 if remaining_time <= 0:
                     break
                 sleep_time = min(remaining_time, sleep_time)
-                logger.info(f"Backing off Neptune API request for {sleep_time:.2f} seconds (try {total_tries}). ")
+                logger.info(f"Backing off Neptune API request for {sleep_time:.2f} seconds (try {total_tries}).")
                 time.sleep(sleep_time)
 
             # No more retries left
