@@ -520,22 +520,40 @@ def _generate_run_attribute_definition(
 
 
 def _generate_bucket_metric(index: int) -> TimeseriesBucket:
-    return TimeseriesBucket(
-        index=index,
-        from_x=20.0 * index,
-        to_x=20.0 * (index + 1),
-        first_x=20.0 * index + 2,
-        first_y=90.0 * index,
-        last_x=20.0 * (index + 1) - 2,
-        last_y=100.0 * index,
-        y_min=80.0 * index,
-        y_max=110.0 * index,
-        finite_point_count=10 + index,
-        nan_count=5 - index,
-        positive_inf_count=2 * index,
-        negative_inf_count=index,
-        finite_points_sum=950.0 * index,
-    )
+    if index > 0:
+        return TimeseriesBucket(
+            index=index,
+            from_x=20.0 * index,
+            to_x=20.0 * (index + 1),
+            first_x=20.0 * index + 2,
+            first_y=90.0 * index,
+            last_x=20.0 * (index + 1) - 2,
+            last_y=100.0 * index,
+            y_min=80.0 * index,
+            y_max=110.0 * index,
+            finite_point_count=10 + index,
+            nan_count=5 - index,
+            positive_inf_count=2 * index,
+            negative_inf_count=index,
+            finite_points_sum=950.0 * index,
+        )
+    else:
+        return TimeseriesBucket(
+            index=index,
+            from_x=float("-inf"),
+            to_x=20.0,
+            first_x=20.0,
+            first_y=0.0,
+            last_x=20.0,
+            last_y=0.0,
+            y_min=0.0,
+            y_max=0.0,
+            finite_point_count=1,
+            nan_count=0,
+            positive_inf_count=0,
+            negative_inf_count=0,
+            finite_points_sum=0.0,
+        )
 
 
 def _format_path_name(path: str, type_suffix_in_column_names: bool) -> str:
@@ -1414,17 +1432,51 @@ def test_create_metric_buckets_dataframe_missing_values():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [18.0, 38.0, np.nan],
+        ("exp1", "path1", "x"): [20.0, 38.0, np.nan],
         ("exp1", "path1", "y"): [0.0, 100.0, np.nan],
         ("exp1", "path2", "x"): [np.nan, 38.0, 58.0],
         ("exp1", "path2", "y"): [np.nan, 100.0, 200.0],
-        ("exp2", "path1", "x"): [18.0, np.nan, 58.0],
+        ("exp2", "path1", "x"): [20.0, np.nan, 58.0],
         ("exp2", "path1", "y"): [0.0, np.nan, 200.00],
     }
 
     expected_df = pd.DataFrame(
         dict(sorted(expected.items())),
-        index=pd.IntervalIndex.from_tuples([(0.0, 20.0), (20.0, 40.0), (40.0, 60.0)]),
+        index=pd.IntervalIndex.from_tuples([(float("-inf"), 20.0), (20.0, 40.0), (40.0, 60.0)]),
+    )
+    expected_df.columns.names = ["experiment", "attribute", "bucket"]
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+
+def test_create_metric_buckets_dataframe_sorted():
+    # Given
+    data = {
+        _generate_run_attribute_definition(experiment=1, path=1): [
+            _generate_bucket_metric(index=2),
+            _generate_bucket_metric(index=0),
+            _generate_bucket_metric(index=1),
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+
+    df = create_metric_buckets_dataframe(
+        buckets_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    expected = {
+        ("exp1", "path1", "x"): [20.0, 38.0, 58.0],
+        ("exp1", "path1", "y"): [0.0, 100.0, 200.0],
+    }
+
+    expected_df = pd.DataFrame(
+        dict(sorted(expected.items())),
+        index=pd.IntervalIndex.from_tuples([(float("-inf"), 20.0), (20.0, 40.0), (40.0, 60.0)]),
     )
     expected_df.columns.names = ["experiment", "attribute", "bucket"]
 

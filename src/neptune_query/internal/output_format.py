@@ -483,6 +483,7 @@ def create_metric_buckets_dataframe(
 
     df = df.reorder_levels([1, 2, 0], axis="columns")
     df = df.sort_index(axis="columns", level=[0, 1])
+    df = df.sort_index()
     df.index.name = None
     df.columns.names = (container_column_name, "attribute", "bucket")
 
