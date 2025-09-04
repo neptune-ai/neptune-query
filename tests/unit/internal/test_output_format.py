@@ -1344,8 +1344,9 @@ def test_create_empty_metric_buckets_dataframe():
         pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "interval[float64, right]"}).set_index("bucket")
     )
     expected_df.columns = pd.MultiIndex.from_product(
-        [[], [], ["local_min", "local_max"]], names=["experiment", "series", None]
+        [[], [], ["local_min", "local_max"]], names=["experiment", "attribute", "bucket"]
     )
+    expected_df.index.name = None
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1423,8 +1424,8 @@ def test_create_metric_buckets_dataframe_missing_values():
 
     expected_df = pd.DataFrame(
         dict(sorted(expected.items())),
-        index=pd.IntervalIndex.from_tuples([(0.0, 20.0), (20.0, 40.0), (40.0, 60.0)], name="bucket"),
+        index=pd.IntervalIndex.from_tuples([(0.0, 20.0), (20.0, 40.0), (40.0, 60.0)]),
     )
-    expected_df.columns.names = ["experiment", "series", None]
+    expected_df.columns.names = ["experiment", "attribute", "bucket"]
 
     pd.testing.assert_frame_equal(df, expected_df)
