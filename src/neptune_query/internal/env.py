@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 from typing import (
     Callable,
@@ -79,6 +78,14 @@ def _lift_optional(mapper: Callable[[str], T]) -> Callable[[str], Optional[T]]:
     return wrapped
 
 
+def _map_logging_level(value: str) -> str:
+    valid_levels = {"CRITICAL", "FATAL", "ERROR", "WARN", "WARNING", "INFO", "DEBUG", "NOTSET"}
+    level = value.strip().upper()
+    if level not in valid_levels:
+        return "WARN"
+    return level
+
+
 NEPTUNE_API_TOKEN = EnvVariable[str]("NEPTUNE_API_TOKEN", _map_str)
 NEPTUNE_ENABLE_COLORS = EnvVariable[bool]("NEPTUNE_ENABLE_COLORS", _map_bool, True)
 NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS = EnvVariable[int]("NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS", int, 60)
@@ -101,3 +108,4 @@ NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT = EnvVariable[Optional[int]](
 NEPTUNE_QUERY_SERIES_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_SERIES_BATCH_SIZE", int, 10_000)
 NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_EXPERIMENT_SYS_ATTRS_BATCH_SIZE", int, 10_000)
 NEPTUNE_VERIFY_SSL = EnvVariable[bool]("NEPTUNE_VERIFY_SSL", _map_bool, True)
+NEPTUNE_LOGGER_LEVEL = EnvVariable[str]("NEPTUNE_LOGGER_LEVEL", _map_logging_level, "WARN")

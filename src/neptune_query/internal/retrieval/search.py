@@ -41,11 +41,14 @@ from ..filters import (
     _Attribute,
     _Filter,
 )
+from ..logger import get_logger
 from ..retrieval import (
     retry,
     util,
 )
 from ..retrieval.attribute_types import map_attribute_type_python_to_backend
+
+logger = get_logger()
 
 _DIRECTION_PYTHON_TO_BACKEND_MAP: dict[str, str] = {
     "asc": "ascending",
@@ -219,10 +222,18 @@ def _fetch_sys_attrs_page(
     params: dict[str, Any],
     project_identifier: identifiers.ProjectIdentifier,
 ) -> ProtoLeaderboardEntriesSearchResultDTO:
+    logger.debug(
+        f"Calling search_leaderboard_entries_proto with project_identifier: {project_identifier}, params: {params}"
+    )
+
     body = SearchLeaderboardEntriesParamsDTO.from_dict(params)
     call_api = retry.handle_errors_default(with_neptune_client_metadata(search_leaderboard_entries_proto.sync_detailed))
     response = call_api(client=client, project_identifier=project_identifier, type=["run"], body=body)
 
+    logger.debug(
+        f"search_leaderboard_entries_proto response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
     return ProtoLeaderboardEntriesSearchResultDTO.FromString(response.content)
 
 

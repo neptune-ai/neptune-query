@@ -35,6 +35,7 @@ from neptune_api.types import UNSET
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
 from ..identifiers import RunAttributeDefinition
+from ..logger import get_logger
 from ..retrieval import (
     retry,
     util,
@@ -44,6 +45,8 @@ from ..retrieval.attribute_types import (
     Histogram,
 )
 from .search import ContainerType
+
+logger = get_logger()
 
 SeriesValue = NamedTuple("SeriesValue", [("step", float), ("value", Any), ("timestamp_millis", float)])
 
@@ -103,10 +106,16 @@ def _fetch_series_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> ProtoSeriesValuesResponseDTO:
+    logger.debug(f"Calling get_series_values_proto with params: {params}")
+
     body = SeriesValuesRequest.from_dict(params)
     call_api = retry.handle_errors_default(with_neptune_client_metadata(get_series_values_proto.sync_detailed))
     response = call_api(client=client, body=body, use_deprecated_string_fields=False)
 
+    logger.debug(
+        f"get_series_values_proto response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
     return ProtoSeriesValuesResponseDTO.FromString(response.content)
 
 
