@@ -34,6 +34,7 @@ from .. import (
     filters,
     identifiers,
 )
+from ..logger import get_logger
 from ..retrieval import (
     retry,
     util,
@@ -43,6 +44,8 @@ from ..retrieval.attribute_types import (
     map_attribute_type_backend_to_python,
 )
 from .attribute_filter import transform_attribute_filter_into_params
+
+logger = get_logger()
 
 
 @dataclass(frozen=True)
@@ -95,12 +98,20 @@ def _fetch_attribute_values_page(
     params: dict[str, Any],
     project_identifier: identifiers.ProjectIdentifier,
 ) -> ProtoQueryAttributesResultDTO:
+    logger.debug(
+        f"Calling query_attributes_within_project_proto with project_identifier: {project_identifier}, params: {params}"
+    )
+
     body = QueryAttributesBodyDTO.from_dict(params)
     call_api = retry.handle_errors_default(
         with_neptune_client_metadata(query_attributes_within_project_proto.sync_detailed)
     )
     response = call_api(client=client, body=body, project_identifier=project_identifier)
 
+    logger.debug(
+        f"query_attributes_within_project_proto response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
     return ProtoQueryAttributesResultDTO.FromString(response.content)
 
 

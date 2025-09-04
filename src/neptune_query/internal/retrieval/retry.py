@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import functools
 import json
-import logging
 import random
 import time
 from typing import (
@@ -34,8 +33,9 @@ from neptune_api.types import Response
 
 from ... import exceptions
 from .. import env
+from ..logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 T = ParamSpec("T")
 R = TypeVar("R")
@@ -107,8 +107,16 @@ def retry_backoff(
                     sleep_time = float(response.headers["retry-after"])
                     rate_limit_time_extension += sleep_time
                     backoff_tries = 0  # reset backoff tries counter when using a different strategy
+                    logger.debug(
+                        f"Neptune API request was rate limited. Retry-after header value: {sleep_time} seconds. "
+                        f"Total time spent on rate limiting so far: {rate_limit_time_extension} seconds."
+                    )
                 else:
                     sleep_time = backoff_strategy(backoff_tries)
+                    logger.debug(
+                        f"Neptune API request failed. Backoff strategory recommends backing off for {sleep_time:.2f} "
+                        f"seconds. Response: {response}. Last exception: {last_exc}."
+                    )
 
                 elapsed_time = time.monotonic() - start_time
 
@@ -120,6 +128,7 @@ def retry_backoff(
                 if remaining_time <= 0:
                     break
                 sleep_time = min(remaining_time, sleep_time)
+                logger.info(f"Backing off Neptune API request for {sleep_time:.2f} seconds (try {total_tries}). ")
                 time.sleep(sleep_time)
 
             # No more retries left

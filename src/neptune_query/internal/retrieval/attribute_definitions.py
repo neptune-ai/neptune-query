@@ -34,10 +34,13 @@ from .. import (  # noqa: E402
     env,
     identifiers,
 )
+from ..logger import get_logger
 from ..retrieval import attribute_types as types  # noqa: E402
 from ..retrieval import util  # noqa: E402
 from ..retrieval import retry
 from .attribute_filter import transform_attribute_filter_into_params
+
+logger = get_logger()
 
 
 def fetch_attribute_definitions_single_filter(
@@ -72,11 +75,18 @@ def _fetch_attribute_definitions_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> QueryAttributeDefinitionsResultDTO:
+    logger.debug(f"Calling query_attribute_definitions_within_project with params: {params}")
+
     body = QueryAttributeDefinitionsBodyDTO.from_dict(params)
     call_api = retry.handle_errors_default(
         with_neptune_client_metadata(query_attribute_definitions_within_project.sync_detailed)
     )
     response = call_api(client=client, body=body)
+
+    logger.debug(
+        f"query_attribute_definitions_within_project response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
 
     return response.parsed
 

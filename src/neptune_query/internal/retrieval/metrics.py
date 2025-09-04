@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import functools as ft
-import logging
 from typing import (
     Any,
     Optional,
@@ -29,13 +28,14 @@ from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoFlo
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
 from .. import identifiers
+from ..logger import get_logger
 from ..retrieval import (
     retry,
     util,
 )
 from .search import ContainerType
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 # Tuples are used here to enhance performance
 FloatPointValue = tuple[float, float, float, bool, float]
@@ -120,12 +120,18 @@ def _fetch_metrics_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> ProtoFloatSeriesValuesResponseDTO:
+    logger.debug(f"Calling get_multiple_float_series_values_proto with params: {params}")
+
     body = FloatTimeSeriesValuesRequest.from_dict(params)
     call_api = retry.handle_errors_default(
         with_neptune_client_metadata(get_multiple_float_series_values_proto.sync_detailed)
     )
     response = call_api(client=client, body=body)
 
+    logger.debug(
+        f"get_multiple_float_series_values_proto response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
     return ProtoFloatSeriesValuesResponseDTO.FromString(response.content)
 
 

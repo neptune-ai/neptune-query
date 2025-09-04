@@ -36,7 +36,12 @@ from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoTim
 from neptune_api.types import File
 
 from ..identifiers import RunAttributeDefinition
+from ..logger import get_logger
+from ..query_metadata_context import with_neptune_client_metadata
+from . import retry
 from .search import ContainerType
+
+logger = get_logger()
 
 
 @dataclass(frozen=True)
@@ -136,9 +141,17 @@ def fetch_time_series_buckets(
         view=view,
     )
 
-    response = get_timeseries_buckets_proto.sync_detailed(
+    logger.debug(f"Calling get_timeseries_buckets_proto with body: {request_object}")
+
+    call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.sync_detailed))
+    response = call_api(
         client=client,
         body=File(payload=BytesIO(request_object.SerializeToString())),
+    )
+
+    logger.debug(
+        f"get_timeseries_buckets_proto response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
     )
 
     result_object: ProtoTimeseriesBucketsDTO = ProtoTimeseriesBucketsDTO.FromString(response.content)
