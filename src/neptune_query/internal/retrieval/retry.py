@@ -114,7 +114,7 @@ def retry_backoff(
                 else:
                     sleep_time = backoff_strategy(backoff_tries)
                     logger.debug(
-                        f"Neptune API request failed. Backoff strategory recommends backing off for {sleep_time:.2f} "
+                        f"Neptune API request failed. Backoff strategy recommends backing off for {sleep_time:.2f} "
                         f"seconds. Response: {response}. Last exception: {last_exc}."
                     )
 
