@@ -1,4 +1,5 @@
 from typing import (
+    Iterable,
     Literal,
     Optional,
     Union,
@@ -22,43 +23,68 @@ from neptune_query.internal.identifiers import (
 )
 from neptune_query.internal.output_format import create_metric_buckets_dataframe
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
-from tests.e2e.conftest import Project
 from tests.e2e.data import (
     NUMBER_OF_STEPS,
     PATH,
     TEST_DATA,
     ExperimentData,
 )
+from tests.e2e.v1.generator import (
+    EXP_NAME_INF_NAN_RUN,
+    RUN_BY_ID,
+    RUN_ID_INF_NAN_RUN,
+)
 
 
 def _to_run_attribute_definition(project, run, path):
     return RunAttributeDefinition(
-        RunIdentifier(ProjectIdentifier(project), SysId(run)),
+        RunIdentifier(project, SysId(run)),
         AttributeDefinition(path, "float_series"),
     )
 
 
-def _sys_id_label_mapping(experiments: list[ExperimentData]) -> dict[SysId, str]:
-    return {SysId(experiment.name): experiment.name for experiment in experiments}
+def _sys_id_label_mapping(experiments: Iterable[str]) -> dict[SysId, str]:
+    return {SysId(name): name for name in experiments}  # we just use the id as the label in tests
 
 
-def create_expected_data(
-    project: Project,
+def create_expected_data_experiments(
+    project_identifier: ProjectIdentifier,
     experiments: list[ExperimentData],
     x: Union[Literal["step"]],  # TODO - only option
     limit: int,
     include_point_previews: bool,  # TODO - add to the test data?
 ) -> pd.DataFrame:
-    bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
+    data = {
+        exp.name: {
+            path: list(zip(exp.float_series[f"{PATH}/metrics/step"], ys)) for path, ys in exp.float_series.items()
+        }
+        for exp in experiments
+    }
+    return create_expected_data_dict(
+        data,
+        project_identifier,
+        x,
+        limit,
+        include_point_previews,
+    )
 
+
+def create_expected_data_dict(
+    data: dict[str, dict[str, list[tuple[float, float]]]],
+    project_identifier: ProjectIdentifier,
+    x: Union[Literal["step"]],  # TODO - only option
+    limit: int,
+    include_point_previews: bool,  # TODO - add to the test data?
+) -> pd.DataFrame:
     global_range_x: Optional[tuple[float, float]] = None
-    for experiment in experiments:
-        steps = experiment.float_series[f"{PATH}/metrics/step"]
-        if global_range_x is None:
-            global_range_x = min(steps), max(steps)
-        else:
-            global_min_x, global_max_x = global_range_x
-            global_range_x = min(global_min_x, min(steps)), max(global_max_x, max(steps))
+    for experiment_data in data.values():
+        for series in experiment_data.values():
+            xs = [x for x, _ in series]
+            if global_range_x is None:
+                global_range_x = min(xs), max(xs)
+            else:
+                global_min_x, global_max_x = global_range_x
+                global_range_x = min(global_min_x, min(xs)), max(global_max_x, max(xs))
     assert global_range_x is not None
     global_min_x, global_max_x = global_range_x
 
@@ -76,20 +102,29 @@ def create_expected_data(
             to_x = global_min_x + bucket_width * bucket_i
         bucket_ranges_x.append((from_x, to_x))
 
-    for experiment in experiments:
-        steps = experiment.float_series[f"{PATH}/metrics/step"]
-
-        for path, series in experiment.float_series.items():
+    bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
+    for experiment_name, experiment_data in data.items():
+        for path, series in experiment_data.items():
             buckets = []
             for bucket_i, bucket_range_x in enumerate(bucket_ranges_x):
                 from_x, to_x = bucket_range_x
 
+                positive_inf_count = 0
+                negative_inf_count = 0
+                nan_count = 0
                 xs = []
                 ys = []
-                for x, y in zip(steps, series):
+                for x, y in series:
                     if from_x < x <= to_x:
-                        xs.append(x)
-                        ys.append(y)
+                        if np.isposinf(y):
+                            positive_inf_count += 1
+                        elif np.isneginf(y):
+                            negative_inf_count += 1
+                        elif np.isnan(y):
+                            nan_count += 1
+                        else:
+                            xs.append(x)
+                            ys.append(y)
 
                 bucket = TimeseriesBucket(
                     index=bucket_i,
@@ -100,22 +135,22 @@ def create_expected_data(
                     last_x=xs[-1] if xs else float("nan"),
                     last_y=ys[-1] if ys else float("nan"),
                     # statistics:
-                    y_min=float(np.nanmin(ys)) if ys else float("nan"),
-                    y_max=float(np.nanmax(ys)) if ys else float("nan"),
-                    finite_point_count=int(np.isfinite(ys).sum()) if ys else 0,
-                    nan_count=int(np.isnan(ys).sum()) if ys else 0,
-                    positive_inf_count=0,
-                    negative_inf_count=0,
-                    finite_points_sum=float(np.nansum(ys)) if ys else 0.0,
+                    y_min=float(np.min(ys)) if ys else float("nan"),
+                    y_max=float(np.max(ys)) if ys else float("nan"),
+                    finite_point_count=len(ys),
+                    nan_count=nan_count,
+                    positive_inf_count=positive_inf_count,
+                    negative_inf_count=negative_inf_count,
+                    finite_points_sum=float(np.sum(ys)) if ys else 0.0,
                 )
                 buckets.append(bucket)
 
-            attribute_run = _to_run_attribute_definition(project.project_identifier, experiment.name, path)
+            attribute_run = _to_run_attribute_definition(project_identifier, experiment_name, path)
             bucket_data.setdefault(attribute_run, []).extend(buckets)
 
     return create_metric_buckets_dataframe(
         buckets_data=bucket_data,
-        sys_id_label_mapping=_sys_id_label_mapping(experiments),
+        sys_id_label_mapping=_sys_id_label_mapping(data.keys()),
         container_column_name="experiment",
     )
 
@@ -173,8 +208,12 @@ def test__fetch_metric_buckets__filter_variants(
         lineage_to_the_root=True,
     )
 
-    expected_df = create_expected_data(
-        project=project, experiments=experiments, x=x, limit=limit, include_point_previews=include_point_previews
+    expected_df = create_expected_data_experiments(
+        project_identifier=project.project_identifier,
+        experiments=experiments,
+        x=x,
+        limit=limit,
+        include_point_previews=include_point_previews,
     )
 
     pd.testing.assert_frame_equal(result_df, expected_df)
@@ -230,8 +269,65 @@ def test__fetch_metric_buckets__bucket_variants(
         lineage_to_the_root=True,
     )
 
-    expected_df = create_expected_data(
-        project=project, experiments=experiments, x=x, limit=limit, include_point_previews=include_point_previews
+    expected_df = create_expected_data_experiments(
+        project_identifier=project.project_identifier,
+        experiments=experiments,
+        x=x,
+        limit=limit,
+        include_point_previews=include_point_previews,
+    )
+
+    pd.testing.assert_frame_equal(result_df, expected_df)
+
+
+@pytest.mark.parametrize(
+    "arg_experiments,run_id,y",
+    [
+        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-containing-inf"),
+        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-containing-nan"),
+        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-ending-with-inf"),
+        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-ending-with-nan"),
+    ],
+)
+@pytest.mark.parametrize(
+    "x",
+    ["step"],
+)
+@pytest.mark.parametrize(
+    "limit",
+    [2, 3, 10, NUMBER_OF_STEPS + 10],
+)
+@pytest.mark.parametrize(
+    "include_point_previews",
+    [True],
+)
+@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
+def test__fetch_metric_buckets__inf_nan(
+    new_project_id,
+    arg_experiments,
+    run_id,
+    x,
+    y,
+    limit,
+    include_point_previews,
+):
+    result_df = fetch_metric_buckets(
+        project=new_project_id,
+        experiments=arg_experiments,
+        x=x,
+        y=y,
+        limit=limit,
+        include_point_previews=include_point_previews,
+        lineage_to_the_root=True,
+    )
+
+    expected_data = {arg_experiments: {y: RUN_BY_ID[run_id].metrics_values(y)}}
+    expected_df = create_expected_data_dict(
+        data=expected_data,
+        project_identifier=new_project_id,
+        x=x,
+        limit=limit,
+        include_point_previews=include_point_previews,
     )
 
     pd.testing.assert_frame_equal(result_df, expected_df)
