@@ -48,7 +48,6 @@ from neptune_query._internal import (
     resolve_files,
     resolve_metrics_y,
     resolve_sort_by,
-    validate_limit,
 )
 from neptune_query.exceptions import NeptuneUserError
 from neptune_query.internal.composition import download_files as _download_files
@@ -444,7 +443,6 @@ def fetch_metric_buckets(
     project_identifier = get_default_project_identifier(project)
     experiments_filter = resolve_experiments_filter(experiments)
     resolved_y = resolve_metrics_y(y)
-    validate_limit(limit, max_limit=1000)
 
     return _fetch_metric_buckets.fetch_metric_buckets(
         project_identifier=project_identifier,
