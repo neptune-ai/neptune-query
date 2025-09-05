@@ -10,6 +10,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
+from pandas import Interval
 from pandas._testing import assert_frame_equal
 
 import neptune_query as npt
@@ -1358,12 +1359,8 @@ def test_create_empty_metric_buckets_dataframe():
     )
 
     # Then
-    expected_df = (
-        pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "interval[float64, right]"}).set_index("bucket")
-    )
-    expected_df.columns = pd.MultiIndex.from_product(
-        [[], [], ["local_min", "local_max"]], names=["experiment", "metric", "bucket"]
-    )
+    expected_df = pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "object"}).set_index("bucket")
+    expected_df.columns = pd.MultiIndex.from_product([[], [], ["x", "y"]], names=["experiment", "metric", "bucket"])
     expected_df.index.name = None
 
     pd.testing.assert_frame_equal(df, expected_df)
@@ -1384,7 +1381,7 @@ def test_create_metric_buckets_dataframe():
     assert not df.empty, "DataFrame should not be empty"
 
     # Check the shape of the DataFrame
-    num_expected_rows = BUCKETS
+    num_expected_rows = BUCKETS - 1
     assert df.shape[0] == num_expected_rows, f"DataFrame should have {num_expected_rows} rows"
 
     # Check the columns of the DataFrame
@@ -1401,6 +1398,77 @@ def test_create_metric_buckets_dataframe():
     ), f"DataFrame should have {EXPERIMENTS} experiment names"
     assert df.columns.get_level_values(1).nunique() == PATHS, f"DataFrame should have {PATHS} paths"
     assert df.columns.get_level_values(2).nunique() == len(METRICS), f"DataFrame should have {METRICS} metrics"
+
+
+@pytest.mark.parametrize(
+    "data,expected_df",
+    [
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0],
+                    ("exp1", "path1", "y"): [0.0],
+                },
+                index=pd.Index([Interval(20.0, 20.0, closed="both")], dtype="object"),
+            ),
+        ),
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                    _generate_bucket_metric(index=2),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0, 58.0],
+                    ("exp1", "path1", "y"): [0.0, 200.0],
+                },
+                index=pd.Index(
+                    [Interval(20.0, 40.0, closed="both"), Interval(40.0, 60.0, closed="right")], dtype="object"
+                ),
+            ),
+        ),
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                    _generate_bucket_metric(index=3),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0, 78.0],
+                    ("exp1", "path1", "y"): [0.0, 300.0],
+                },
+                index=pd.Index(
+                    [Interval(20.0, 40.0, closed="both"), Interval(60.0, 80.0, closed="right")], dtype="object"
+                ),
+            ),
+        ),
+    ],
+)
+def test_create_metric_buckets_dataframe_parametrized(data, expected_df):
+    # Given
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+    expected_df.columns.names = ["experiment", "metric", "bucket"]
+
+    # When
+    df = create_metric_buckets_dataframe(
+        buckets_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe_missing_values():
@@ -1432,17 +1500,17 @@ def test_create_metric_buckets_dataframe_missing_values():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [20.0, 38.0, np.nan],
-        ("exp1", "path1", "y"): [0.0, 100.0, np.nan],
-        ("exp1", "path2", "x"): [np.nan, 38.0, 58.0],
-        ("exp1", "path2", "y"): [np.nan, 100.0, 200.0],
-        ("exp2", "path1", "x"): [20.0, np.nan, 58.0],
-        ("exp2", "path1", "y"): [0.0, np.nan, 200.00],
+        ("exp1", "path1", "x"): [38.0, np.nan],
+        ("exp1", "path1", "y"): [100.0, np.nan],
+        ("exp1", "path2", "x"): [38.0, 58.0],
+        ("exp1", "path2", "y"): [100.0, 200.0],
+        ("exp2", "path1", "x"): [20.0, 58.0],
+        ("exp2", "path1", "y"): [0.0, 200.00],
     }
 
     expected_df = pd.DataFrame(
         dict(sorted(expected.items())),
-        index=pd.IntervalIndex.from_tuples([(float("-inf"), 20.0), (20.0, 40.0), (40.0, 60.0)]),
+        index=pd.Index([Interval(20.0, 40.0, closed="both"), Interval(40.0, 60.0, closed="right")]),
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
@@ -1456,6 +1524,7 @@ def test_create_metric_buckets_dataframe_sorted():
             _generate_bucket_metric(index=2),
             _generate_bucket_metric(index=0),
             _generate_bucket_metric(index=1),
+            _generate_bucket_metric(index=3),
         ],
     }
     sys_id_label_mapping = {
@@ -1470,13 +1539,19 @@ def test_create_metric_buckets_dataframe_sorted():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [20.0, 38.0, 58.0],
-        ("exp1", "path1", "y"): [0.0, 100.0, 200.0],
+        ("exp1", "path1", "x"): [38.0, 58.0, 78.0],
+        ("exp1", "path1", "y"): [100.0, 200.0, 300.0],
     }
 
     expected_df = pd.DataFrame(
         dict(sorted(expected.items())),
-        index=pd.IntervalIndex.from_tuples([(float("-inf"), 20.0), (20.0, 40.0), (40.0, 60.0)]),
+        index=pd.Index(
+            [
+                Interval(20.0, 40.0, closed="both"),
+                Interval(40.0, 60.0, closed="right"),
+                Interval(60.0, 80.0, closed="right"),
+            ]
+        ),
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 

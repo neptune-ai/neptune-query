@@ -114,7 +114,7 @@ def create_expected_data_dict(
     limit: int,
     include_point_previews: bool,  # TODO - add to the test data?
 ) -> pd.DataFrame:
-    bucket_ranges_x = _calculate_ranges_x(data, limit)
+    bucket_ranges_x = _calculate_ranges_x(data, limit + 1)
 
     bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
     for experiment_name, experiment_data in data.items():
@@ -238,7 +238,7 @@ def test__fetch_metric_buckets__filter_variants(
 
 @pytest.mark.parametrize(
     "limit",
-    [2, 3, 10, NUMBER_OF_STEPS + 10],
+    [1, 2, 3, 10, NUMBER_OF_STEPS + 10, 1000],
 )
 @pytest.mark.parametrize(
     "include_point_previews",

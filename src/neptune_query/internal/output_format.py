@@ -487,6 +487,49 @@ def create_metric_buckets_dataframe(
     df.index.name = None
     df.columns.names = (container_column_name, "metric", "bucket")
 
+    df = _collapse_open_buckets(df)
+
+    return df
+
+
+def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    1st returned bucket is always (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
+    resulting in a new bucket [first_point, end].
+    """
+    df.index = df.index.astype(object)  # IntervalIndex cannot mix Intervals closed from different sides
+
+    if df.index.empty:
+        return df
+
+    if len(df.index) == 1:
+        finite_value = None
+        if np.isfinite(df.index[0].right) and not np.isfinite(df.index[0].left):
+            finite_value = df.index[0].right
+        elif np.isfinite(df.index[0].left) and not np.isfinite(df.index[0].right):
+            finite_value = df.index[0].left
+
+        if finite_value is not None:
+            new_interval = pd.Interval(left=finite_value, right=finite_value, closed="both")
+            df.index = pd.Index([new_interval], dtype=object)
+        return df
+
+    col_funcs = {
+        "x": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
+        "y": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
+    }
+
+    first, second = df.index[0], df.index[1]
+    if first.right >= second.left - second.length * 0.5:  # floats can be imprecise, we use bucket length as a tolerance
+        new_interval = pd.Interval(left=first.right, right=second.right, closed="both")
+        new_row = df.iloc[0:2].apply(axis="index", func=lambda col: col_funcs[col.name[-1]](col))
+        df = df.drop(index=[first, second])
+        df.loc[new_interval] = new_row
+        df = df.sort_index()
+    else:
+        new_interval = pd.Interval(left=first.right, right=first.right + second.length, closed="both")
+        df.index = [new_interval] + list(df.index[1:])
+
     return df
 
 
