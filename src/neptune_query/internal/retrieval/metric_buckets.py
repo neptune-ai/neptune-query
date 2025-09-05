@@ -18,6 +18,7 @@ from io import BytesIO
 from typing import (
     Iterable,
     Literal,
+    Optional,
 )
 
 from neptune_api.api.retrieval import get_timeseries_buckets_proto
@@ -49,19 +50,19 @@ class TimeseriesBucket:
     index: int
     from_x: float
     to_x: float
-    first_x: float
-    first_y: float
-    last_x: float
-    last_y: float
+    first_x: Optional[float]
+    first_y: Optional[float]
+    last_x: Optional[float]
+    last_y: Optional[float]
 
     # statistics:
-    y_min: float
-    y_max: float
+    y_min: Optional[float]
+    y_max: Optional[float]
     finite_point_count: int
     nan_count: int
     positive_inf_count: int
     negative_inf_count: int
-    finite_points_sum: float
+    finite_points_sum: Optional[float]
 
 
 # Build once at module import
