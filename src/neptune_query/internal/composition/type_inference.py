@@ -156,6 +156,7 @@ class InferenceState(Generic[T]):
         for attr_state in self.attributes:
             if attr_state.warning_text:
                 msg = f"Attribute '{attr_state.original_attribute.name}': {attr_state.warning_text}"
+                # TODO: Add category to warnings.py
                 warnings.warn(msg, stacklevel=3)
 
 

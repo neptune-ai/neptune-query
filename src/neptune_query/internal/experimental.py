@@ -20,10 +20,7 @@ from typing import (
     Callable,
 )
 
-
-class ExperimentalWarning(UserWarning):
-    """Warning for use of experimental API elements."""
-
+from neptune_query.warnings import ExperimentalWarning
 
 # registry of functions already warned
 _warned_experimentals = set()
