@@ -471,7 +471,7 @@ def create_metric_buckets_dataframe(
         columns=[container_column_name, "path"],
         values=["x", "y"],
         observed=True,
-        dropna=True,
+        dropna=False,
         sort=False,
     )
     df.columns = df.columns.set_levels(
