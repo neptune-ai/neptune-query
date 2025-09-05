@@ -68,8 +68,9 @@ def fetch_metric_buckets(
     container_type: ContainerType,
 ) -> pd.DataFrame:
     validation.validate_metrics_x(x)
-    validation.validate_limit(limit)
+    validation.validate_bucket_limit(limit)
     restricted_y = validation.restrict_attribute_filter_type(y, type_in={"float_series"})
+    limit = limit + 1  # we request one extra bucket because the 1st one is (-inf, 1st point] and we merge it
 
     valid_context = validate_context(context or get_context())
     client = get_client(context=valid_context)

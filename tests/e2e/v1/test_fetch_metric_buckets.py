@@ -114,7 +114,7 @@ def create_expected_data_dict(
     limit: int,
     include_point_previews: bool,  # TODO - add to the test data?
 ) -> pd.DataFrame:
-    bucket_ranges_x = _calculate_ranges_x(data, limit)
+    bucket_ranges_x = _calculate_ranges_x(data, limit + 1)
 
     bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
     for experiment_name, experiment_data in data.items():
