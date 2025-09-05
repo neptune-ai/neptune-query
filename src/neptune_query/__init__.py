@@ -457,7 +457,7 @@ def fetch_metric_buckets(
             If a string is provided, it's treated as a regex pattern that the names must match.
             If a list of strings is provided, it's treated as exact experiment names to match.
             To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
-        x: The X-axis series used for the bucketing. Only "step" is currentlysupported.
+        x: The X-axis series used for the bucketing. Only "step" is currently supported.
         y: Filter specifying which metrics to include.
             If a string is provided, it's treated as a regex pattern that the metric names must match.
             If a list of strings is provided, it's treated as exact metric names to match.
