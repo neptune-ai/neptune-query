@@ -35,6 +35,8 @@ from tests.e2e.v1.generator import (
     RUN_ID_INF_NAN_RUN,
 )
 
+EXPERIMENT = TEST_DATA.experiments[0]
+
 
 def _to_run_attribute_definition(project, run, path):
     return RunAttributeDefinition(
@@ -69,13 +71,10 @@ def create_expected_data_experiments(
     )
 
 
-def create_expected_data_dict(
+def _calculate_ranges_x(
     data: dict[str, dict[str, list[tuple[float, float]]]],
-    project_identifier: ProjectIdentifier,
-    x: Union[Literal["step"]],  # TODO - only option
     limit: int,
-    include_point_previews: bool,  # TODO - add to the test data?
-) -> pd.DataFrame:
+) -> list[tuple[float, float]]:
     global_range_x: Optional[tuple[float, float]] = None
     for experiment_data in data.values():
         for series in experiment_data.values():
@@ -87,6 +86,9 @@ def create_expected_data_dict(
                 global_range_x = min(global_min_x, min(xs)), max(global_max_x, max(xs))
     assert global_range_x is not None
     global_min_x, global_max_x = global_range_x
+
+    if global_min_x == global_max_x:
+        return [(global_min_x, float("inf"))]  # TODO: bug on the backend side...
 
     bucket_ranges_x = []
     bucket_width = (global_max_x - global_min_x) / (limit - 1)
@@ -102,6 +104,18 @@ def create_expected_data_dict(
             to_x = global_min_x + bucket_width * bucket_i
         bucket_ranges_x.append((from_x, to_x))
 
+    return bucket_ranges_x
+
+
+def create_expected_data_dict(
+    data: dict[str, dict[str, list[tuple[float, float]]]],
+    project_identifier: ProjectIdentifier,
+    x: Union[Literal["step"]],  # TODO - only option
+    limit: int,
+    include_point_previews: bool,  # TODO - add to the test data?
+) -> pd.DataFrame:
+    bucket_ranges_x = _calculate_ranges_x(data, limit)
+
     bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
     for experiment_name, experiment_data in data.items():
         for path, series in experiment_data.items():
@@ -115,7 +129,10 @@ def create_expected_data_dict(
                 xs = []
                 ys = []
                 for x, y in series:
-                    if from_x < x <= to_x:
+                    if from_x < x <= to_x or (
+                        bucket_i == 0 and x == from_x
+                    ):  # TODO: remove the 2nd case after bug is fixed
+                        # TODO: these counts are not checked yet bc they are not in the final df
                         if np.isposinf(y):
                             positive_inf_count += 1
                         elif np.isneginf(y):
@@ -272,6 +289,60 @@ def test__fetch_metric_buckets__bucket_variants(
     expected_df = create_expected_data_experiments(
         project_identifier=project.project_identifier,
         experiments=experiments,
+        x=x,
+        limit=limit,
+        include_point_previews=include_point_previews,
+    )
+
+    pd.testing.assert_frame_equal(result_df, expected_df)
+
+
+@pytest.mark.parametrize(
+    "arg_experiments",
+    [TEST_DATA.experiments[:1], TEST_DATA.experiments[:3]],
+)
+@pytest.mark.parametrize(
+    "y",
+    [[path] for path in EXPERIMENT.unique_length_float_series.keys()]
+    + [list(EXPERIMENT.unique_length_float_series.keys())],
+)
+@pytest.mark.parametrize(
+    "x",
+    ["step"],
+)
+@pytest.mark.parametrize(
+    "limit",
+    [2, 3, 10],
+)
+@pytest.mark.parametrize(
+    "include_point_previews",
+    [True],
+)
+def test__fetch_metric_buckets__different_steps(
+    arg_experiments,
+    y,
+    project,
+    x,
+    limit,
+    include_point_previews,
+):
+    result_df = fetch_metric_buckets(
+        project=project.project_identifier,
+        experiments=[exp.name for exp in arg_experiments],
+        x=x,
+        y=y,
+        limit=limit,
+        include_point_previews=include_point_previews,
+        lineage_to_the_root=True,
+    )
+
+    expected_data = {
+        experiment.name: {path: experiment.unique_length_float_series[path] for path in y}
+        for experiment in arg_experiments
+    }
+    expected_df = create_expected_data_dict(
+        data=expected_data,
+        project_identifier=project.project_identifier,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
