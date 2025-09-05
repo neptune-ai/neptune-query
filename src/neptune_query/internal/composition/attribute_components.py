@@ -37,6 +37,7 @@ from ..retrieval import (
     split,
     util,
 )
+from . import attributes
 
 
 def fetch_attribute_definitions_split(
@@ -158,6 +159,32 @@ def fetch_attribute_values_split(
                 project_identifier=project_identifier,
                 run_identifiers=[identifiers.RunIdentifier(project_identifier, s) for s in split_pair[0]],
                 attribute_definitions=split_pair[1],
+            ),
+            executor=executor,
+            downstream=downstream,
+        ),
+    )
+
+
+def fetch_attribute_values_by_filter_split(
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    executor: Executor,
+    fetch_attribute_definitions_executor: Executor,
+    sys_ids: list[identifiers.SysId],
+    attribute_filter: filters._BaseAttributeFilter,
+    downstream: Callable[[util.Page[att_vals.AttributeValue]], concurrency.OUT],
+) -> concurrency.OUT:
+    return concurrency.generate_concurrently(
+        items=split.split_sys_ids(sys_ids),
+        executor=executor,
+        downstream=lambda split: concurrency.generate_concurrently(
+            items=attributes.fetch_attribute_values(
+                client=client,
+                project_identifier=project_identifier,
+                run_identifiers=[identifiers.RunIdentifier(project_identifier, s) for s in split],
+                attribute_filter=attribute_filter,
+                executor=fetch_attribute_definitions_executor,
             ),
             executor=executor,
             downstream=downstream,

@@ -80,6 +80,12 @@ def resolve_attributes_filter(
     )
 
 
+def resolve_metrics_y(
+    attributes: Optional[Union[str, list[str], filters.AttributeFilter]],
+) -> _filters._BaseAttributeFilter:
+    return resolve_attributes_filter(attributes)
+
+
 def resolve_sort_by(sort_by: Union[str, filters.Attribute]) -> _filters._Attribute:
     if isinstance(sort_by, str):
         return filters.Attribute(sort_by)._to_internal()

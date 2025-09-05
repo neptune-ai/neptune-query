@@ -7,7 +7,10 @@ from datetime import (
 
 import pytest
 
-from neptune_query.internal.composition.attributes import fetch_attribute_definitions
+from neptune_query.internal.composition.attributes import (
+    fetch_attribute_definitions,
+    fetch_attribute_values,
+)
 from neptune_query.internal.filters import (
     _AttributeFilter,
     _AttributeNameFilter,
@@ -16,6 +19,7 @@ from neptune_query.internal.identifiers import (
     AttributeDefinition,
     RunIdentifier,
 )
+from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from tests.e2e.conftest import extract_pages
 
 TEST_DATA_VERSION = "2025-08-22"
@@ -264,3 +268,73 @@ def test_fetch_attribute_definitions_should_deduplicate_items(client, executor, 
 
 def assert_items_equal(a: list[AttributeDefinition], b: list[AttributeDefinition]):
     assert sorted(a, key=lambda d: (d.name, d.type)) == sorted(b, key=lambda d: (d.name, d.type))
+
+
+def test_fetch_attribute_values_filter_or(client, executor, project, experiment_identifier):
+    # given
+    project_identifier = project.project_identifier
+
+    attribute_filter_1 = _AttributeFilter(
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        type_in=["int"],
+    )
+    attribute_filter_2 = _AttributeFilter(
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        type_in=["float"],
+    )
+
+    #  when
+    attribute_filter = _AttributeFilter.any([attribute_filter_1, attribute_filter_2])
+    values = extract_pages(
+        fetch_attribute_values(
+            client,
+            project_identifier,
+            [experiment_identifier],
+            attribute_filter=attribute_filter,
+            executor=executor,
+        )
+    )
+
+    # then
+    assert len(values) == 2
+    assert set(values) == {
+        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/int-value", "int"), 10, experiment_identifier),
+        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/float-value", "float"), 0.5, experiment_identifier),
+    }
+
+
+def test_fetch_attribute_values_deduplicate(client, executor, project, experiment_identifier):
+    # given
+    project_identifier = project.project_identifier
+
+    attribute_filter_1 = _AttributeFilter(
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        type_in=["int", "float"],
+    )
+    attribute_filter_2 = _AttributeFilter(
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        type_in=["float", "string"],
+    )
+    attribute_filter_3 = _AttributeFilter(
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/int-value$"])],
+    )
+
+    #  when
+    attribute_filter = _AttributeFilter.any([attribute_filter_1, attribute_filter_2, attribute_filter_3])
+    values = extract_pages(
+        fetch_attribute_values(
+            client,
+            project_identifier,
+            [experiment_identifier],
+            attribute_filter=attribute_filter,
+            executor=executor,
+        )
+    )
+
+    # then
+    assert len(values) == 3
+    assert set(values) == {
+        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/int-value", "int"), 10, experiment_identifier),
+        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/float-value", "float"), 0.5, experiment_identifier),
+        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/str-value", "string"), "hello", experiment_identifier),
+    }
