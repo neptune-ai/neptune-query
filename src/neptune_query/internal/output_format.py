@@ -472,7 +472,7 @@ def create_metric_buckets_dataframe(
         columns=[container_column_name, "path"],
         values=["x", "y"],
         observed=True,
-        dropna=True,
+        dropna=False,
         sort=False,
     )
     df.columns = df.columns.set_levels(
@@ -481,6 +481,18 @@ def create_metric_buckets_dataframe(
     )
 
     df = _restore_path_column_names(df, path_mapping, None)
+
+    # Clear out any columns that were not requested
+    desired_columns = [
+        (
+            dim,
+            sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
+            run_attr_definition.attribute_definition.name,
+        )
+        for run_attr_definition in buckets_data.keys()
+        for dim in ("x", "y")
+    ]
+    df = df.filter(desired_columns, axis=1)
 
     df = df.reorder_levels([1, 2, 0], axis="columns")
     df = df.sort_index(axis="columns", level=[0, 1])
