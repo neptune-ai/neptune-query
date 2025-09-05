@@ -444,6 +444,8 @@ def create_metric_buckets_dataframe(
                     path_category,
                     bucket.from_x,
                     bucket.to_x,
+                    bucket.first_x,
+                    bucket.first_y,
                     bucket.last_x,
                     bucket.last_y,
                 )
@@ -453,8 +455,10 @@ def create_metric_buckets_dataframe(
         ("path", "uint32"),
         ("from_x", "float64"),
         ("to_x", "float64"),
-        ("x", "float64"),
-        ("y", "float64"),
+        ("first_x", "float64"),
+        ("first_y", "float64"),
+        ("last_x", "float64"),
+        ("last_y", "float64"),
     ]
 
     df = pd.DataFrame(
@@ -462,6 +466,15 @@ def create_metric_buckets_dataframe(
     )
     df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
     df = df.drop(columns=["from_x", "to_x"])
+
+    df = df.sort_values(by="bucket")
+    df[["x", "y"]] = df[["last_x", "last_y"]]
+    if not df.empty:
+        first_x = df["first_x"].notna().idxmax()
+        df.loc[first_x, "x"] = df.loc[first_x, "first_x"]
+        first_y = df["first_y"].notna().idxmax()
+        df.loc[first_y, "y"] = df.loc[first_y, "first_y"]
+    df = df.drop(columns=["first_x", "first_y", "last_x", "last_y"])
 
     experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
     df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
@@ -515,8 +528,8 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     col_funcs = {
-        "x": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
-        "y": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
+        "x": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
+        "y": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
     }
 
     first, second = df.index[0], df.index[1]

@@ -1500,8 +1500,8 @@ def test_create_metric_buckets_dataframe_missing_values():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [38.0, np.nan],
-        ("exp1", "path1", "y"): [100.0, np.nan],
+        ("exp1", "path1", "x"): [20.0, np.nan],
+        ("exp1", "path1", "y"): [0.0, np.nan],
         ("exp1", "path2", "x"): [38.0, 58.0],
         ("exp1", "path2", "y"): [100.0, 200.0],
         ("exp2", "path1", "x"): [20.0, 58.0],
@@ -1539,8 +1539,8 @@ def test_create_metric_buckets_dataframe_sorted():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [38.0, 58.0, 78.0],
-        ("exp1", "path1", "y"): [100.0, 200.0, 300.0],
+        ("exp1", "path1", "x"): [20.0, 58.0, 78.0],
+        ("exp1", "path1", "y"): [0.0, 200.0, 300.0],
     }
 
     expected_df = pd.DataFrame(
