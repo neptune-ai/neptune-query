@@ -12,7 +12,7 @@ pattern = "default-unprefixed"
 python = "^3.10"
 
 # Base neptune package
-neptune-api = { git = "https://github.com/neptune-ai/neptune-api", branch = "gabrys/timeseries-view-proto" }
+neptune-api = { git = "https://github.com/neptune-ai/neptune-api", branch = "main" }
 azure-storage-blob = "^12.7.0"
 pandas = ">=1.4.0"
 
