@@ -1360,9 +1360,7 @@ def test_create_empty_metric_buckets_dataframe():
 
     # Then
     expected_df = pd.DataFrame(data={"bucket": []}).astype(dtype={"bucket": "object"}).set_index("bucket")
-    expected_df.columns = pd.MultiIndex.from_product(
-        [[], [], ["local_min", "local_max"]], names=["experiment", "metric", "bucket"]
-    )
+    expected_df.columns = pd.MultiIndex.from_product([[], [], ["x", "y"]], names=["experiment", "metric", "bucket"])
     expected_df.index.name = None
 
     pd.testing.assert_frame_equal(df, expected_df)
@@ -1400,6 +1398,77 @@ def test_create_metric_buckets_dataframe():
     ), f"DataFrame should have {EXPERIMENTS} experiment names"
     assert df.columns.get_level_values(1).nunique() == PATHS, f"DataFrame should have {PATHS} paths"
     assert df.columns.get_level_values(2).nunique() == len(METRICS), f"DataFrame should have {METRICS} metrics"
+
+
+@pytest.mark.parametrize(
+    "data,expected_df",
+    [
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0],
+                    ("exp1", "path1", "y"): [0.0],
+                },
+                index=pd.Index([Interval(20.0, 20.0, closed="both")], dtype="object"),
+            ),
+        ),
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                    _generate_bucket_metric(index=2),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0, 58.0],
+                    ("exp1", "path1", "y"): [0.0, 200.0],
+                },
+                index=pd.Index(
+                    [Interval(20.0, 40.0, closed="both"), Interval(40.0, 60.0, closed="right")], dtype="object"
+                ),
+            ),
+        ),
+        (
+            {
+                _generate_run_attribute_definition(experiment=1, path=1): [
+                    _generate_bucket_metric(index=0),
+                    _generate_bucket_metric(index=3),
+                ]
+            },
+            pd.DataFrame(
+                {
+                    ("exp1", "path1", "x"): [20.0, 78.0],
+                    ("exp1", "path1", "y"): [0.0, 300.0],
+                },
+                index=pd.Index(
+                    [Interval(20.0, 40.0, closed="both"), Interval(60.0, 80.0, closed="right")], dtype="object"
+                ),
+            ),
+        ),
+    ],
+)
+def test_create_metric_buckets_dataframe_parametrized(data, expected_df):
+    # Given
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+    expected_df.columns.names = ["experiment", "metric", "bucket"]
+
+    # When
+    df = create_metric_buckets_dataframe(
+        buckets_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe_missing_values():

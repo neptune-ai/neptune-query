@@ -503,7 +503,15 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     if len(df.index) == 1:
-        # Only one bucket which is open, nothing to merge with
+        finite_value = None
+        if np.isfinite(df.index[0].right) and not np.isfinite(df.index[0].left):
+            finite_value = df.index[0].right
+        elif np.isfinite(df.index[0].left) and not np.isfinite(df.index[0].right):
+            finite_value = df.index[0].left
+
+        if finite_value is not None:
+            new_interval = pd.Interval(left=finite_value, right=finite_value, closed="both")
+            df.index = pd.Index([new_interval], dtype=object)
         return df
 
     col_funcs = {
@@ -521,9 +529,6 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     else:
         new_interval = pd.Interval(left=first.right, right=first.right + second.length, closed="both")
         df.index = [new_interval] + list(df.index[1:])
-
-    print("hmm")
-    print(df)
 
     return df
 
