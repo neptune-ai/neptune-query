@@ -520,7 +520,7 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     }
 
     first, second = df.index[0], df.index[1]
-    if first.right == second.left:
+    if first.right >= second.left - second.length * 0.5:  # floats can be imprecise, we use bucket length as a tolerance
         new_interval = pd.Interval(left=first.right, right=second.right, closed="both")
         new_row = df.iloc[0:2].apply(axis="index", func=lambda col: col_funcs[col.name[-1]](col))
         df = df.drop(index=[first, second])

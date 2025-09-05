@@ -238,7 +238,7 @@ def test__fetch_metric_buckets__filter_variants(
 
 @pytest.mark.parametrize(
     "limit",
-    [2, 3, 10, NUMBER_OF_STEPS + 10],
+    [1, 2, 3, 10, NUMBER_OF_STEPS + 10, 1000],
 )
 @pytest.mark.parametrize(
     "include_point_previews",
