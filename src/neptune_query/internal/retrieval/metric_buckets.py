@@ -18,6 +18,7 @@ from io import BytesIO
 from typing import (
     Iterable,
     Literal,
+    Optional,
 )
 
 from neptune_api.api.retrieval import get_timeseries_buckets_proto
@@ -49,19 +50,19 @@ class TimeseriesBucket:
     index: int
     from_x: float
     to_x: float
-    first_x: float
-    first_y: float
-    last_x: float
-    last_y: float
+    first_x: Optional[float]
+    first_y: Optional[float]
+    last_x: Optional[float]
+    last_y: Optional[float]
 
     # statistics:
-    y_min: float
-    y_max: float
+    y_min: Optional[float]
+    y_max: Optional[float]
     finite_point_count: int
     nan_count: int
     positive_inf_count: int
     negative_inf_count: int
-    finite_points_sum: float
+    finite_points_sum: Optional[float]
 
 
 # Build once at module import
@@ -171,17 +172,17 @@ def fetch_time_series_buckets(
                 index=bucket.index,
                 from_x=bucket.fromX,
                 to_x=bucket.toX,
-                first_x=bucket.first.x,
-                first_y=bucket.first.y,
-                last_x=bucket.last.x,
-                last_y=bucket.last.y,
-                y_min=bucket.localMin,
-                y_max=bucket.localMax,
+                first_x=bucket.first.x if bucket.HasField("first") else None,
+                first_y=bucket.first.y if bucket.HasField("first") else None,
+                last_x=bucket.last.x if bucket.HasField("last") else None,
+                last_y=bucket.last.y if bucket.HasField("last") else None,
+                y_min=bucket.localMin if bucket.HasField("localMin") else None,
+                y_max=bucket.localMax if bucket.HasField("localMax") else None,
                 finite_point_count=bucket.finitePointCount,
                 nan_count=bucket.nanCount,
                 positive_inf_count=bucket.positiveInfCount,
                 negative_inf_count=bucket.negativeInfCount,
-                finite_points_sum=bucket.localSum,
+                finite_points_sum=bucket.localSum if bucket.HasField("localSum") else None,
             )
             for bucket in entry.bucket
         ]
