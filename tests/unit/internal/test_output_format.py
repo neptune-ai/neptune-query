@@ -1570,3 +1570,68 @@ def test_create_metric_buckets_dataframe_sorted():
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
     pd.testing.assert_frame_equal(df, expected_df)
+
+
+def test_create_metric_buckets_dataframe_completely_nan():
+    # Given
+    def _generate_bucket_metric_nan(index: int) -> TimeseriesBucket:
+        return TimeseriesBucket(
+            index=index,
+            from_x=20.0 * index if index > 0 else float("-inf"),
+            to_x=20.0 * (index + 1),
+            first_x=float("nan"),
+            first_y=float("nan"),
+            last_x=float("nan"),
+            last_y=float("nan"),
+            y_min=float("nan"),
+            y_max=float("nan"),
+            finite_point_count=0,
+            finite_points_sum=0,
+            nan_count=1,
+            positive_inf_count=0,
+            negative_inf_count=0,
+        )
+
+    data = {
+        _generate_run_attribute_definition(experiment=1, path=1): [
+            _generate_bucket_metric(index=0),
+            _generate_bucket_metric(index=1),
+            _generate_bucket_metric(index=2),
+        ],
+        _generate_run_attribute_definition(experiment=2, path=2): [
+            _generate_bucket_metric_nan(index=0),
+            _generate_bucket_metric_nan(index=1),
+            _generate_bucket_metric_nan(index=2),
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+        SysId("sysid2"): "exp2",
+    }
+
+    df = create_metric_buckets_dataframe(
+        buckets_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        container_column_name="experiment",
+    )
+
+    # Then
+    expected = {
+        ("exp1", "path1", "x"): [20.0, 58.0],
+        ("exp1", "path1", "y"): [0.0, 200.0],
+        ("exp2", "path2", "x"): [np.nan, np.nan],
+        ("exp2", "path2", "y"): [np.nan, np.nan],
+    }
+
+    expected_df = pd.DataFrame(
+        dict(sorted(expected.items())),
+        index=pd.Index(
+            [
+                Interval(20.0, 40.0, closed="both"),
+                Interval(40.0, 60.0, closed="right"),
+            ]
+        ),
+    )
+    expected_df.columns.names = ["experiment", "metric", "bucket"]
+
+    pd.testing.assert_frame_equal(df, expected_df)
