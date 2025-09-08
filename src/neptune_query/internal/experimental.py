@@ -16,8 +16,9 @@
 import functools
 import warnings
 from typing import (
-    Any,
     Callable,
+    ParamSpec,
+    TypeVar,
 )
 
 from neptune_query.warnings import ExperimentalWarning
@@ -25,15 +26,18 @@ from neptune_query.warnings import ExperimentalWarning
 # registry of functions already warned
 _warned_experimentals = set()
 
+T = ParamSpec("T")
+R = TypeVar("R")
 
-def experimental(func: Callable) -> Callable:
+
+def experimental(func: Callable[T, R]) -> Callable[T, R]:
     """Decorator to mark functions as experimental.
     It will result in a warning being emitted when the function is used
     for the first time.
     """
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> object:
+    def wrapper(*args: T.args, **kwargs: T.kwargs) -> R:
         if func not in _warned_experimentals:
             warnings.warn(
                 f"{func.__qualname__} is experimental and may change or be removed "
