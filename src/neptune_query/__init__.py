@@ -442,10 +442,10 @@ def fetch_metric_buckets(
     lineage_to_the_root: bool = True,
     include_point_previews: bool = False,
 ) -> _pandas.DataFrame:
-    """This function is experimental and might be changed or removed in a future minor release.
-    Use with caution in production code
+    """Fetches a table of metric values split by X-axis buckets.
 
-    Fetches a table of metric values split by X-axis buckets.
+    **Caution:** This function is experimental and might be changed or removed in a future minor release.
+    Use with caution in production code.
 
     One point is returned from each bucket. To control the number of buckets, use the `limit` parameter.
 
