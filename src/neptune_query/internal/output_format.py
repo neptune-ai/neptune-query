@@ -438,16 +438,15 @@ def create_metric_buckets_dataframe(
             exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
             path_category = path_mapping[attribute.attribute_definition.name]
 
-            for bucket in buckets:
+            buckets.sort(key=lambda b: (b.from_x, b.to_x))
+            for ix, bucket in enumerate(buckets):
                 yield (
                     exp_category,
                     path_category,
                     bucket.from_x,
                     bucket.to_x,
-                    bucket.first_x,
-                    bucket.first_y,
-                    bucket.last_x,
-                    bucket.last_y,
+                    bucket.first_x if ix == 0 else bucket.last_x,
+                    bucket.first_y if ix == 0 else bucket.last_y,
                 )
 
     types = [
@@ -455,10 +454,8 @@ def create_metric_buckets_dataframe(
         ("path", "uint32"),
         ("from_x", "float64"),
         ("to_x", "float64"),
-        ("first_x", "float64"),
-        ("first_y", "float64"),
-        ("last_x", "float64"),
-        ("last_y", "float64"),
+        ("x", "float64"),
+        ("y", "float64"),
     ]
 
     df = pd.DataFrame(
@@ -466,15 +463,6 @@ def create_metric_buckets_dataframe(
     )
     df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
     df = df.drop(columns=["from_x", "to_x"])
-
-    df = df.sort_values(by="bucket")
-    df[["x", "y"]] = df[["last_x", "last_y"]]
-    if not df.empty:
-        first_x = df["first_x"].notna().idxmax()
-        df.loc[first_x, "x"] = df.loc[first_x, "first_x"]
-        first_y = df["first_y"].notna().idxmax()
-        df.loc[first_y, "y"] = df.loc[first_y, "first_y"]
-    df = df.drop(columns=["first_x", "first_y", "last_x", "last_y"])
 
     experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
     df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)

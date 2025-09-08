@@ -123,6 +123,7 @@ def create_expected_data_dict(
             for bucket_i, bucket_range_x in enumerate(bucket_ranges_x):
                 from_x, to_x = bucket_range_x
 
+                count = 0
                 positive_inf_count = 0
                 negative_inf_count = 0
                 nan_count = 0
@@ -133,6 +134,7 @@ def create_expected_data_dict(
                         bucket_i == 0 and x == from_x
                     ):  # TODO: remove the 2nd case after bug is fixed
                         # TODO: these counts are not checked yet bc they are not in the final df
+                        count += 1
                         if np.isposinf(y):
                             positive_inf_count += 1
                         elif np.isneginf(y):
@@ -142,6 +144,8 @@ def create_expected_data_dict(
                         else:
                             xs.append(x)
                             ys.append(y)
+                if count == 0:
+                    continue
 
                 bucket = TimeseriesBucket(
                     index=bucket_i,

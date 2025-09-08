@@ -527,7 +527,7 @@ def _generate_bucket_metric(index: int) -> TimeseriesBucket:
             from_x=20.0 * index,
             to_x=20.0 * (index + 1),
             first_x=20.0 * index + 2,
-            first_y=90.0 * index,
+            first_y=100.0 * (index - 1) + 90.0,
             last_x=20.0 * (index + 1) - 2,
             last_y=100.0 * index,
             y_min=80.0 * index,
@@ -1477,14 +1477,19 @@ def test_create_metric_buckets_dataframe_missing_values():
         _generate_run_attribute_definition(experiment=1, path=1): [
             _generate_bucket_metric(index=0),
             _generate_bucket_metric(index=1),
+            _generate_bucket_metric(index=2),
         ],
         _generate_run_attribute_definition(experiment=1, path=2): [
             _generate_bucket_metric(index=1),
             _generate_bucket_metric(index=2),
         ],
+        _generate_run_attribute_definition(experiment=1, path=3): [
+            _generate_bucket_metric(index=2),
+            _generate_bucket_metric(index=3),
+        ],
         _generate_run_attribute_definition(experiment=2, path=1): [
             _generate_bucket_metric(index=0),
-            _generate_bucket_metric(index=2),
+            _generate_bucket_metric(index=3),
         ],
     }
     sys_id_label_mapping = {
@@ -1500,17 +1505,26 @@ def test_create_metric_buckets_dataframe_missing_values():
 
     # Then
     expected = {
-        ("exp1", "path1", "x"): [20.0, np.nan],
-        ("exp1", "path1", "y"): [0.0, np.nan],
-        ("exp1", "path2", "x"): [38.0, 58.0],
-        ("exp1", "path2", "y"): [100.0, 200.0],
-        ("exp2", "path1", "x"): [20.0, 58.0],
-        ("exp2", "path1", "y"): [0.0, 200.00],
+        ("exp1", "path1", "x"): [20.0, 58.0, np.nan],
+        ("exp1", "path1", "y"): [0.0, 200.0, np.nan],
+        ("exp1", "path2", "x"): [22.0, 58.0, np.nan],
+        ("exp1", "path2", "y"): [90.0, 200.0, np.nan],
+        ("exp1", "path3", "x"): [np.nan, 42.0, 78.0],
+        ("exp1", "path3", "y"): [np.nan, 190.0, 300.0],
+        ("exp2", "path1", "x"): [20.0, np.nan, 78.0],
+        ("exp2", "path1", "y"): [0.0, np.nan, 300.0],
     }
 
     expected_df = pd.DataFrame(
         dict(sorted(expected.items())),
-        index=pd.Index([Interval(20.0, 40.0, closed="both"), Interval(40.0, 60.0, closed="right")]),
+        index=pd.Index(
+            [
+                Interval(20.0, 40.0, closed="both"),
+                Interval(40.0, 60.0, closed="right"),
+                Interval(60.0, 80.0, closed="right"),
+            ],
+            dtype="object",
+        ),
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
