@@ -461,11 +461,11 @@ def create_metric_buckets_dataframe(
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
-    df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
-    df = df.drop(columns=["from_x", "to_x"])
-
     experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
     df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
+
+    df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
+    df = df.drop(columns=["from_x", "to_x"])
 
     df = df.pivot_table(
         index="bucket",
@@ -482,7 +482,7 @@ def create_metric_buckets_dataframe(
 
     df = _restore_path_column_names(df, path_mapping, None)
 
-    # Clear out any columns that were not requested
+    # Clear out any columns that were not requested, but got added because of dropna=False
     desired_columns = [
         (
             dim,
@@ -492,7 +492,7 @@ def create_metric_buckets_dataframe(
         for run_attr_definition in buckets_data.keys()
         for dim in ("x", "y")
     ]
-    df = df.filter(desired_columns, axis=1)
+    df = df.filter(desired_columns, axis="columns")
 
     df = df.reorder_levels([1, 2, 0], axis="columns")
     df = df.sort_index(axis="columns", level=[0, 1])
@@ -588,7 +588,7 @@ def _pivot_and_reindex_df(
         )
 
     # Include only observed (experiment, step) pairs
-    df = df.reindex(index=observed_idx)
+    df = df.filter(observed_idx, axis="index")
 
     # Replace categorical codes in `index_column_name` with strings
     df.index = df.index.set_levels(
