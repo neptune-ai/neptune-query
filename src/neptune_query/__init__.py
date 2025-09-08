@@ -444,12 +444,14 @@ def fetch_metric_buckets(
 ) -> _pandas.DataFrame:
     """Fetches a table of metric values split by X-axis buckets.
 
-    One point is returned from each bucket:
-    - For the first bucket, the first point is returned.
-    - For the remaining buckets, the last point is returned.
-    This way, both the first and last points of a given metric are always included.
+    **Caution:** This function is experimental and might be changed or removed in a future minor release.
+    Use with caution in production code.
 
-    To control the number of buckets, use the `limit` parameter.
+    One point is returned from each bucket. To control the number of buckets, use the `limit` parameter.
+
+    Both the first and last points of each metric are always included:
+    - For every first bucket of a given series, the first point is returned.
+    - For the remaining buckets, the last point is returned.
 
     Args:
         project: Path of the Neptune project, as `WorkspaceName/ProjectName`.

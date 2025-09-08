@@ -40,7 +40,7 @@ def experimental(func: Callable[T, R]) -> Callable[T, R]:
     def wrapper(*args: T.args, **kwargs: T.kwargs) -> R:
         if func not in _warned_experimentals:
             warnings.warn(
-                f"{func.__qualname__} is experimental and may change or be removed "
+                f"{func.__qualname__} is experimental and might change or be removed "
                 "in a future minor release. Use with caution in production code.",
                 category=ExperimentalWarning,
                 stacklevel=2,
