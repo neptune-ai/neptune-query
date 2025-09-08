@@ -438,14 +438,15 @@ def create_metric_buckets_dataframe(
             exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
             path_category = path_mapping[attribute.attribute_definition.name]
 
-            for bucket in buckets:
+            buckets.sort(key=lambda b: (b.from_x, b.to_x))
+            for ix, bucket in enumerate(buckets):
                 yield (
                     exp_category,
                     path_category,
                     bucket.from_x,
                     bucket.to_x,
-                    bucket.last_x,
-                    bucket.last_y,
+                    bucket.first_x if ix == 0 else bucket.last_x,
+                    bucket.first_y if ix == 0 else bucket.last_y,
                 )
 
     types = [
@@ -515,8 +516,8 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     col_funcs = {
-        "x": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
-        "y": lambda s: s[s.last_valid_index()] if s.last_valid_index() is not None else np.nan,
+        "x": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
+        "y": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
     }
 
     first, second = df.index[0], df.index[1]
