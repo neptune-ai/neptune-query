@@ -444,6 +444,9 @@ def fetch_metric_buckets(
 ) -> _pandas.DataFrame:
     """Fetches a table of metric values split by X-axis buckets.
 
+    **Caution:** This function is experimental and might be changed or removed in a future minor release.
+    Use with caution in production code.
+
     One point is returned from each bucket:
     - For the first bucket, the first point is returned.
     - For the remaining buckets, the last point is returned.
