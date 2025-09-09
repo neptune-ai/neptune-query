@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -27,8 +26,6 @@ from typing import (
 )
 
 from neptune_api import AuthenticatedClient
-
-logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 R = TypeVar("R")

@@ -20,6 +20,7 @@ __all__ = [
     "list_attributes",
     "fetch_experiments_table",
     "fetch_metrics",
+    "fetch_metric_buckets",
     "fetch_series",
     "download_files",
 ]
@@ -45,16 +46,19 @@ from neptune_query._internal import (
     resolve_destination_path,
     resolve_experiments_filter,
     resolve_files,
+    resolve_metrics_y,
     resolve_sort_by,
 )
 from neptune_query.exceptions import NeptuneUserError
 from neptune_query.internal.composition import download_files as _download_files
+from neptune_query.internal.composition import fetch_metric_buckets as _fetch_metric_buckets
 from neptune_query.internal.composition import fetch_metrics as _fetch_metrics
 from neptune_query.internal.composition import fetch_series as _fetch_series
 from neptune_query.internal.composition import fetch_table as _fetch_table
 from neptune_query.internal.composition import list_attributes as _list_attributes
 from neptune_query.internal.composition import list_containers as _list_containers
 from neptune_query.internal.context import set_api_token
+from neptune_query.internal.experimental import experimental
 from neptune_query.internal.query_metadata_context import use_query_metadata
 from neptune_query.internal.retrieval import search as _search
 
@@ -422,5 +426,77 @@ def download_files(
     return _download_files.download_files(
         files=file_list,
         destination=destination_path,
+        container_type=_search.ContainerType.EXPERIMENT,
+    )
+
+
+@experimental
+@use_query_metadata(api_function="fetch_metric_buckets")
+def fetch_metric_buckets(
+    *,
+    project: Optional[str] = None,
+    experiments: Union[str, list[str], filters.Filter],
+    x: Union[Literal["step"]] = "step",
+    y: Union[str, list[str], filters.AttributeFilter],
+    limit: int = 1000,
+    lineage_to_the_root: bool = True,
+    include_point_previews: bool = False,
+) -> _pandas.DataFrame:
+    """Fetches a table of metric values split by X-axis buckets.
+
+    **Caution:** This function is experimental and might be changed or removed in a future minor release.
+    Use with caution in production code.
+
+    One point is returned from each bucket. To control the number of buckets, use the `limit` parameter.
+
+    Both the first and last points of each metric are always included:
+    - For every first bucket of a given series, the first point is returned.
+    - For the remaining buckets, the last point is returned.
+
+    Args:
+        project: Path of the Neptune project, as `WorkspaceName/ProjectName`.
+            If not provided, the NEPTUNE_PROJECT environment variable is used.
+        experiments: Filter specifying which experiments to include.
+            If a string is provided, it's treated as a regex pattern that the names must match.
+            If a list of strings is provided, it's treated as exact experiment names to match.
+            To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
+        x: The X-axis series used for the bucketing. Only "step" is currently supported.
+        y: Filter specifying which metrics to include.
+            If a string is provided, it's treated as a regex pattern that the metric names must match.
+            If a list of strings is provided, it's treated as exact metric names to match.
+            To provide a more complex condition, pass an AttributeFilter object.
+        limit: Number of buckets to use. The default and maximum value is 1000.
+        lineage_to_the_root: If True (default), includes all values from the complete experiment history.
+            If False, only includes values from the most recent experiment in the lineage.
+        include_point_previews: If False (default), the returned results only contain committed
+            points. If True, the results also include preview points and the returned DataFrame will
+            have additional sub-columns with preview status: is_preview and preview_completion.
+
+    Example:
+        From two specific experiments, fetch training losses split into 10 buckets:
+        ```
+        import neptune_query as nq
+
+
+        nq.fetch_metric_buckets(
+            experiments=["seagull-week1", "seagull-week2"],
+            x="step",
+            y=r"^train/loss",
+            limit=10,  # Only 10 buckets for broad trends
+        )
+        ```
+    """
+    project_identifier = get_default_project_identifier(project)
+    experiments_filter = resolve_experiments_filter(experiments)
+    resolved_y = resolve_metrics_y(y)
+
+    return _fetch_metric_buckets.fetch_metric_buckets(
+        project_identifier=project_identifier,
+        filter_=experiments_filter,
+        x=x,
+        y=resolved_y,
+        limit=limit,
+        lineage_to_the_root=lineage_to_the_root,
+        include_point_previews=include_point_previews,
         container_type=_search.ContainerType.EXPERIMENT,
     )

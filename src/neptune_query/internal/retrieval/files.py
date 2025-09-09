@@ -43,7 +43,10 @@ from .. import (
     env,
     identifiers,
 )
+from ..logger import get_logger
 from ..retrieval import retry
+
+logger = get_logger()
 
 
 @dataclass(frozen=True)
@@ -66,8 +69,16 @@ def fetch_signed_urls(
             for file in files
         ]
     )
+
+    logger.debug(f"Calling signed_url_generic with body: {body}")
+
     call_api = retry.handle_errors_default(with_neptune_client_metadata(signed_url_generic.sync_detailed))
     response = call_api(client=client, body=body)
+
+    logger.debug(
+        f"signed_url_generic response status: {response.status_code}, "
+        f"content length: {len(response.content) if response.content else 'no content'}"
+    )
 
     data: CreateSignedUrlsResponse = response.parsed
     if len(data.files) != len(files):
@@ -123,6 +134,8 @@ def download_file(
     max_concurrency: int = env.NEPTUNE_QUERY_FILES_MAX_CONCURRENCY.get(),
     timeout: Optional[int] = env.NEPTUNE_QUERY_FILES_TIMEOUT.get(),
 ) -> DownloadResult:
+    logger.info(f"Downloading file from {signed_file.provider} storage: {signed_file.url} to {target_path}")
+
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     if signed_file.provider == "azure":
@@ -134,6 +147,10 @@ def download_file(
     else:
         raise ValueError(f"Unsupported provider: {signed_file.provider}")
 
+    logger.debug(
+        f"Download result for {signed_file.url}: status={result.status}, status_code={result.status_code}, "
+        f"content={result.content!r}"
+    )
     return result
 
 

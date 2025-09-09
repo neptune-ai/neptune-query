@@ -120,6 +120,11 @@ def run_with_attributes(project, api_token, client):
             histogram_data = {path: values[step] for path, values in experiment.histogram_series.items()}
             run.log_histograms(histograms=histogram_data, step=step, timestamp=NOW + timedelta(seconds=int(step)))
 
+        for path, series in experiment.unique_length_float_series.items():
+            for step, value in series:
+                metrics_data = {path: value}
+                run.log_metrics(data=metrics_data, step=step, timestamp=NOW + timedelta(seconds=int(step)))
+
         run.log_configs(experiment.long_path_configs)
         run.log_string_series(data=experiment.long_path_series, step=1, timestamp=NOW)
         run.log_metrics(data=experiment.long_path_metrics, step=1, timestamp=NOW)

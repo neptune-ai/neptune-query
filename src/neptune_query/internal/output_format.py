@@ -28,6 +28,7 @@ from .. import types
 from ..exceptions import ConflictingAttributeTypes
 from . import identifiers
 from .retrieval import (
+    metric_buckets,
     metrics,
     series,
 )
@@ -51,6 +52,7 @@ __all__ = (
     "create_metrics_dataframe",
     "create_series_dataframe",
     "create_files_dataframe",
+    "create_metric_buckets_dataframe",
 )
 
 
@@ -400,6 +402,150 @@ def create_series_dataframe(
     return df
 
 
+def create_metric_buckets_dataframe(
+    buckets_data: dict[identifiers.RunAttributeDefinition, list[metric_buckets.TimeseriesBucket]],
+    sys_id_label_mapping: dict[identifiers.SysId, str],
+    *,
+    container_column_name: str,
+) -> pd.DataFrame:
+    """
+    Output Example:
+
+    experiment    experiment_1                                        experiment_2
+    series        metrics/loss            metrics/accuracy            metrics/loss            metrics/accuracy
+    bucket                   x          y                x          y            x          y               x          y
+    (0.0, 20.0]       0.766337  46.899769         0.629231  29.418603     0.793347   3.618248        0.445641  16.923348
+    (20.0, 40.0]     20.435899  42.001229        20.825488  11.989595    20.151307  21.244816       20.720397  20.515981
+    (40.0, 60.0]     40.798869  10.429626        40.640794  10.276835    40.338434  33.692977       40.381568  15.954130
+    (60.0, 80.0]     60.856616  20.633254        60.033832   0.927636    60.002655  37.048722       60.713322  49.537098
+    (80.0, 100.0]    80.522183   6.084259        80.019450  39.666397    80.003379  22.569435       80.745987  42.658697
+    """
+
+    path_mapping: dict[str, int] = {}
+    sys_id_mapping: dict[str, int] = {}
+    label_mapping: list[str] = []
+
+    for run_attr_definition in buckets_data:
+        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
+            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
+            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+
+        if run_attr_definition.attribute_definition.name not in path_mapping:
+            path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
+
+    def generate_categorized_rows() -> Generator[Tuple, None, None]:
+        for attribute, buckets in buckets_data.items():
+            exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
+            path_category = path_mapping[attribute.attribute_definition.name]
+
+            buckets.sort(key=lambda b: (b.from_x, b.to_x))
+            for ix, bucket in enumerate(buckets):
+                yield (
+                    exp_category,
+                    path_category,
+                    bucket.from_x,
+                    bucket.to_x,
+                    bucket.first_x if ix == 0 else bucket.last_x,
+                    bucket.first_y if ix == 0 else bucket.last_y,
+                )
+
+    types = [
+        (container_column_name, "uint32"),
+        ("path", "uint32"),
+        ("from_x", "float64"),
+        ("to_x", "float64"),
+        ("x", "float64"),
+        ("y", "float64"),
+    ]
+
+    df = pd.DataFrame(
+        np.fromiter(generate_categorized_rows(), dtype=types),
+    )
+    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
+    df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
+
+    df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
+    df = df.drop(columns=["from_x", "to_x"])
+
+    df = df.pivot_table(
+        index="bucket",
+        columns=[container_column_name, "path"],
+        values=["x", "y"],
+        observed=True,
+        dropna=False,
+        sort=False,
+    )
+    df.columns = df.columns.set_levels(
+        df.columns.get_level_values(container_column_name).unique().astype(str),
+        level=container_column_name,
+    )
+
+    df = _restore_path_column_names(df, path_mapping, None)
+
+    # Clear out any columns that were not requested, but got added because of dropna=False
+    desired_columns = [
+        (
+            dim,
+            sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
+            run_attr_definition.attribute_definition.name,
+        )
+        for run_attr_definition in buckets_data.keys()
+        for dim in ("x", "y")
+    ]
+    df = df.filter(desired_columns, axis="columns")
+
+    df = df.reorder_levels([1, 2, 0], axis="columns")
+    df = df.sort_index(axis="columns", level=[0, 1])
+    df = df.sort_index()
+    df.index.name = None
+    df.columns.names = (container_column_name, "metric", "bucket")
+
+    df = _collapse_open_buckets(df)
+
+    return df
+
+
+def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    1st returned bucket is always (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
+    resulting in a new bucket [first_point, end].
+    """
+    df.index = df.index.astype(object)  # IntervalIndex cannot mix Intervals closed from different sides
+
+    if df.index.empty:
+        return df
+
+    if len(df.index) == 1:
+        finite_value = None
+        if np.isfinite(df.index[0].right) and not np.isfinite(df.index[0].left):
+            finite_value = df.index[0].right
+        elif np.isfinite(df.index[0].left) and not np.isfinite(df.index[0].right):
+            finite_value = df.index[0].left
+
+        if finite_value is not None:
+            new_interval = pd.Interval(left=finite_value, right=finite_value, closed="both")
+            df.index = pd.Index([new_interval], dtype=object)
+        return df
+
+    col_funcs = {
+        "x": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
+        "y": lambda s: s[s.first_valid_index()] if s.first_valid_index() is not None else np.nan,
+    }
+
+    first, second = df.index[0], df.index[1]
+    if first.right >= second.left - second.length * 0.5:  # floats can be imprecise, we use bucket length as a tolerance
+        new_interval = pd.Interval(left=first.right, right=second.right, closed="both")
+        new_row = df.iloc[0:2].apply(axis="index", func=lambda col: col_funcs[col.name[-1]](col))
+        df = df.drop(index=[first, second])
+        df.loc[new_interval] = new_row
+        df = df.sort_index()
+    else:
+        new_interval = pd.Interval(left=first.right, right=first.right + second.length, closed="both")
+        df.index = [new_interval] + list(df.index[1:])
+
+    return df
+
+
 def _pivot_and_reindex_df(
     df: pd.DataFrame,
     include_point_previews: bool,
@@ -442,7 +588,7 @@ def _pivot_and_reindex_df(
         )
 
     # Include only observed (experiment, step) pairs
-    df = df.reindex(index=observed_idx)
+    df = df.filter(observed_idx, axis="index")
 
     # Replace categorical codes in `index_column_name` with strings
     df.index = df.index.set_levels(
@@ -460,7 +606,6 @@ def _restore_path_column_names(
     Accepts an DF in an intermediate format in _create_dataframe, and the mapping of column names.
     Restores colum names in the DF based on the mapping.
     """
-
     # No columns to rename, simply ensure the dtype of the path column changes from categorical int to str
     if df.columns.empty:
         if isinstance(df.columns, pd.MultiIndex):
@@ -482,11 +627,11 @@ def _sort_indices(df: pd.DataFrame) -> pd.DataFrame:
     # We also sort columns, but only after the original names have been restored.
     if isinstance(df.columns, pd.MultiIndex):
         df.columns.names = (None, None)
-        df = df.swaplevel(axis=1)
-        return df.sort_index(axis=1, level=0)
+        df = df.swaplevel(axis="columns")
+        return df.sort_index(axis="columns", level=0)
     else:
         df.columns.name = None
-        return df.sort_index(axis=1)
+        return df.sort_index(axis="columns")
 
 
 def create_files_dataframe(
