@@ -30,7 +30,7 @@ from ..composition import (
     type_inference,
     validation,
 )
-from ..composition.attribute_components import fetch_attribute_definitions_split
+from ..composition.attribute_components import fetch_attribute_values_by_filter_split
 from ..context import (
     Context,
     get_context,
@@ -145,24 +145,23 @@ def _fetch_metrics(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: fetch_attribute_definitions_split(
+        downstream=lambda sys_ids: fetch_attribute_values_by_filter_split(
             client=client,
             project_identifier=project_identifier,
             attribute_filter=attributes,
             executor=executor,
             fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
             sys_ids=sys_ids,
-            downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
+            downstream=lambda values_page: concurrency.generate_concurrently(
                 items=split.split_series_attributes(
                     items=(
                         identifiers.RunAttributeDefinition(
-                            run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
-                            attribute_definition=definition,
+                            run_identifier=value.run_identifier,
+                            attribute_definition=value.attribute_definition,
                         )
-                        for sys_id in sys_ids_split
-                        for definition in definitions_page.items
-                        if definition.type == "float_series"
-                    )
+                        for value in values_page.items
+                        if value.attribute_definition.type == "float_series"
+                    ),
                 ),
                 executor=executor,
                 downstream=lambda run_attribute_definitions_split: concurrency.return_value(

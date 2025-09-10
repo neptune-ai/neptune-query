@@ -19,6 +19,7 @@ from neptune_query.internal.identifiers import (
     SysName,
 )
 from neptune_query.internal.retrieval import util
+from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.search import ExperimentSysAttrs
 
 
@@ -85,27 +86,20 @@ def test_list_attributes_patched(sys_id_length, exp_count, expected_calls):
 
 
 @pytest.mark.parametrize(
-    "sys_id_length, exp_count, attr_name_length, attr_count, expected_calls",
+    "sys_id_length, exp_count, expected_calls",
     [
-        (100, 0, 100, 0, []),
-        (100, 1, 100, 0, []),
-        (100, 1, 100, 1, [(1, [1])]),
-        (1000, 1, 100, 400, [(1, [400])]),
-        (1000, 1, 1000, 400, [(1, [219, 181])]),
-        (1000, 1, 10000, 400, [(1, [21] * 19 + [1])]),
-        (1000, 1, 1000000, 20, [(1, [1] * 20)]),
-        (1000, 2, 1000, 400, [(2, [219, 181])]),
-        (1000, 20, 1000, 400, [(20, [219, 181])]),
-        (1000, 21, 1000, 400, [(20, [219, 181]), (1, [219, 181])]),
-        (1000, 42, 1000, 400, [(20, [219, 181])] * 2 + [(2, [219, 181])]),
-        (1000, 10, 100, 4000, [(2, [2199, 1801])] * 5),
-        (1000, 10, 200, 4000, [(4, [1099, 1099, 1099, 703])] * 2 + [(2, [1099, 1099, 1099, 703])]),
-        (100, 400, 1000, 1, [(400, [1])]),
-        (10000, 400, 1000, 1, [(400, [1])]),
-        (10, 40000, 10, 1, [(4000, [1])] * 10),
+        (100, 0, []),
+        (100, 1, [1]),
+        (100, 10, [10]),
+        (100, 1000, [1000]),
+        (100, 10000, [3334, 3334, 3332]),
+        (10000, 1000, [1000]),
+        (10000, 10000, [3334, 3334, 3332]),
+        (100, 8800, [4400, 4400]),
+        (100, 8801, [2934, 2934, 2933]),
     ],
 )
-def test_fetch_experiments_table_patched(sys_id_length, exp_count, attr_name_length, attr_count, expected_calls):
+def test_fetch_experiments_table_patched(sys_id_length, exp_count, expected_calls):
     #  given
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
@@ -113,64 +107,43 @@ def test_fetch_experiments_table_patched(sys_id_length, exp_count, attr_name_len
         ExperimentSysAttrs(sys_id=SysId(f"{i:0{sys_id_length}d}"), sys_name=SysName("irrelevant"))
         for i in range(exp_count)
     ]
-    attributes = [AttributeDefinition(name=f"{i:0{attr_name_length}d}", type="irrelevant") for i in range(attr_count)]
-
-    expected_runs_attributes = []
-    experiment_start = 0
-    for experiment_size, attribute_sizes in expected_calls:
-        attribute_start = 0
-        for attribute_size in attribute_sizes:
-            run_identifiers = [
-                RunIdentifier(project_identifier=project, sys_id=experiment.sys_id)
-                for experiment in experiments[experiment_start : experiment_start + experiment_size]
-            ]
-            attribute_definitions = attributes[attribute_start : attribute_start + attribute_size]
-            expected_runs_attributes.append((run_identifiers, attribute_definitions))
-            attribute_start += attribute_size
-        experiment_start += experiment_size
-    expected_runs_attributes_sizes = [
-        (len(run_identifiers), len(attribute_definitions))
-        for run_identifiers, attribute_definitions in expected_runs_attributes
-    ]
+    attribute_filter = AttributeFilter(name="ignored")
+    attribute_filter_internal = attribute_filter._to_internal()
 
     # when
     with (
         patch("neptune_query.internal.client.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
-        patch(
-            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
-        ) as fetch_attribute_definitions_single_filter,
         patch("neptune_query.internal.retrieval.attribute_values.fetch_attribute_values") as fetch_attribute_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
         fetch_attribute_values.return_value = iter([])
 
         npt.fetch_experiments_table(
             project=project,
             experiments="ignored",
-            attributes=AttributeFilter(name="ignored"),
+            attributes=attribute_filter,
         )
 
     # then
     call_sizes = Counter(
-        (
-            len(fetch_attribute_values.call_args_list[i].kwargs["run_identifiers"]),
-            len(fetch_attribute_values.call_args_list[i].kwargs["attribute_definitions"]),
-        )
+        len(fetch_attribute_values.call_args_list[i].kwargs["run_identifiers"])
         for i in range(fetch_attribute_values.call_count)
     )
-    assert call_sizes == Counter(expected_runs_attributes_sizes)
+    assert call_sizes == Counter(expected_calls)
     fetch_attribute_values.assert_has_calls(
         [
             call(
                 client=ANY,
                 project_identifier=project,
-                run_identifiers=expected_run_identifiers,
-                attribute_definitions=expected_run_attribute_definitions,
+                run_identifiers=[
+                    RunIdentifier(project_identifier=project, sys_id=e.sys_id) for e in experiments[start:end]
+                ],
+                attribute_definitions=attribute_filter_internal,
+                batch_size=ANY,
             )
-            for expected_run_identifiers, expected_run_attribute_definitions in expected_runs_attributes
+            for start, end in _edges(expected_calls)
         ],
         any_order=True,
     )
@@ -212,18 +185,25 @@ def test_fetch_series_patched(sys_id_length, exp_count, attr_name_length, attr_c
         for attribute in attributes
     ]
 
+    def generate_fetch_attribute_values(**kwargs):
+        run_ids_set = set(kwargs["run_identifiers"])
+        filtered = [
+            AttributeValue(attribute_definition=r.attribute_definition, run_identifier=r.run_identifier, value="")
+            for r in run_attribute_definitions
+            if r.run_identifier in run_ids_set
+        ]
+        return iter([util.Page(filtered)])
+
     # when
     with (
         patch("neptune_query.internal.composition.fetch_series.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
-        patch(
-            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
-        ) as fetch_attribute_definitions_single_filter,
+        patch("neptune_query.internal.retrieval.attribute_values.fetch_attribute_values") as fetch_attribute_values,
         patch("neptune_query.internal.retrieval.series.fetch_series_values") as fetch_series_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_attribute_values.side_effect = generate_fetch_attribute_values
         fetch_series_values.return_value = iter([])
 
         npt.fetch_series(
@@ -281,7 +261,7 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
         for i in range(exp_count)
     ]
     attributes = [AttributeDefinition(name=f"{i:0{attr_name_length}d}", type="float_series") for i in range(attr_count)]
-    exp_attributes = [
+    run_attribute_definitions = [
         RunAttributeDefinition(
             run_identifier=RunIdentifier(project_identifier=project, sys_id=experiment.sys_id),
             attribute_definition=attribute,
@@ -290,20 +270,27 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
         for attribute in attributes
     ]
 
+    def generate_fetch_attribute_values(**kwargs):
+        run_ids_set = set(kwargs["run_identifiers"])
+        filtered = [
+            AttributeValue(attribute_definition=r.attribute_definition, run_identifier=r.run_identifier, value="")
+            for r in run_attribute_definitions
+            if r.run_identifier in run_ids_set
+        ]
+        return iter([util.Page(filtered)])
+
     # when
     with (
         patch("neptune_query.internal.composition.fetch_metrics.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
-        patch(
-            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
-        ) as fetch_attribute_definitions_single_filter,
+        patch("neptune_query.internal.retrieval.attribute_values.fetch_attribute_values") as fetch_attribute_values,
         patch(
             "neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values"
         ) as fetch_multiple_series_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_attribute_values.side_effect = generate_fetch_attribute_values
         fetch_multiple_series_values.return_value = {}
 
         npt.fetch_metrics(
@@ -322,7 +309,7 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
         [
             call(
                 client=ANY,
-                run_attribute_definitions=exp_attributes[start:end],
+                run_attribute_definitions=run_attribute_definitions[start:end],
                 include_inherited=ANY,
                 container_type=ANY,
                 include_preview=ANY,
