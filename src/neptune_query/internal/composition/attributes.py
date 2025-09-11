@@ -14,12 +14,11 @@
 # limitations under the License.
 
 from concurrent.futures import Executor
-from dataclasses import dataclass
 from typing import (
     Generator,
     Iterable,
-    Literal,
     Optional,
+    Tuple,
 )
 
 from neptune_api.client import AuthenticatedClient
@@ -34,13 +33,6 @@ from ..retrieval import attribute_definitions as att_defs
 from ..retrieval import attribute_values as att_vals
 from ..retrieval import util
 from ..retrieval.attribute_filter import split_attribute_filters
-from ..retrieval.attribute_types import TYPE_AGGREGATIONS
-
-
-@dataclass(frozen=True)
-class AttributeDefinitionAggregation:
-    attribute_definition: identifiers.AttributeDefinition
-    aggregation: Literal["last", "min", "max", "average", "variance"]
 
 
 def fetch_attribute_definitions(
@@ -60,53 +52,6 @@ def fetch_attribute_definitions(
         new_items = [item for item in page.items if item not in seen_items]
         seen_items.update(new_items)
         yield util.Page(items=new_items)
-
-
-def fetch_attribute_definition_aggregations(
-    client: AuthenticatedClient,
-    project_identifiers: Iterable[identifiers.ProjectIdentifier],
-    run_identifiers: Iterable[identifiers.RunIdentifier],
-    attribute_filter: filters._BaseAttributeFilter,
-    executor: Executor,
-    batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
-) -> Generator[
-    tuple[util.Page[identifiers.AttributeDefinition], util.Page[AttributeDefinitionAggregation]], None, None
-]:
-    """
-    Each attribute definition is yielded once when it's first encountered.
-    If the attribute definition is of a type that supports aggregations (for now only float_series),
-    it's then yielded once for each aggregation in the filter that returned it.
-    """
-
-    pages_filters = _fetch_attribute_definitions(
-        client, project_identifiers, run_identifiers, attribute_filter, batch_size, executor
-    )
-
-    seen_definitions: set[identifiers.AttributeDefinition] = set()
-    seen_definition_aggregations: set[AttributeDefinitionAggregation] = set()
-
-    for page, filter_ in pages_filters:
-        new_definitions = []
-        new_definition_aggregations = []
-
-        for definition in page.items:
-            if definition not in seen_definitions:
-                new_definitions.append(definition)
-                seen_definitions.add(definition)
-
-            if definition.type in TYPE_AGGREGATIONS.keys():
-                for aggregation in filter_.aggregations:
-                    if aggregation not in TYPE_AGGREGATIONS[definition.type]:
-                        continue
-
-                    definition_aggregation = AttributeDefinitionAggregation(
-                        attribute_definition=definition, aggregation=aggregation
-                    )
-                    if definition_aggregation not in seen_definition_aggregations:
-                        new_definition_aggregations.append(definition_aggregation)
-                        seen_definition_aggregations.add(definition_aggregation)
-
-        yield util.Page(items=new_definitions), util.Page(items=new_definition_aggregations)
 
 
 def _fetch_attribute_definitions(
@@ -154,10 +99,10 @@ def fetch_attribute_values(
         client, project_identifier, run_identifiers, attribute_filter, batch_size, executor
     )
 
-    seen_items: set[att_vals.AttributeValue] = set()
+    seen_items: set[Tuple[identifiers.RunIdentifier, identifiers.AttributeDefinition]] = set()
     for page in pages_filters:
-        new_items = [item for item in page.items if item not in seen_items]
-        seen_items.update(new_items)
+        new_items = [item for item in page.items if (item.run_identifier, item.attribute_definition) not in seen_items]
+        seen_items.update((item.run_identifier, item.attribute_definition) for item in new_items)
         yield util.Page(items=new_items)
 
 
