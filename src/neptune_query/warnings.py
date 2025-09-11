@@ -16,3 +16,19 @@
 
 class ExperimentalWarning(UserWarning):
     """Warning for use of experimental API elements."""
+
+
+class AttributeWarning(UserWarning):
+    """Warning for attribute issues."""
+
+
+class Http429Warning(UserWarning):
+    """Warning for HTTP 429 responses."""
+
+
+class Http5xxWarning(UserWarning):
+    """Warning for HTTP 5xx responses."""
+
+
+class HttpOtherWarning(UserWarning):
+    """Warning for other HTTP issues."""
