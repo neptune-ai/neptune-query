@@ -11,7 +11,7 @@ With the Query API, you can:
 ## Installation
 
 ```bash
-pip install "neptune-query>=1.2.0,<2.0.0"
+pip install "neptune-query>=1.4.1,<2.0.0"
 ```
 
 Set your Neptune API token and project name as environment variables:
@@ -24,7 +24,7 @@ export NEPTUNE_API_TOKEN="ApiTokenFromYourNeptuneProfile"
 export NEPTUNE_PROJECT="workspace-name/project-name"
 ```
 
-For help, see [Get started][setup] in the Neptune documentation.
+For help, see [Query metadata: Setup][setup] in the Neptune documentation.
 
 > **Note:** You can also pass the project path to the `project` argument of any querying function.
 
@@ -42,6 +42,9 @@ Available functions:
 - `list_attributes()` &ndash; all logged attributes of the target project's experiment runs.
 - `list_experiments()` &ndash; names of experiments in the target project.
 - `set_api_token()` &ndash; set the Neptune API token to use for the session.
+- (experimental) `fetch_metric_buckets()` &ndash; get summary values split by X-axis buckets.
+
+For details, see the [API reference][api-reference].
 
 > To use the corresponding methods for runs, import the Runs API:
 >
@@ -95,6 +98,11 @@ exp_hstrj                 0.365521             0.459901            0.01
 
 > For series attributes, the value of the last logged step is returned.
 
+## Documentation
+
+- [How to query metadata][query-metadata]
+- [API reference][api-reference]
+
 ---
 
 ## License
@@ -102,7 +110,9 @@ exp_hstrj                 0.365521             0.459901            0.01
 This project is licensed under the Apache License Version 2.0. For details, see [Apache License Version 2.0][license].
 
 
-[setup]: https://docs.neptune.ai/setup
+[api-reference]: https://docs.neptune.ai/api_overview
+[query-metadata]: https://docs.neptune.ai/query_metadata
+[setup]: https://docs.neptune.ai/query_metadata#setup
 
 [neptune-client-scale]: https://github.com/neptune-ai/neptune-client-scale
 
