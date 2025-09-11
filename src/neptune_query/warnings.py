@@ -16,3 +16,7 @@
 
 class ExperimentalWarning(UserWarning):
     """Warning for use of experimental API elements."""
+
+
+class AttributeWarning(UserWarning):
+    """Warning for attribute issues."""

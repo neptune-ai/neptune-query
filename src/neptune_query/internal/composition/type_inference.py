@@ -28,6 +28,7 @@ from typing import (
 from neptune_api.client import AuthenticatedClient
 
 from ...exceptions import AttributeTypeInferenceError
+from ...warnings import AttributeWarning
 from .. import (
     filters,
     identifiers,
@@ -156,8 +157,7 @@ class InferenceState(Generic[T]):
         for attr_state in self.attributes:
             if attr_state.warning_text:
                 msg = f"Attribute '{attr_state.original_attribute.name}': {attr_state.warning_text}"
-                # TODO: Add category to warnings.py
-                warnings.warn(msg, stacklevel=3)
+                warnings.warn(msg, category=AttributeWarning, stacklevel=3)
 
 
 def infer_attribute_types_in_filter(
