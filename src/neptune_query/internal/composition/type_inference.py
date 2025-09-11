@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
-import warnings
 from collections import defaultdict
 from concurrent.futures import Executor
 from dataclasses import dataclass
@@ -40,6 +39,7 @@ from ..retrieval.attribute_types import (
     HISTOGRAM_SERIES_AGGREGATIONS,
     STRING_SERIES_AGGREGATIONS,
 )
+from ..warnings import throttled_warn
 from .attributes import fetch_attribute_definitions
 
 T = TypeVar("T", bound=Union[filters._Filter, filters._Attribute, None])
@@ -156,8 +156,10 @@ class InferenceState(Generic[T]):
     def emit_warnings(self) -> None:
         for attr_state in self.attributes:
             if attr_state.warning_text:
-                msg = f"Attribute '{attr_state.original_attribute.name}': {attr_state.warning_text}"
-                warnings.warn(msg, category=AttributeWarning, stacklevel=3)
+                throttled_warn(
+                    AttributeWarning(f"Attribute '{attr_state.original_attribute.name}': {attr_state.warning_text}"),
+                    stacklevel=3,
+                )
 
 
 def infer_attribute_types_in_filter(
