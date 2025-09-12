@@ -45,6 +45,25 @@ from .search import ContainerType
 logger = get_logger()
 
 
+class File2(File):
+    """Extension of the File class that allows setting binary/string as payload"""
+
+    @property
+    def payload(self) -> BytesIO:
+        return self.get_payload()
+
+    @payload.setter
+    def payload(self, value: BytesIO | bytes | str) -> None:
+        if isinstance(value, BytesIO):
+            self.get_payload = lambda: value
+        elif isinstance(value, bytes):
+            self.get_payload = lambda: BytesIO(value)
+        elif isinstance(value, str):
+            self.get_payload = lambda: BytesIO(value.encode("utf-8"))
+        else:
+            raise ValueError(f"Invalid type for payload: {type(value)}")
+
+
 @dataclass(frozen=True)
 class TimeseriesBucket:
     index: int
@@ -147,7 +166,7 @@ def fetch_time_series_buckets(
     call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.sync_detailed))
     response = call_api(
         client=client,
-        body=File(payload=BytesIO(request_object.SerializeToString())),
+        body=File2(request_object.SerializeToString()),
     )
 
     logger.debug(
