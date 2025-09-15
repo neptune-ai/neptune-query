@@ -38,12 +38,6 @@ _silence_warnings_msg: set[tuple[Type[Warning], str]] = set()
 _silence_warnings_until: dict[Type[Warning], datetime] = {}
 
 
-def get_thread_id() -> int:
-    import threading
-
-    return threading.get_ident() % 123
-
-
 def format_warning(warning: Warning) -> Warning:
     # check if stderr is a terminal:
     if sys.stderr.isatty():
