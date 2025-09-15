@@ -5,7 +5,6 @@ from typing import (
     Union,
 )
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -28,6 +27,11 @@ from tests.e2e.data import (
     PATH,
     TEST_DATA,
     ExperimentData,
+)
+from tests.e2e.metric_buckets import (
+    aggregate_metric_buckets,
+    calculate_global_range,
+    calculate_metric_bucket_ranges,
 )
 from tests.e2e.v1.generator import (
     EXP_NAME_INF_NAN_RUN,
@@ -62,7 +66,7 @@ def create_expected_data_experiments(
         }
         for exp in experiments
     }
-    return create_expected_data_dict(
+    return _create_expected_data_metric_buckets_dataframe(
         data,
         project_identifier,
         x,
@@ -71,101 +75,38 @@ def create_expected_data_experiments(
     )
 
 
-def _calculate_ranges_x(
+def _calculate_expected_data_global_range(
     data: dict[str, dict[str, list[tuple[float, float]]]],
-    limit: int,
-) -> list[tuple[float, float]]:
-    global_range_x: Optional[tuple[float, float]] = None
+) -> tuple[float, float]:
+    global_range: Optional[tuple[float, float]] = None
     for experiment_data in data.values():
-        for series in experiment_data.values():
-            xs = [x for x, _ in series]
-            if global_range_x is None:
-                global_range_x = min(xs), max(xs)
+        for series_data in experiment_data.values():
+            series_range = calculate_global_range(series_data, x_range=None)
+            if global_range is None:
+                global_range = series_range
             else:
-                global_min_x, global_max_x = global_range_x
-                global_range_x = min(global_min_x, min(xs)), max(global_max_x, max(xs))
-    assert global_range_x is not None
-    global_min_x, global_max_x = global_range_x
-
-    if global_min_x == global_max_x:
-        return [(global_min_x, float("inf"))]  # TODO: bug on the backend side...
-
-    bucket_ranges_x = []
-    bucket_width = (global_max_x - global_min_x) / (limit - 1)
-    for bucket_i in range(limit):
-        if bucket_i == 0:
-            from_x = float("-inf")
-        else:
-            from_x = global_min_x + bucket_width * (bucket_i - 1)
-
-        if bucket_i == limit:
-            to_x = float("inf")
-        else:
-            to_x = global_min_x + bucket_width * bucket_i
-        bucket_ranges_x.append((from_x, to_x))
-
-    return bucket_ranges_x
+                global_range = (
+                    min(global_range[0], series_range[0]),
+                    max(global_range[1], series_range[1]),
+                )
+    assert global_range is not None
+    return global_range
 
 
-def create_expected_data_dict(
+def _create_expected_data_metric_buckets_dataframe(
     data: dict[str, dict[str, list[tuple[float, float]]]],
     project_identifier: ProjectIdentifier,
     x: Union[Literal["step"]],  # TODO - only option
     limit: int,
     include_point_previews: bool,  # TODO - add to the test data?
 ) -> pd.DataFrame:
-    bucket_ranges_x = _calculate_ranges_x(data, limit + 1)
+    global_from, global_to = _calculate_expected_data_global_range(data)
+    bucket_ranges = calculate_metric_bucket_ranges(global_from, global_to, limit=limit + 1)
 
     bucket_data: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
     for experiment_name, experiment_data in data.items():
         for path, series in experiment_data.items():
-            buckets = []
-            for bucket_i, bucket_range_x in enumerate(bucket_ranges_x):
-                from_x, to_x = bucket_range_x
-
-                count = 0
-                positive_inf_count = 0
-                negative_inf_count = 0
-                nan_count = 0
-                xs = []
-                ys = []
-                for x, y in series:
-                    if from_x < x <= to_x or (
-                        bucket_i == 0 and x == from_x
-                    ):  # TODO: remove the 2nd case after bug is fixed
-                        # TODO: these counts are not checked yet bc they are not in the final df
-                        count += 1
-                        if np.isposinf(y):
-                            positive_inf_count += 1
-                        elif np.isneginf(y):
-                            negative_inf_count += 1
-                        elif np.isnan(y):
-                            nan_count += 1
-                        else:
-                            xs.append(x)
-                            ys.append(y)
-                if count == 0:
-                    continue
-
-                bucket = TimeseriesBucket(
-                    index=bucket_i,
-                    from_x=from_x,
-                    to_x=to_x,
-                    first_x=xs[0] if xs else float("nan"),
-                    first_y=ys[0] if ys else float("nan"),
-                    last_x=xs[-1] if xs else float("nan"),
-                    last_y=ys[-1] if ys else float("nan"),
-                    # statistics:
-                    y_min=float(np.min(ys)) if ys else float("nan"),
-                    y_max=float(np.max(ys)) if ys else float("nan"),
-                    finite_point_count=len(ys),
-                    nan_count=nan_count,
-                    positive_inf_count=positive_inf_count,
-                    negative_inf_count=negative_inf_count,
-                    finite_points_sum=float(np.sum(ys)) if ys else 0.0,
-                )
-                buckets.append(bucket)
-
+            buckets = aggregate_metric_buckets(series, bucket_ranges)
             attribute_run = _to_run_attribute_definition(project_identifier, experiment_name, path)
             bucket_data.setdefault(attribute_run, []).extend(buckets)
 
@@ -209,7 +150,7 @@ def create_expected_data_dict(
         ),
     ],
 )
-def test__fetch_metric_buckets__filter_variants(
+def test__fetch_metric_buckets__experiment_attribute_filter_variants(
     project,
     arg_experiments,
     x,
@@ -245,12 +186,12 @@ def test__fetch_metric_buckets__filter_variants(
     [1, 2, 3, 10, NUMBER_OF_STEPS + 10, 1000],
 )
 @pytest.mark.parametrize(
-    "include_point_previews",
-    [True, False],
-)
-@pytest.mark.parametrize(
     "x",
     ["step"],
+)
+@pytest.mark.parametrize(  # Not sure where to test variants of preview. They are ignored for now anyway...
+    "include_point_previews",
+    [True, False],
 )
 @pytest.mark.parametrize(
     "arg_experiments,y",
@@ -270,7 +211,7 @@ def test__fetch_metric_buckets__filter_variants(
         ),
     ],
 )
-def test__fetch_metric_buckets__bucket_variants(
+def test__fetch_metric_buckets__bucketing_x_limit_variants(
     project,
     arg_experiments,
     x,
@@ -322,7 +263,7 @@ def test__fetch_metric_buckets__bucket_variants(
     "include_point_previews",
     [True],
 )
-def test__fetch_metric_buckets__different_steps(
+def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
     arg_experiments,
     y,
     project,
@@ -344,7 +285,7 @@ def test__fetch_metric_buckets__different_steps(
         experiment.name: {path: experiment.unique_length_float_series[path] for path in y}
         for experiment in arg_experiments
     }
-    expected_df = create_expected_data_dict(
+    expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
         project_identifier=project.project_identifier,
         x=x,
@@ -397,7 +338,7 @@ def test__fetch_metric_buckets__inf_nan(
     )
 
     expected_data = {arg_experiments: {y: RUN_BY_ID[run_id].metrics_values(y)}}
-    expected_df = create_expected_data_dict(
+    expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
         project_identifier=new_project_id,
         x=x,

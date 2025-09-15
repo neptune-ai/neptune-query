@@ -170,6 +170,7 @@ def _fetch_metric_buckets(
         include_point_previews=include_point_previews,
         limit=limit,
         container_type=container_type,
+        x_range=None,
     )
 
     return buckets_data, sys_id_label_mapping

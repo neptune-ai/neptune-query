@@ -91,6 +91,7 @@ def fetch_time_series_buckets(
     lineage_to_the_root: bool,
     include_point_previews: bool,
     limit: int,
+    x_range: Optional[tuple[float, float]],
 ) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
     run_attribute_definitions = list(run_attribute_definitions)
 
@@ -127,14 +128,15 @@ def fetch_time_series_buckets(
         )
 
     view = ProtoView(
-        # from=0.0,
-        # to=1.0,
-        # pointFilters=ProtoPointFilters(),
         maxBuckets=limit,
         xScale=ProtoScale.linear,
         yScale=ProtoScale.linear,
         xAxis=xAxis,
     )
+    if x_range is not None:
+        x_from, x_to = x_range
+        view.to = x_to
+        setattr(view, "from", x_from)  # from is a reserved keyword in Python
 
     request_object = ProtoGetTimeseriesBucketsRequest(
         expressions=expressions.values(),
