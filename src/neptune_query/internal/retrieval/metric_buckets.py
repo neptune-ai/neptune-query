@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from io import BytesIO
 from typing import (
     Iterable,
     Literal,
@@ -34,13 +33,13 @@ from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
     XSteps,
 )
 from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoTimeseriesBucketsDTO
-from neptune_api.types import File
 
 from ..identifiers import RunAttributeDefinition
 from ..logger import get_logger
 from ..query_metadata_context import with_neptune_client_metadata
 from . import retry
 from .search import ContainerType
+from .util import ProtobufPayload
 
 logger = get_logger()
 
@@ -147,7 +146,7 @@ def fetch_time_series_buckets(
     call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.sync_detailed))
     response = call_api(
         client=client,
-        body=File(payload=BytesIO(request_object.SerializeToString())),
+        body=ProtobufPayload(request_object),
     )
 
     logger.debug(
