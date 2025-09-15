@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from typing import (
     Any,
     Callable,
@@ -25,7 +26,9 @@ from typing import (
     TypeVar,
 )
 
+from google.protobuf.message import Message
 from neptune_api import AuthenticatedClient
+from neptune_api.types import File
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -50,3 +53,15 @@ def fetch_pages(
         page = process_page(data)
         yield page
         page_params = make_new_page_params(page_params, data)
+
+
+class ProtobufPayload(File):
+    """A version of the neptune_api.types.File class that uses a protobuf message as payload"""
+
+    @property
+    def payload(self) -> BytesIO:
+        return self.get_payload()
+
+    @payload.setter
+    def payload(self, message: Message) -> None:
+        self.get_payload = lambda: BytesIO(message.SerializeToString())
