@@ -14,17 +14,14 @@
 # limitations under the License.
 
 import functools
-import warnings
 from typing import (
     Callable,
     ParamSpec,
     TypeVar,
 )
 
+from neptune_query.internal.warnings import throttled_warn
 from neptune_query.warnings import ExperimentalWarning
-
-# registry of functions already warned
-_warned_experimentals = set()
 
 T = ParamSpec("T")
 R = TypeVar("R")
@@ -38,14 +35,13 @@ def experimental(func: Callable[T, R]) -> Callable[T, R]:
 
     @functools.wraps(func)
     def wrapper(*args: T.args, **kwargs: T.kwargs) -> R:
-        if func not in _warned_experimentals:
-            warnings.warn(
-                f"{func.__qualname__} is experimental and might change or be removed "
-                "in a future minor release. Use with caution in production code.",
-                category=ExperimentalWarning,
-                stacklevel=2,
-            )
-            _warned_experimentals.add(func)
+        throttled_warn(
+            ExperimentalWarning(
+                f"`{func.__module__}.{func.__qualname__}` is experimental and might change or be removed "
+                "in a future minor release. Use with caution in production code."
+            ),
+            stacklevel=3,
+        )
         return func(*args, **kwargs)
 
     return wrapper

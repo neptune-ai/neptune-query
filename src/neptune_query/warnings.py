@@ -14,5 +14,25 @@
 # limitations under the License.
 
 
+class AttributeWarning(UserWarning):
+    """Warning for attribute issues."""
+
+
 class ExperimentalWarning(UserWarning):
     """Warning for use of experimental API elements."""
+
+
+class Http429Warning(UserWarning):
+    """Warning for retryable HTTP 429 responses (rate limiting)."""
+
+
+class Http503Warning(UserWarning):
+    """Warning for retryable HTTP 503 responses (service unavailable)."""
+
+
+class Http5xxWarning(UserWarning):
+    """Warning for retryable HTTP 5xx responses (server errors)."""
+
+
+class HttpOtherWarning(UserWarning):
+    """Warning for other retryable HTTP issues."""
