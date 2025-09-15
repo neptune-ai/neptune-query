@@ -138,7 +138,7 @@ def test_http429_and_http5xx_warnings(mock_warn):
 
     # Further emissions within 20 seconds should be suppressed
     emit_warning_at_time(TIME_00_07, warning_429)  # 6s after first warning_429
-    emit_warning_at_time(TIME_00_10, warning_5xx)   # 7s after first warning_5xx
+    emit_warning_at_time(TIME_00_10, warning_5xx)  # 7s after first warning_5xx
     assert mock_warn.call_count == 2
 
     # Non-throttled warning should go through
