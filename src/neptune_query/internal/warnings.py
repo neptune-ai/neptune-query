@@ -27,14 +27,17 @@ from neptune_query.warnings import (
     HttpOtherWarning,
 )
 
-# registry of warnings that were already emitted with the (type, message) tuple
+# Types of warnings that should be emitted only once per unique message
 WARNING_TYPES_EMITTED_ONCE_PER_MESSAGE = (ExperimentalWarning,)
 
-# registry of warning types that were already emitted with the time they should be silenced until
+# Types of warnings that should be emitted only once per a certain time period
 WARNING_TYPES_EMITTED_ONCE_PER_WHILE = (Http429Warning, Http5xxWarning, HttpOtherWarning)
 WARNING_SUPPRESSION_DURATION = timedelta(seconds=20)
 
+# registry of warnings that were already emitted with the (type, message) tuple
 _silence_warnings_msg: set[tuple[Type[Warning], str]] = set()
+
+# registry of warning types that were already emitted with the time they should be silenced until
 _silence_warnings_until: dict[Type[Warning], datetime] = {}
 
 
