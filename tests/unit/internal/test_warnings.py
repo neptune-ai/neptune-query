@@ -89,7 +89,7 @@ def test_experimental_warning_once_per_message(mock_warn):
 
 
 @patch("neptune_query.internal.warnings.warnings.warn")
-def test_http429_warning_once_per_minute(mock_warn):
+def test_http429_warning_once_per_20s(mock_warn):
     """Http429Warning should be emitted once per minute"""
     warning = Http429Warning("Rate limit exceeded")
     different_warning = Http429Warning("Another rate limit message")
@@ -99,10 +99,10 @@ def test_http429_warning_once_per_minute(mock_warn):
     emit_warning_at_time(TIME_00_01, warning)
     mock_warn.assert_called_once_with(warning, stacklevel=3)
 
-    # Further emissions within a minute should be suppressed
-    emit_warning_at_time(TIME_00_03, warning)
-    emit_warning_at_time(TIME_00_07, warning)
-    emit_warning_at_time(TIME_00_18, warning)
+    # Further emissions within seconds should be suppressed
+    emit_warning_at_time(TIME_00_03, warning)  # 2s after first emission
+    emit_warning_at_time(TIME_00_07, warning)  # 6s after first emission
+    emit_warning_at_time(TIME_00_18, warning)  # 17s after first emission
     assert mock_warn.call_count == 1
 
     # Non-throttled warning should go through
@@ -114,7 +114,7 @@ def test_http429_warning_once_per_minute(mock_warn):
     emit_warning_at_time(TIME_00_18, different_warning)
     assert mock_warn.call_count == 3
 
-    # After a minute it should go through again
+    # After 21 seconds since first emission, it should go through again
     emit_warning_at_time(TIME_00_22, warning)
     assert mock_warn.call_count == 4
 
@@ -131,14 +131,14 @@ def test_http429_and_http5xx_warnings(mock_warn):
     assert mock_warn.call_count == 1
     mock_warn.assert_called_once_with(warning_429, stacklevel=3)
 
-    # Emit Http5xxWarning 9 seconds later
+    # Emit Http5xxWarning 2 seconds later
     emit_warning_at_time(TIME_00_03, warning_5xx)
     assert mock_warn.call_count == 2
     mock_warn.assert_called_with(warning_5xx, stacklevel=3)
 
-    # Further emissions within a minute should be suppressed
-    emit_warning_at_time(TIME_00_07, warning_429)
-    emit_warning_at_time(TIME_00_10, warning_5xx)
+    # Further emissions within 20 seconds should be suppressed
+    emit_warning_at_time(TIME_00_07, warning_429)  # 6s after first warning_429
+    emit_warning_at_time(TIME_00_10, warning_5xx)   # 7s after first warning_5xx
     assert mock_warn.call_count == 2
 
     # Non-throttled warning should go through
@@ -146,7 +146,7 @@ def test_http429_and_http5xx_warnings(mock_warn):
     emit_warning_at_time(TIME_00_18, non_throttled_warning)
     assert mock_warn.call_count == 4
 
-    # After a minute both should go through again
+    # After 21 seconds since first emission, warning_429 should go through again
     emit_warning_at_time(TIME_00_22, warning_429)
     assert mock_warn.call_count == 5
     mock_warn.assert_called_with(warning_429, stacklevel=3)
@@ -155,7 +155,7 @@ def test_http429_and_http5xx_warnings(mock_warn):
     emit_warning_at_time(TIME_00_22, warning_5xx)
     assert mock_warn.call_count == 5
 
-    # After another 10 seconds (total 1m15s), 5xx warning should go through
+    # After another 3 seconds (total 22s from first 5xx warning), 5xx warning should go through
     emit_warning_at_time(TIME_00_25, warning_5xx)
     assert mock_warn.call_count == 6
     mock_warn.assert_called_with(warning_5xx, stacklevel=3)
