@@ -35,6 +35,7 @@ from ... import exceptions
 from ...warnings import (
     Http5xxWarning,
     Http429Warning,
+    Http503Warning,
     HttpOtherWarning,
 )
 from .. import env
@@ -93,7 +94,6 @@ def retry_backoff(
                 response = None
                 try:
                     response = func(*args, **kwargs)
-
                     if 200 <= response.status_code.value < 300:
                         return response
                 except exceptions.NeptuneError:
@@ -113,29 +113,47 @@ def retry_backoff(
                     sleep_time = float(response.headers["retry-after"])
                     rate_limit_time_extension += sleep_time
                     backoff_tries = 0  # reset backoff tries counter when using a different strategy
+                    logger.debug(
+                        f"Neptune API request was rate limited. Retry-after header value: {sleep_time} seconds. "
+                        f"Total time spent on rate limiting so far: {rate_limit_time_extension} seconds."
+                    )
                     throttled_warn(
                         Http429Warning(
-                            f"Neptune API request was rate limited. Retry-after header value: {sleep_time} seconds. "
-                            f"Total time spent on rate limiting so far: {rate_limit_time_extension:.2f} seconds."
-                        )
+                            "Neptune API request was rate limited. We will slow down and retry automatically."
+                        ),
+                        stacklevel=4,
+                    )
+                elif response is not None and response.status_code.value == 503:
+                    sleep_time = backoff_strategy(backoff_tries)
+                    logger.debug(
+                        f"Neptune API request failed. Backoff strategy recommends backing off for {sleep_time:.2f} "
+                        f"seconds. Response: {response}. Last exception: {last_exc}."
+                    )
+                    throttled_warn(
+                        Http503Warning("Neptune API is temporarily unavailable. We will retry automatically."),
+                        stacklevel=4,
                     )
                 elif response is not None and 500 <= response.status_code.value < 600:
                     sleep_time = backoff_strategy(backoff_tries)
+                    logger.debug(
+                        f"Neptune API request failed. Backoff strategy recommends backing off for {sleep_time:.2f} "
+                        f"seconds. Response: {response}. Last exception: {last_exc}."
+                    )
                     throttled_warn(
                         Http5xxWarning(
-                            f"Neptune API request failed with {response.status_code.value}. "
-                            f"Backoff strategy recommends backing off for {sleep_time:.2f} seconds. "
-                            f"Response: {response}. Last exception: {last_exc}."
-                        )
+                            f"Neptune API request failed with HTTP code {response.status_code.value}. "
+                            "We will retry automatically."
+                        ),
+                        stacklevel=4,
                     )
                 else:
                     sleep_time = backoff_strategy(backoff_tries)
+                    logger.debug(
+                        f"Neptune API request failed. Backoff strategy recommends backing off for {sleep_time:.2f} "
+                        f"seconds. Response: {response}. Last exception: {last_exc}."
+                    )
                     throttled_warn(
-                        HttpOtherWarning(
-                            f"Neptune API request failed. "
-                            f"Backoff strategy recommends backing off for {sleep_time:.2f} seconds. "
-                            f"Response: {response}. Last exception: {last_exc}."
-                        )
+                        HttpOtherWarning("Neptune API request failed. We will retry automatically"), stacklevel=4
                     )
 
                 elapsed_time = time.monotonic() - start_time

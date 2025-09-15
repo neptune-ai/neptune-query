@@ -37,7 +37,7 @@ def experimental(func: Callable[T, R]) -> Callable[T, R]:
     def wrapper(*args: T.args, **kwargs: T.kwargs) -> R:
         throttled_warn(
             ExperimentalWarning(
-                f"{func.__qualname__} is experimental and might change or be removed "
+                f"`{func.__module__}.{func.__qualname__}` is experimental and might change or be removed "
                 "in a future minor release. Use with caution in production code."
             ),
             stacklevel=3,

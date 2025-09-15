@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import sys
 import warnings
 from datetime import (
     datetime,
@@ -24,31 +24,49 @@ from neptune_query.warnings import (
     ExperimentalWarning,
     Http5xxWarning,
     Http429Warning,
+    HttpOtherWarning,
 )
 
 # registry of warnings that were already emitted with the (type, message) tuple
-WARNING_CLASSES_EMITTED_ONCE_PER_MESSAGE = (ExperimentalWarning,)
+WARNING_TYPES_EMITTED_ONCE_PER_MESSAGE = (ExperimentalWarning,)
 
 # registry of warning types that were already emitted with the time they should be silenced until
-WARNING_CLASSES_EMITTED_ONCE_PER_MINUTE = (Http429Warning, Http5xxWarning)
-ONE_MINUTE = timedelta(seconds=60)
+WARNING_TYPES_EMITTED_ONCE_PER_WHILE = (Http429Warning, Http5xxWarning, HttpOtherWarning)
+WARNING_SUPPRESSION_DURATION = timedelta(seconds=20)
 
 _silence_warnings_msg: set[tuple[Type[Warning], str]] = set()
 _silence_warnings_until: dict[Type[Warning], datetime] = {}
 
 
-def throttled_warn(warning: Warning, stacklevel: int = 2) -> None:
-    if isinstance(warning, WARNING_CLASSES_EMITTED_ONCE_PER_MESSAGE):
+def get_thread_id() -> int:
+    import threading
+
+    return threading.get_ident() % 123
+
+
+def format_warning(warning: Warning) -> Warning:
+    # check if stderr is a terminal:
+    if sys.stderr.isatty():
+        orange_bold = "\033[1;38;2;255;165;0m"
+        end = "\033[0m"
+        msg = f"{orange_bold}{str(warning)}{end}"
+        return type(warning)(msg)
+    else:
+        return warning
+
+
+def throttled_warn(warning: Warning, stacklevel: int = 3) -> None:
+    if isinstance(warning, WARNING_TYPES_EMITTED_ONCE_PER_MESSAGE):
         key = (type(warning), str(warning))
         if key in _silence_warnings_msg:
             return
         _silence_warnings_msg.add(key)
 
-    if isinstance(warning, WARNING_CLASSES_EMITTED_ONCE_PER_MINUTE):
+    if isinstance(warning, WARNING_TYPES_EMITTED_ONCE_PER_WHILE):
         warning_type = type(warning)
         now = datetime.now()
         if warning_type in _silence_warnings_until and _silence_warnings_until[warning_type] > now:
             return
-        _silence_warnings_until[warning_type] = now + ONE_MINUTE
+        _silence_warnings_until[warning_type] = now + WARNING_SUPPRESSION_DURATION
 
-    warnings.warn(warning, stacklevel=stacklevel)
+    warnings.warn(format_warning(warning), stacklevel=stacklevel)
