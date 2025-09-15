@@ -184,7 +184,7 @@ def _make_new_series_page_params(
         if series.HasField("searchAfter")
     }
 
-    if not updated_request_tokens:
+    if not updated_request_tokens:  # no progress, stop fetching
         return None
 
     new_requests = [
@@ -192,6 +192,9 @@ def _make_new_series_page_params(
         for request in params["requests"]
         if request["requestId"] in existing_series and request["requestId"] not in finished_requests
     ]
+
+    if not new_requests:  # all requests are finished
+        return None
 
     params["requests"] = new_requests
     return params
