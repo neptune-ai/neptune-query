@@ -37,6 +37,7 @@ def test__fetch_experiments_table(project, run_with_attributes, sort_direction):
             "experiment": experiments if sort_direction == "asc" else experiments[::-1],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert len(df) == 6
     pd.testing.assert_frame_equal(df, expected)
 
@@ -56,6 +57,7 @@ def test__fetch_experiments_table_empty_attribute_list(project):
             "experiment": experiments,
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert len(df) == 6
     pd.testing.assert_frame_equal(df, expected)
 
@@ -114,6 +116,7 @@ def test__fetch_experiments_table_with_attributes_filter(
             ],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == (3, 3)
     pd.testing.assert_frame_equal(df[expected.columns], expected)
 
@@ -151,6 +154,7 @@ def test__fetch_experiments_table_with_attributes_filter_for_metrics(
             + suffix: [TEST_DATA.experiments[i].float_series[FLOAT_SERIES_PATHS[1]][-1] for i in range(3)],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == (3, 3)
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
@@ -190,6 +194,7 @@ def test__fetch_experiments_table_with_attributes_filter_for_string_series(
             ],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == expected.shape
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
@@ -231,6 +236,7 @@ def test__fetch_experiments_table_with_attributes_filter_for_histogram_series(
             ],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == expected.shape
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
@@ -270,6 +276,7 @@ def test__fetch_experiments_table_with_attributes_filter_for_file_series(
             ],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == expected.shape
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
@@ -308,6 +315,7 @@ def test__fetch_experiments_table_with_attributes_regex_filter_for_metrics(
             + suffix: [TEST_DATA.experiments[i].float_series[FLOAT_SERIES_PATHS[1]][-1] for i in range(3)],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == (3, 3)
     pd.testing.assert_frame_equal(df[expected.columns], expected)
     assert df[expected.columns].columns.equals(expected.columns)
@@ -341,6 +349,7 @@ def test__fetch_experiments_table_nan_inf(new_project_id):
             "series-ending-with-nan": [float("nan")],
         }
     ).set_index("experiment", drop=True)
+    expected.columns.name = "attribute"
     assert df.shape == (1, 7)
     pd.testing.assert_frame_equal(df[expected.columns], expected)
 

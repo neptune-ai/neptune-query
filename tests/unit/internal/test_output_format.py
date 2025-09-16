@@ -71,6 +71,8 @@ def test_convert_experiment_table_to_dataframe_empty():
 
     # then
     assert dataframe.empty
+    assert dataframe.columns.name == "attribute"
+    assert dataframe.index.name == "experiment"
 
 
 def test_convert_experiment_table_to_dataframe_single_string():

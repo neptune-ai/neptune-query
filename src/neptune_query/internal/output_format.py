@@ -67,7 +67,7 @@ def convert_table_to_dataframe(
     if not table_data:
         return pd.DataFrame(
             index=pd.Index([], name=index_column_name),
-            columns=[],
+            columns=pd.Index([], name="attribute"),
         )
 
     def convert_row(label: str, values: list[AttributeValue]) -> dict[str, Any]:
