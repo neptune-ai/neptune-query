@@ -67,9 +67,7 @@ def test_convert_experiment_table_to_dataframe_empty():
     experiment_data = {}
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
     # then
     assert dataframe.empty
@@ -84,13 +82,11 @@ def test_convert_experiment_table_to_dataframe_single_string():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1", ""): {"exp1": 42},
+        "attr1": {"exp1": 42},
     }
 
 
@@ -103,13 +99,11 @@ def test_convert_experiment_table_to_dataframe_single_string_with_type_suffix():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=True
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1:int", ""): {"exp1": 42},
+        "attr1:int": {"exp1": 42},
     }
 
 
@@ -129,17 +123,12 @@ def test_convert_experiment_table_to_dataframe_single_float_series():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "float_series"): {"last", "min", "variance"},
-        },
         type_suffix_in_column_names=False,
     )
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1", "last"): {"exp1": 42.0},
-        ("attr1", "min"): {"exp1": 0.0},
-        ("attr1", "variance"): {"exp1": 100.0},
+        "attr1": {"exp1": 42.0},
     }
 
 
@@ -159,15 +148,12 @@ def test_convert_experiment_table_to_dataframe_single_string_series():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "string_series"): {"last"},
-        },
         type_suffix_in_column_names=False,
     )
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1", "last"): {"exp1": "last log"},
+        "attr1": {"exp1": "last log"},
     }
 
 
@@ -188,15 +174,12 @@ def test_convert_experiment_table_to_dataframe_single_histogram_series():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "histogram_series"): {"last"},
-        },
         type_suffix_in_column_names=False,
     )
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1", "last"): {"exp1": OHistogram(type="COUNTING", edges=list(range(6)), values=list(range(5)))},
+        "attr1": {"exp1": OHistogram(type="COUNTING", edges=list(range(6)), values=list(range(5)))},
     }
 
 
@@ -217,15 +200,12 @@ def test_convert_experiment_table_to_dataframe_single_file_series():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "file_series"): {"last"},
-        },
         type_suffix_in_column_names=False,
     )
 
     # then
     assert dataframe.to_dict() == {
-        ("attr1", "last"): {
+        "attr1": {
             "exp1": OFile(
                 project_identifier="my-project",
                 experiment_name="exp1",
@@ -254,13 +234,11 @@ def test_convert_experiment_table_to_dataframe_single_file():
     }
 
     # when
-    dataframe_unflattened = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-    )
+    dataframe_unflattened = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
     # then
     assert dataframe_unflattened.to_dict() == {
-        ("attr1", ""): {
+        "attr1": {
             "exp1": OFile(
                 project_identifier="my-project",
                 experiment_name="exp1",
@@ -287,19 +265,17 @@ def test_convert_experiment_table_to_dataframe_disjoint_names():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
     # then
     expected_data = pd.DataFrame.from_dict(
         {
-            ("attr1", ""): {"exp1": 42.0, "exp2": float("nan")},
-            ("attr2", ""): {"exp1": float("nan"), "exp2": 43.0},
+            "attr1": {"exp1": 42.0, "exp2": float("nan")},
+            "attr2": {"exp1": float("nan"), "exp2": 43.0},
         }
     )
     expected_data.index.name = "experiment"
-    expected_data.columns = pd.MultiIndex.from_tuples(expected_data.columns, names=["attribute", "aggregation"])
+    expected_data.columns.name = "attribute"
     assert_frame_equal(dataframe, expected_data)
 
 
@@ -315,19 +291,17 @@ def test_convert_experiment_table_to_dataframe_conflicting_types_with_suffix():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=True
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
 
     # then
     expected_data = pd.DataFrame.from_dict(
         {
-            ("attr1/a:b:c:float", ""): {"exp1": float("nan"), "exp2": 0.43},
-            ("attr1/a:b:c:int", ""): {"exp1": 42.0, "exp2": float("nan")},
+            "attr1/a:b:c:float": {"exp1": float("nan"), "exp2": 0.43},
+            "attr1/a:b:c:int": {"exp1": 42.0, "exp2": float("nan")},
         }
     )
     expected_data.index.name = "experiment"
-    expected_data.columns = pd.MultiIndex.from_tuples(expected_data.columns, names=["attribute", "aggregation"])
+    expected_data.columns.name = "attribute"
     assert_frame_equal(dataframe, expected_data)
 
 
@@ -344,79 +318,10 @@ def test_convert_experiment_table_to_dataframe_conflicting_types_without_suffix(
 
     # when
     with pytest.raises(ConflictingAttributeTypes) as exc_info:
-        convert_table_to_dataframe(
-            experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-        )
+        convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
     # then
     assert "attr1/a:b:c" in str(exc_info.value)
-
-
-def test_convert_experiment_table_to_dataframe_flatten_aggregations_only_last():
-    # given
-    experiment_data = {
-        identifiers.SysName("exp1"): [
-            AttributeValue(
-                AttributeDefinition("attr1", "float_series"),
-                FloatSeriesAggregations(last=42.0, min=0.0, max=100, average=24.0, variance=100.0),
-                EXPERIMENT_IDENTIFIER,
-            ),
-        ],
-    }
-    # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "float_series"): {"last"},
-        },
-        type_suffix_in_column_names=False,
-        flatten_aggregations=True,
-    )
-    # then
-    assert dataframe.to_dict() == {
-        "attr1": {"exp1": 42.0},
-    }
-
-
-def test_convert_experiment_table_to_dataframe_flatten_aggregations_non_last_raises():
-    # given
-    experiment_data = {
-        identifiers.SysName("exp1"): [
-            AttributeValue(
-                AttributeDefinition("attr1", "float_series"),
-                FloatSeriesAggregations(last=42.0, min=0.0, max=100, average=24.0, variance=100.0),
-                EXPERIMENT_IDENTIFIER,
-            ),
-        ],
-    }
-    # when / then
-    with pytest.raises(ValueError):
-        convert_table_to_dataframe(
-            experiment_data,
-            "my-project",
-            selected_aggregations={
-                AttributeDefinition("attr1", "float_series"): {"last", "min"},
-            },
-            type_suffix_in_column_names=False,
-            flatten_aggregations=True,
-        )
-
-
-def test_convert_experiment_table_to_dataframe_empty_with_flatten_aggregations():
-    # given
-    experiment_data = {}
-    # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
-        selected_aggregations={},
-        type_suffix_in_column_names=False,
-        flatten_aggregations=True,
-    )
-    # then
-    assert dataframe.empty
-    assert list(dataframe.columns) == []
 
 
 def test_convert_experiment_table_to_dataframe_duplicate_column_name_with_type_suffix():
@@ -428,9 +333,7 @@ def test_convert_experiment_table_to_dataframe_duplicate_column_name_with_type_s
         ],
     }
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=True
-    )
+    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
     # then
     assert set(dataframe.columns.get_level_values(0)) == {"attr:int", "attr:float"}
 
@@ -445,9 +348,7 @@ def test_convert_experiment_table_to_dataframe_duplicate_column_name_without_typ
     }
     # when / then
     with pytest.raises(ConflictingAttributeTypes):
-        convert_table_to_dataframe(
-            experiment_data, "my-project", selected_aggregations={}, type_suffix_in_column_names=False
-        )
+        convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
 
 
 def test_convert_experiment_table_to_dataframe_index_column_name_custom():
@@ -461,14 +362,13 @@ def test_convert_experiment_table_to_dataframe_index_column_name_custom():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={},
         type_suffix_in_column_names=False,
         index_column_name="custom_index",
     )
     # then
     assert dataframe.index.name == "custom_index"
     assert dataframe.to_dict() == {
-        ("attr1", ""): {"exp1": 42},
+        "attr1": {"exp1": 42},
     }
 
 

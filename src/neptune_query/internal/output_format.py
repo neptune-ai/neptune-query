@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from collections.abc import Collection
 from typing import (
     Any,
     Generator,
@@ -59,96 +58,48 @@ __all__ = (
 def convert_table_to_dataframe(
     table_data: dict[str, list[AttributeValue]],
     project_identifier: str,
-    selected_aggregations: dict[identifiers.AttributeDefinition, set[str]],
     type_suffix_in_column_names: bool,
     # TODO: accept container_type as an argument instead of index_column_name
     # see https://github.com/neptune-ai/neptune-fetcher/pull/402/files#r2260012199
     index_column_name: str = "experiment",
-    flatten_aggregations: bool = False,
 ) -> pd.DataFrame:
 
-    if flatten_aggregations:
-        has_non_last_aggregations = any(aggregations != {"last"} for aggregations in selected_aggregations.values())
-        if has_non_last_aggregations:
-            raise ValueError("Cannot flatten aggregations when selected aggregations include more than just 'last'. ")
-
-    if not table_data and not flatten_aggregations:
-        return pd.DataFrame(
-            index=pd.Index([], name=index_column_name),
-            columns=pd.MultiIndex.from_tuples([], names=["attribute", "aggregation"]),
-        )
-    if not table_data and flatten_aggregations:
+    if not table_data:
         return pd.DataFrame(
             index=pd.Index([], name=index_column_name),
             columns=[],
         )
 
-    def convert_row(label: str, values: list[AttributeValue]) -> dict[tuple[str, str], Any]:
-        row: dict[tuple[str, str], Any] = {}
+    def convert_row(label: str, values: list[AttributeValue]) -> dict[str, Any]:
+        row: dict[str, Any] = {}
         for value in values:
-            column_name = get_column_name(value)
+            column_name = f"{value.attribute_definition.name}:{value.attribute_definition.type}"
             if column_name in row:
                 raise ConflictingAttributeTypes([value.attribute_definition.name])
-            if value.attribute_definition.type in TYPE_AGGREGATIONS:
+
+            attribute_type = value.attribute_definition.type
+            if attribute_type in TYPE_AGGREGATIONS:
                 aggregation_value = value.value
-                selected_subset = selected_aggregations.get(value.attribute_definition, set())
-                aggregations_set = TYPE_AGGREGATIONS[value.attribute_definition.type]
+                element_value = getattr(aggregation_value, "last")
+                step = getattr(aggregation_value, "last_step", None)
+            else:
+                element_value = value.value
+                step = None
 
-                agg_subset_values = get_aggregation_subset(aggregation_value, selected_subset, aggregations_set)
-
-                for agg_name, agg_value in agg_subset_values.items():
-                    if value.attribute_definition.type == "file_series" and agg_name == "last":
-                        row[(column_name, "last")] = _create_output_file(
-                            project_identifier=project_identifier,
-                            file=agg_value,
-                            label=label,
-                            index_column_name=index_column_name,
-                            attribute_path=value.attribute_definition.name,
-                            step=getattr(aggregation_value, "last_step", None),
-                        )
-                    elif value.attribute_definition.type == "histogram_series" and agg_name == "last":
-                        row[(column_name, "last")] = _create_output_histogram(agg_value)
-                    else:
-                        row[(column_name, agg_name)] = agg_value
-            elif value.attribute_definition.type == "file":
-                file_properties: File = value.value
-                row[(column_name, "")] = _create_output_file(
+            if attribute_type == "file" or attribute_type == "file_series":
+                row[column_name] = _create_output_file(
                     project_identifier=project_identifier,
-                    file=file_properties,
+                    file=element_value,
                     label=label,
                     index_column_name=index_column_name,
                     attribute_path=value.attribute_definition.name,
+                    step=step,
                 )
-            elif value.attribute_definition.type == "histogram":
-                histogram: Histogram = value.value
-                row[(column_name, "")] = _create_output_histogram(histogram)
+            elif attribute_type == "histogram" or attribute_type == "histogram_series":
+                row[column_name] = _create_output_histogram(element_value)
             else:
-                row[(column_name, "")] = value.value
+                row[column_name] = element_value
         return row
-
-    def flatten_row(row: dict[tuple[str, str], Any]) -> dict[str, Any]:
-        """
-        Flatten the row by converting tuple keys to string keys.
-        """
-        for (attribute, aggregation), value in row.items():
-            if aggregation not in ("", "last"):
-                raise ValueError(
-                    f"Unexpected aggregation '{aggregation}' for attribute '{attribute}'. "
-                    "Only 'last' or empty aggregation are allowed when flattening."
-                )
-        return {attribute: value for (attribute, aggregation), value in row.items()}
-
-    def get_column_name(attr: AttributeValue) -> str:
-        return f"{attr.attribute_definition.name}:{attr.attribute_definition.type}"
-
-    def get_aggregation_subset(
-        aggregations_value: Any, selected_subset: set[str], aggregations_set: Collection[str]
-    ) -> dict[str, Any]:
-        result = {}
-        for agg_name in aggregations_set:
-            if agg_name in selected_subset:
-                result[agg_name] = getattr(aggregations_value, agg_name)
-        return result
 
     def transform_column_names(df: pd.DataFrame) -> pd.DataFrame:
         if type_suffix_in_column_names:
@@ -156,12 +107,7 @@ def convert_table_to_dataframe(
 
         # Transform the column by removing the type
         original_columns = df.columns
-        df.columns = pd.Index(
-            [
-                (col[0].rsplit(":", 1)[0], col[1]) if isinstance(col, tuple) else col.rsplit(":", 1)[0]
-                for col in df.columns
-            ]
-        )
+        df.columns = pd.Index([col.rsplit(":", 1)[0] for col in df.columns])
 
         # Check for duplicate names
         duplicated = df.columns.duplicated(keep=False)
@@ -170,11 +116,8 @@ def convert_table_to_dataframe(
             duplicated_names_set = set(duplicated_names)
             conflicting_types: dict[str, set[str]] = {}
             for original_col, new_col in zip(original_columns, df.columns):
-                if isinstance(new_col, str):
-                    continue
-
                 if new_col in duplicated_names_set:
-                    conflicting_types.setdefault(new_col[0], set()).add(original_col[0].rsplit(":", 1)[1])
+                    conflicting_types.setdefault(new_col, set()).add(original_col.rsplit(":", 1)[1])
 
             raise ConflictingAttributeTypes(conflicting_types.keys())  # TODO: add conflicting types to the exception
 
@@ -183,11 +126,6 @@ def convert_table_to_dataframe(
     rows = []
     for label, values in table_data.items():
         row: Any = convert_row(label, values)
-        if flatten_aggregations:
-            # Note for future optimization:
-            # flatten_aggregations is always True in v1
-            # flatten_aggregations is always False in alpha
-            row = flatten_row(row)
         row[index_column_name] = label
         rows.append(row)
 
@@ -195,9 +133,7 @@ def convert_table_to_dataframe(
     dataframe = transform_column_names(dataframe)
     dataframe.set_index(index_column_name, drop=True, inplace=True)
 
-    if not flatten_aggregations:
-        dataframe.columns = pd.MultiIndex.from_tuples(dataframe.columns, names=["attribute", "aggregation"])
-
+    dataframe.columns.name = "attribute"
     sorted_columns = sorted(dataframe.columns)
     dataframe = dataframe[sorted_columns]
 
