@@ -301,14 +301,13 @@ def create_metrics_dataframe(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
 
-    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
-    df[index_column_name] = pd.Categorical.from_codes(df[index_column_name], dtype=experiment_dtype)
     if timestamp_column_name:
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
-    df = _pivot_and_reindex_df(df, include_point_previews, index_column_name, timestamp_column_name)
+    df = _pivot_df(df, include_point_previews, index_column_name, timestamp_column_name)
+    df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, "float_series" if type_suffix_in_column_names else None)
-    df = _sort_indices(df)
+    df = _sort_index_and_columns(df, index_column_name)
 
     return df
 
@@ -390,14 +389,13 @@ def create_series_dataframe(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
 
-    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
-    df[index_column_name] = pd.Categorical.from_codes(df[index_column_name], dtype=experiment_dtype)
     if timestamp_column_name:
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
-    df = _pivot_and_reindex_df(df, False, index_column_name, timestamp_column_name)
+    df = _pivot_df(df, False, index_column_name, timestamp_column_name)
+    df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
-    df = _sort_indices(df)
+    df = _sort_index_and_columns(df, index_column_name)
 
     return df
 
@@ -461,8 +459,6 @@ def create_metric_buckets_dataframe(
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
-    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
-    df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
 
     df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
     df = df.drop(columns=["from_x", "to_x"])
@@ -475,11 +471,8 @@ def create_metric_buckets_dataframe(
         dropna=False,
         sort=False,
     )
-    df.columns = df.columns.set_levels(
-        df.columns.get_level_values(container_column_name).unique().astype(str),
-        level=container_column_name,
-    )
 
+    df = _restore_labels_in_columns(df, container_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
 
     # Clear out any columns that were not requested, but got added because of dropna=False
@@ -546,7 +539,7 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _pivot_and_reindex_df(
+def _pivot_df(
     df: pd.DataFrame,
     include_point_previews: bool,
     index_column_name: str,
@@ -559,7 +552,7 @@ def _pivot_and_reindex_df(
         df[[index_column_name, "step"]]
         .astype(
             {
-                index_column_name: "category",
+                index_column_name: "uint32",
                 "step": "float64",
             }
         )
@@ -588,15 +581,31 @@ def _pivot_and_reindex_df(
         )
 
     # Include only observed (experiment, step) pairs
-    df = df.filter(observed_idx, axis="index")
+    return df.filter(observed_idx, axis="index")
 
-    # Replace categorical codes in `index_column_name` with strings
-    df.index = df.index.set_levels(
-        df.index.get_level_values(index_column_name).unique().astype(str),
-        level=index_column_name,
-    )
 
-    return df.sort_index(level=[index_column_name, "step"])
+def _restore_labels_in_index(
+    df: pd.DataFrame,
+    column_name: str,
+    label_mapping: list[str],
+) -> pd.DataFrame:
+    if df.index.empty:
+        df.index = df.index.set_levels(df.index.get_level_values(column_name).astype(str), level=column_name)
+        return df
+
+    return df.rename(index={i: label for i, label in enumerate(label_mapping)}, level=column_name)
+
+
+def _restore_labels_in_columns(
+    df: pd.DataFrame,
+    column_name: str,
+    label_mapping: list[str],
+) -> pd.DataFrame:
+    if df.index.empty:
+        df.columns = df.columns.set_levels(df.columns.get_level_values(column_name).astype(str), level=column_name)
+        return df
+
+    return df.rename(columns={i: label for i, label in enumerate(label_mapping)}, level=column_name)
 
 
 def _restore_path_column_names(
@@ -622,16 +631,18 @@ def _restore_path_column_names(
     return df.rename(columns=reverse_mapping)
 
 
-def _sort_indices(df: pd.DataFrame) -> pd.DataFrame:
+def _sort_index_and_columns(df: pd.DataFrame, index_column_name: str) -> pd.DataFrame:
     # MultiIndex DFs need to have column index order swapped: value/metric_name -> metric_name/value.
     # We also sort columns, but only after the original names have been restored.
     if isinstance(df.columns, pd.MultiIndex):
         df.columns.names = (None, None)
         df = df.swaplevel(axis="columns")
-        return df.sort_index(axis="columns", level=0)
+        df = df.sort_index(axis="columns", level=0)
     else:
         df.columns.name = None
-        return df.sort_index(axis="columns")
+        df = df.sort_index(axis="columns")
+
+    return df.sort_index(axis="index", level=[index_column_name, "step"])
 
 
 def create_files_dataframe(

@@ -500,10 +500,13 @@ def _generate_bucket_metrics(
     }
 
 
+def _a_timestamp(seconds_delta) -> datetime:
+    return datetime(2023, 1, 1, 0, 0, 0, 0, timezone.utc) + timedelta(seconds=seconds_delta)
+
+
 def _generate_float_point_value(step: int, preview: bool) -> FloatPointValue:
-    timestamp = datetime(2023, 1, 1, 0, 0, 0, 0, timezone.utc) + timedelta(seconds=step)
     return (
-        timestamp.timestamp(),
+        _a_timestamp(seconds_delta=step).timestamp(),
         float(step),
         float(step) * 100,
         preview,
@@ -603,6 +606,84 @@ def test_create_metrics_dataframe_shape(include_preview):
     assert (
         len(tuples_list) == num_expected_rows
     ), "The list of tuples should have the same number of rows as the DataFrame"
+
+
+def test_create_metrics_dataframe_from_exp_with_no_points():
+    df = create_metrics_dataframe(
+        # This input data produces a "hole" in our categorical mapping of experiment names to integers
+        metrics_data={
+            _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, False)],
+            _generate_run_attribute_definition(2, 2): [],
+            _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, False)],
+        },
+        sys_id_label_mapping={
+            SysId("sysid1"): "exp1",
+            SysId("sysid2"): "exp2",
+            SysId("sysid3"): "exp3",
+        },
+        include_point_previews=False,
+        type_suffix_in_column_names=False,
+        index_column_name="experiment",
+    )
+
+    expected_df = pd.DataFrame(
+        data={
+            "path1": [
+                100.0,
+                200.0,
+            ],
+        },
+        index=pd.MultiIndex.from_tuples(
+            tuples=[
+                ("exp1", 1.0),
+                ("exp3", 2.0),
+            ],
+            names=["experiment", "step"],
+        ),
+    )
+    pd.testing.assert_frame_equal(df, expected_df)
+
+
+def test_create_metrics_dataframe_from_exp_with_no_points_preview():
+    df = create_metrics_dataframe(
+        # This input data produces a "hole" in our categorical mapping of experiment names to integers
+        metrics_data={
+            _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, True)],
+            _generate_run_attribute_definition(2, 2): [],
+            _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, True)],
+        },
+        sys_id_label_mapping={
+            SysId("sysid1"): "exp1",
+            SysId("sysid2"): "exp2",
+            SysId("sysid3"): "exp3",
+        },
+        include_point_previews=True,
+        type_suffix_in_column_names=False,
+        index_column_name="experiment",
+    )
+
+    expected_df = pd.DataFrame(
+        data={
+            ("path1", "is_preview"): [
+                True,
+                True,
+            ],
+            ("path1", "preview_completion"): [
+                0.999,
+                0.998,
+            ],
+            ("path1", "value"): [100.0, 200.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            tuples=[
+                ("exp1", 1.0),
+                ("exp3", 2.0),
+            ],
+            names=["experiment", "step"],
+        ),
+    )
+    expected_df[("path1", "is_preview")] = expected_df[("path1", "is_preview")].astype("object")
+    pd.testing.assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
