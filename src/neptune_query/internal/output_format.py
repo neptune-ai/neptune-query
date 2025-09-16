@@ -305,7 +305,7 @@ def create_metrics_dataframe(
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
     df = _pivot_df(df, include_point_previews, index_column_name, timestamp_column_name)
-    df = _restore_index_labels(df, index_column_name, label_mapping)
+    df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, "float_series" if type_suffix_in_column_names else None)
     df = _sort_index_and_columns(df, index_column_name)
 
@@ -393,7 +393,7 @@ def create_series_dataframe(
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
     df = _pivot_df(df, False, index_column_name, timestamp_column_name)
-    df = _restore_index_labels(df, index_column_name, label_mapping)
+    df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
     df = _sort_index_and_columns(df, index_column_name)
 
@@ -459,8 +459,6 @@ def create_metric_buckets_dataframe(
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),
     )
-    experiment_dtype = pd.CategoricalDtype(categories=label_mapping)
-    df[container_column_name] = pd.Categorical.from_codes(df[container_column_name], dtype=experiment_dtype)
 
     df["bucket"] = pd.IntervalIndex.from_arrays(df["from_x"], df["to_x"], closed="right")
     df = df.drop(columns=["from_x", "to_x"])
@@ -473,11 +471,8 @@ def create_metric_buckets_dataframe(
         dropna=False,
         sort=False,
     )
-    df.columns = df.columns.set_levels(
-        df.columns.get_level_values(container_column_name).unique().astype(str),
-        level=container_column_name,
-    )
 
+    df = _restore_labels_in_columns(df, container_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
 
     # Clear out any columns that were not requested, but got added because of dropna=False
@@ -589,18 +584,28 @@ def _pivot_df(
     return df.filter(observed_idx, axis="index")
 
 
-def _restore_index_labels(
+def _restore_labels_in_index(
     df: pd.DataFrame,
-    index_column_name: str,
+    column_name: str,
     label_mapping: list[str],
 ) -> pd.DataFrame:
     if df.index.empty:
-        df.index = df.index.set_levels(
-            df.index.get_level_values(index_column_name).astype(str), level=index_column_name
-        )
+        df.index = df.index.set_levels(df.index.get_level_values(column_name).astype(str), level=column_name)
         return df
 
-    return df.rename(index={i: label for i, label in enumerate(label_mapping)}, level=index_column_name)
+    return df.rename(index={i: label for i, label in enumerate(label_mapping)}, level=column_name)
+
+
+def _restore_labels_in_columns(
+    df: pd.DataFrame,
+    column_name: str,
+    label_mapping: list[str],
+) -> pd.DataFrame:
+    if df.index.empty:
+        df.columns = df.columns.set_levels(df.columns.get_level_values(column_name).astype(str), level=column_name)
+        return df
+
+    return df.rename(columns={i: label for i, label in enumerate(label_mapping)}, level=column_name)
 
 
 def _restore_path_column_names(
