@@ -682,7 +682,6 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
             names=["experiment", "step"],
         ),
     )
-    expected_df[("path1", "is_preview")] = expected_df[("path1", "is_preview")].astype("object")
     pd.testing.assert_frame_equal(df, expected_df)
 
 

@@ -566,7 +566,7 @@ def _pivot_df(
     if include_point_previews or timestamp_column_name:
         # if there are multiple value columns, don't specify them and rely on pandas to create the column multi-index
         df = df.pivot_table(
-            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=False, sort=False
+            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=True, sort=False
         )
     else:
         # when there's only "value", define values explicitly, to make pandas generate a flat index
@@ -576,12 +576,12 @@ def _pivot_df(
             values="value",
             aggfunc="first",
             observed=True,
-            dropna=False,
+            dropna=True,
             sort=False,
         )
 
     # Include only observed (experiment, step) pairs
-    return df.filter(observed_idx, axis="index")
+    return df.reindex(observed_idx)
 
 
 def _restore_labels_in_index(
