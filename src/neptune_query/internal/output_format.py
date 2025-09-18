@@ -291,7 +291,7 @@ def create_metrics_dataframe(
     ]
 
     if timestamp_column_name:
-        types.append((timestamp_column_name, "uint64"))
+        types.append((timestamp_column_name, "int64"))
 
     if include_point_previews:
         types.append(("is_preview", "bool"))
