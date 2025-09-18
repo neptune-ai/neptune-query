@@ -9,3 +9,4 @@ pytest-timeout
 pytest-xdist
 icecream
 git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
+hypothesis==6.139.2
