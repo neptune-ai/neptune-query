@@ -12,12 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from collections import defaultdict
 from typing import (
     Generator,
     Literal,
     Optional,
-    Union,
 )
 
 import pandas as pd
@@ -34,7 +32,6 @@ from ..composition import (
     type_inference,
     validation,
 )
-from ..composition.attributes import AttributeDefinitionAggregation
 from ..filters import (
     _Attribute,
     _BaseAttributeFilter,
@@ -61,8 +58,6 @@ def fetch_table(
     type_suffix_in_column_names: bool,
     context: Optional[_context.Context] = None,
     container_type: search.ContainerType,
-    # flatten_aggregations: Only allow "last" aggregation and skip the aggregation sub-column in the output
-    flatten_aggregations: bool = False,
 ) -> pd.DataFrame:
     validation.validate_limit(limit)
     _sort_direction = validation.validate_sort_direction(sort_direction)
@@ -95,7 +90,6 @@ def fetch_table(
 
         sys_id_label_mapping: dict[identifiers.SysId, str] = {}
         result_by_id: dict[identifiers.SysId, list[att_vals.AttributeValue]] = {}
-        selected_aggregations: dict[identifiers.AttributeDefinition, set[str]] = defaultdict(set)
 
         def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
             for page in search.fetch_sys_id_labels(container_type)(
@@ -116,54 +110,37 @@ def fetch_table(
         output = concurrency.generate_concurrently(
             items=go_fetch_sys_attrs(),
             executor=executor,
-            downstream=lambda sys_ids: _components.fetch_attribute_definition_aggregations_split(
+            downstream=lambda sys_ids: _components.fetch_attribute_definitions_split(
                 client=client,
                 project_identifier=project_identifier,
                 attribute_filter=attributes,
                 executor=executor,
                 fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
                 sys_ids=sys_ids,
-                downstream=lambda sys_ids_split, definitions_page, aggregations_page: concurrency.fork_concurrently(
+                downstream=lambda sys_ids_split, definitions_page: _components.fetch_attribute_values_split(
+                    client=client,
+                    project_identifier=project_identifier,
                     executor=executor,
-                    downstreams=[
-                        lambda: _components.fetch_attribute_values_split(
-                            client=client,
-                            project_identifier=project_identifier,
-                            executor=executor,
-                            sys_ids=sys_ids_split,
-                            attribute_definitions=definitions_page.items,
-                            downstream=concurrency.return_value,
-                        ),
-                        lambda: concurrency.return_value(aggregations_page.items),
-                    ],
+                    sys_ids=sys_ids_split,
+                    attribute_definitions=definitions_page.items,
+                    downstream=concurrency.return_value,
                 ),
             ),
         )
-        results: Generator[
-            Union[util.Page[att_vals.AttributeValue], dict[identifiers.AttributeDefinition, set[str]]], None, None
-        ] = concurrency.gather_results(output)
+        results: Generator[util.Page[att_vals.AttributeValue], None, None] = concurrency.gather_results(output)
 
         for result in results:
-            if isinstance(result, util.Page):
-                attribute_values_page = result
-                for attribute_value in attribute_values_page.items:
-                    sys_id = attribute_value.run_identifier.sys_id
-                    result_by_id[sys_id].append(attribute_value)
-            elif isinstance(result, list):
-                aggregations: list[AttributeDefinitionAggregation] = result
-                for aggregation in aggregations:
-                    selected_aggregations[aggregation.attribute_definition].add(aggregation.aggregation)
-            else:
-                raise RuntimeError(f"Unexpected result type: {type(result)}")
+            attribute_values_page = result
+            for attribute_value in attribute_values_page.items:
+                sys_id = attribute_value.run_identifier.sys_id
+                result_by_id[sys_id].append(attribute_value)
 
     result_by_name = _map_keys_preserving_order(result_by_id, sys_id_label_mapping)
     dataframe = output_format.convert_table_to_dataframe(
         table_data=result_by_name,
         project_identifier=project_identifier,
-        selected_aggregations=selected_aggregations,
         type_suffix_in_column_names=type_suffix_in_column_names,
         index_column_name="experiment" if container_type == search.ContainerType.EXPERIMENT else "run",
-        flatten_aggregations=flatten_aggregations,
     )
 
     return dataframe
