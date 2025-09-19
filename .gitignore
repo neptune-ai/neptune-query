@@ -129,3 +129,7 @@ stream.bin
 MagicMock/
 
 poetry.lock
+
+# pytest-benchmark
+.benchmarks
+benchmark_results.json
