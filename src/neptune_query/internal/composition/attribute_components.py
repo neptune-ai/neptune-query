@@ -42,14 +42,15 @@ def fetch_attribute_definitions_split(
 ) -> AsyncGenerator[tuple[list[identifiers.SysId], util.Page[identifiers.AttributeDefinition]]]:
     return concurrency.flat_map_sync(
         items=split.split_sys_ids(sys_ids),
-        downstream=lambda sys_ids_split: concurrency.map_async_generator(concurrency.flat_map_async_generator(
-            items=fetch_attribute_definitions(
+        downstream=lambda sys_ids_split: concurrency.map_async_generator(
+            fetch_attribute_definitions(
                 client=client,
                 project_identifiers=[project_identifier],
                 run_identifiers=[identifiers.RunIdentifier(project_identifier, sys_id) for sys_id in sys_ids_split],
                 attribute_filter=attribute_filter,
             ),
-        ), lambda definitions: (sys_ids_split, definitions)),
+            lambda definitions: (sys_ids_split, definitions)
+        ),
     )
 
 

@@ -76,12 +76,16 @@ def get_config_and_token_urls(
         headers={"User-Agent": _generate_user_agent()},
     ) as client:
         try:
-            config_response = handle_errors_default(get_client_config.sync_detailed)(client=client)
+            # TODO
+            # config_response = handle_errors_default(get_client_config.sync_detailed)(client=client)
+            config_response = get_client_config.sync_detailed(client=client)
             config = config_response.parsed
 
-            urls_response = handle_errors_default(
-                lambda: _wrap_httpx_json_response(client.get_httpx_client().get(config.security.open_id_discovery))
-            )()
+            # TODO
+            # urls_response = handle_errors_default(
+            #     lambda: _wrap_httpx_json_response(client.get_httpx_client().get(config.security.open_id_discovery))
+            # )()
+            urls_response = _wrap_httpx_json_response(client.get_httpx_client().get(config.security.open_id_discovery))
             token_urls = TokenRefreshingURLs.from_dict(urls_response.parsed)
 
             return config, token_urls
