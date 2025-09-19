@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import json
 import random
@@ -24,7 +25,7 @@ from typing import (
     Literal,
     Optional,
     ParamSpec,
-    TypeVar,
+    TypeVar, Awaitable,
 )
 
 import httpx
@@ -48,14 +49,13 @@ T = ParamSpec("T")
 R = TypeVar("R")
 
 
-def handle_errors_default(func: Callable[T, Response[R]]) -> Callable[T, Response[R]]:
+def handle_errors_default(func: Callable[T, Awaitable[Response[R]]]) -> Callable[T, Awaitable[Response[R]]]:
     return retry_backoff(
         max_tries=None,
         soft_max_time=env.NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT.get(),
         hard_max_time=env.NEPTUNE_QUERY_RETRY_HARD_TIMEOUT.get(),
         backoff_strategy=exponential_backoff(jitter="full"),
     )(handle_api_errors(func))
-
 
 def exponential_backoff(
     backoff_base: float = 0.5,
@@ -79,10 +79,10 @@ def retry_backoff(
     soft_max_time: Optional[float] = None,
     hard_max_time: Optional[float] = None,
     backoff_strategy: Callable[[int], float] = exponential_backoff(),
-) -> Callable[[Callable[T, Response[R]]], Callable[T, Response[R]]]:
-    def decorator(func: Callable[T, Response[R]]) -> Callable[T, Response[R]]:
+) -> Callable[[Callable[T, Awaitable[Response[R]]]], Callable[T, Awaitable[Response[R]]]]:
+    def decorator(func: Callable[T, Awaitable[Response[R]]]) -> Callable[T, Awaitable[Response[R]]]:
         @functools.wraps(func)
-        def wrapper(*args: T.args, **kwargs: T.kwargs) -> Response[R]:
+        async def wrapper(*args: T.args, **kwargs: T.kwargs) -> Response[R]:
             total_tries = 0
             backoff_tries = 0
             start_time = time.monotonic()
@@ -93,7 +93,7 @@ def retry_backoff(
             while True:
                 response = None
                 try:
-                    response = func(*args, **kwargs)
+                    response = await func(*args, **kwargs)
                     if 200 <= response.status_code.value < 300:
                         return response
                 except exceptions.NeptuneError:
@@ -167,7 +167,7 @@ def retry_backoff(
                     break
                 sleep_time = min(remaining_time, sleep_time)
                 logger.info(f"Backing off Neptune API request for {sleep_time:.2f} seconds (try {total_tries}).")
-                time.sleep(sleep_time)
+                await asyncio.sleep(sleep_time)
 
             # No more retries left
             elapsed_time = time.monotonic() - start_time
@@ -187,14 +187,14 @@ def retry_backoff(
     return decorator
 
 
-def handle_api_errors(func: Callable[T, Response[R]]) -> Callable[T, Response[R]]:
+def handle_api_errors(func: Callable[T, Awaitable[Response[R]]]) -> Callable[T, Awaitable[Response[R]]]:
     @functools.wraps(func)
-    def wrapper(*args: T.args, **kwargs: T.kwargs) -> Response[R]:
+    async def wrapper(*args: T.args, **kwargs: T.kwargs) -> Response[R]:
         # In general, exceptions - subtypes of NeptuneError won't be retried - raising them makes the error final.
         # Other exceptions may be retried with a backoff - if persistent, they will eventually cause NeptuneRetryError.
 
         try:
-            response = func(*args, **kwargs)
+            response = await func(*args, **kwargs)
 
             _raise_for_error_code(response.status_code.value, response.content)
             return response

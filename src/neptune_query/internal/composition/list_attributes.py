@@ -16,8 +16,8 @@
 
 __all__ = ("list_attributes",)
 
+import asyncio
 from typing import (
-    Generator,
     Optional,
 )
 
@@ -54,34 +54,22 @@ def list_attributes(
     valid_context = validate_context(context or get_context())
     client = _client.get_client(context=valid_context)
 
-    with (
-        concurrency.create_thread_pool_executor() as executor,
-        concurrency.create_thread_pool_executor() as fetch_attribute_definitions_executor,
-    ):
-        inference_result = type_inference.infer_attribute_types_in_filter(
-            client,
-            project_identifier,
-            filter_,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-        )
-        filter_ = inference_result.get_result_or_raise()
-        inference_result.emit_warnings()
+    inference_result = type_inference.infer_attribute_types_in_filter(
+        client,
+        project_identifier,
+        filter_,
+    )
+    filter_ = inference_result.get_result_or_raise()
+    inference_result.emit_warnings()
 
-        output = _components.fetch_attribute_definitions_complete(
-            client=client,
-            project_identifier=project_identifier,
-            filter_=filter_,
-            attribute_filter=attributes,
-            executor=executor,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-            downstream=concurrency.return_value,
-            container_type=container_type,
-        )
+    output = _components.fetch_attribute_definitions_complete(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=filter_,
+        attribute_filter=attributes,
+        container_type=container_type,
+    )
 
-        results: Generator[util.Page[identifiers.AttributeDefinition], None, None] = concurrency.gather_results(output)
-        names = set()
-        for page in results:
-            for item in page.items:
-                names.add(item.name)
-
-        return sorted(names)
+    results: list[util.Page[identifiers.AttributeDefinition]] = asyncio.run(concurrency.gather_results(output))
+    names = {item.name for page in results for item in page.items}
+    return sorted(names)

@@ -24,7 +24,6 @@ import pytest
 from neptune_query.internal.composition.concurrency import (
     OUT,
     create_thread_pool_executor,
-    fork_concurrently,
     gather_results,
     generate_concurrently,
     get_thread_local,

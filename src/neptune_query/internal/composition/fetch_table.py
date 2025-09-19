@@ -12,10 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 from typing import (
-    Generator,
     Literal,
-    Optional,
+    Optional, AsyncGenerator,
 )
 
 import pandas as pd
@@ -65,75 +65,66 @@ def fetch_table(
     valid_context = _context.validate_context(context or _context.get_context())
     client = _client.get_client(context=valid_context)
 
-    with (
-        concurrency.create_thread_pool_executor() as executor,
-        concurrency.create_thread_pool_executor() as fetch_attribute_definitions_executor,
-    ):
+    inference_result = type_inference.infer_attribute_types_in_filter(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=filter_,
+    )
+    filter_ = inference_result.get_result_or_raise()
+    inference_result.emit_warnings()
 
-        inference_result = type_inference.infer_attribute_types_in_filter(
+    sort_by_inference_result = type_inference.infer_attribute_types_in_sort_by(
+        client=client,
+        project_identifier=project_identifier,
+        sort_by=sort_by,
+    )
+    sort_by = sort_by_inference_result.result
+    sort_by_inference_result.emit_warnings()
+
+    sys_id_label_mapping: dict[identifiers.SysId, str] = {}
+    result_by_id: dict[identifiers.SysId, list[att_vals.AttributeValue]] = {}
+
+    async def go_fetch_sys_attrs() -> AsyncGenerator[list[identifiers.SysId]]:
+        async for page in search.fetch_sys_id_labels(container_type)(
             client=client,
             project_identifier=project_identifier,
             filter_=filter_,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-        )
-        filter_ = inference_result.get_result_or_raise()
-        inference_result.emit_warnings()
-
-        sort_by_inference_result = type_inference.infer_attribute_types_in_sort_by(
-            client=client,
-            project_identifier=project_identifier,
             sort_by=sort_by,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-        )
-        sort_by = sort_by_inference_result.result
-        sort_by_inference_result.emit_warnings()
+            sort_direction=_sort_direction,
+            limit=limit,
+        ):
+            sys_ids = []
+            for item in page.items:
+                result_by_id[item.sys_id] = []  # I assume that dict preserves the order set here
+                sys_id_label_mapping[item.sys_id] = item.label
+                sys_ids.append(item.sys_id)
+            yield sys_ids
 
-        sys_id_label_mapping: dict[identifiers.SysId, str] = {}
-        result_by_id: dict[identifiers.SysId, list[att_vals.AttributeValue]] = {}
-
-        def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
-            for page in search.fetch_sys_id_labels(container_type)(
-                client=client,
-                project_identifier=project_identifier,
-                filter_=filter_,
-                sort_by=sort_by,
-                sort_direction=_sort_direction,
-                limit=limit,
-            ):
-                sys_ids = []
-                for item in page.items:
-                    result_by_id[item.sys_id] = []  # I assume that dict preserves the order set here
-                    sys_id_label_mapping[item.sys_id] = item.label
-                    sys_ids.append(item.sys_id)
-                yield sys_ids
-
-        output = concurrency.generate_concurrently(
-            items=go_fetch_sys_attrs(),
-            executor=executor,
-            downstream=lambda sys_ids: _components.fetch_attribute_definitions_split(
+    output = concurrency.flat_map_async_generator(
+        items=go_fetch_sys_attrs(),
+        downstream=lambda sys_ids: concurrency.flat_map_async_generator(
+            items=_components.fetch_attribute_definitions_split(
                 client=client,
                 project_identifier=project_identifier,
                 attribute_filter=attributes,
-                executor=executor,
-                fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
                 sys_ids=sys_ids,
-                downstream=lambda sys_ids_split, definitions_page: _components.fetch_attribute_values_split(
-                    client=client,
-                    project_identifier=project_identifier,
-                    executor=executor,
-                    sys_ids=sys_ids_split,
-                    attribute_definitions=definitions_page.items,
-                    downstream=concurrency.return_value,
-                ),
             ),
-        )
-        results: Generator[util.Page[att_vals.AttributeValue], None, None] = concurrency.gather_results(output)
+            downstream=lambda pair: _components.fetch_attribute_values_split(
+                client=client,
+                project_identifier=project_identifier,
+                sys_ids=pair[0],
+                attribute_definitions=pair[1].items,
+            ),
+        ),
+    )
 
-        for result in results:
-            attribute_values_page = result
-            for attribute_value in attribute_values_page.items:
-                sys_id = attribute_value.run_identifier.sys_id
-                result_by_id[sys_id].append(attribute_value)
+    results: list[util.Page[att_vals.AttributeValue]] = asyncio.run(concurrency.gather_results(output))
+
+    for result in results:
+        attribute_values_page = result
+        for attribute_value in attribute_values_page.items:
+            sys_id = attribute_value.run_identifier.sys_id
+            result_by_id[sys_id].append(attribute_value)
 
     result_by_name = _map_keys_preserving_order(result_by_id, sys_id_label_mapping)
     dataframe = output_format.convert_table_to_dataframe(

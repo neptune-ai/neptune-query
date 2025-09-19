@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 from typing import Optional
 
 from .. import client as _client
@@ -37,15 +38,15 @@ def list_containers(
     validated_context = _context.validate_context(context or _context.get_context())
     client = _client.get_client(context=validated_context)
 
-    with concurrency.create_thread_pool_executor() as fetch_attribute_definitions_executor:
-        inference_result = type_inference.infer_attribute_types_in_filter(
-            client=client,
-            project_identifier=project_identifier,
-            filter_=filter_,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-        )
-        filter_ = inference_result.get_result_or_raise()
-        inference_result.emit_warnings()
+    inference_result = type_inference.infer_attribute_types_in_filter(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=filter_,
+    )
+    filter_ = inference_result.get_result_or_raise()
+    inference_result.emit_warnings()
 
-        sys_attr_pages = search.fetch_sys_id_labels(container_type)(client, project_identifier, filter_)
-        return list(sorted(attrs.label for page in sys_attr_pages for attrs in page.items))
+    output = search.fetch_sys_id_labels(container_type)(client, project_identifier, filter_)
+
+    sys_attr_pages = asyncio.run(concurrency.gather_results(output))
+    return sorted(attrs.label for page in sys_attr_pages for attrs in page.items)

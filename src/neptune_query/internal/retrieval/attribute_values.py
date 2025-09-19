@@ -16,10 +16,9 @@ import functools as ft
 from dataclasses import dataclass
 from typing import (
     Any,
-    Generator,
     Iterable,
     Optional,
-    Union,
+    Union, AsyncGenerator,
 )
 
 from neptune_api.api.retrieval import query_attributes_within_project_proto
@@ -28,6 +27,7 @@ from neptune_api.models import QueryAttributesBodyDTO
 from neptune_api.proto.neptune_pb.api.v1.model.attributes_pb2 import ProtoQueryAttributesResultDTO
 
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
+from .util import empty_async_generator
 
 from .. import (
     env,
@@ -61,7 +61,7 @@ def fetch_attribute_values(
     run_identifiers: Iterable[identifiers.RunIdentifier],
     attribute_definitions: Union[Iterable[identifiers.AttributeDefinition], filters._AttributeFilter],
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE.get(),
-) -> Generator[util.Page[AttributeValue], None, None]:
+) -> AsyncGenerator[util.Page[AttributeValue]]:
     attribute_definitions_set: Optional[set[identifiers.AttributeDefinition]] = None
 
     params: dict[str, Any] = {
@@ -76,11 +76,10 @@ def fetch_attribute_values(
     else:
         attribute_definitions_set = set(attribute_definitions)
         if not attribute_definitions_set or not run_identifiers:
-            yield from []
-            return
+            return empty_async_generator()
         params["attributeNamesFilter"] = [ad.name for ad in attribute_definitions_set]
 
-    yield from util.fetch_pages(
+    return util.fetch_pages(
         client=client,
         fetch_page=ft.partial(_fetch_attribute_values_page, project_identifier=project_identifier),
         process_page=ft.partial(
@@ -93,7 +92,7 @@ def fetch_attribute_values(
     )
 
 
-def _fetch_attribute_values_page(
+async def _fetch_attribute_values_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
     project_identifier: identifiers.ProjectIdentifier,
@@ -104,9 +103,9 @@ def _fetch_attribute_values_page(
 
     body = QueryAttributesBodyDTO.from_dict(params)
     call_api = retry.handle_errors_default(
-        with_neptune_client_metadata(query_attributes_within_project_proto.sync_detailed)
+        with_neptune_client_metadata(query_attributes_within_project_proto.asyncio_detailed)
     )
-    response = call_api(client=client, body=body, project_identifier=project_identifier)
+    response = await call_api(client=client, body=body, project_identifier=project_identifier)
 
     logger.debug(
         f"query_attributes_within_project_proto response status: {response.status_code}, "

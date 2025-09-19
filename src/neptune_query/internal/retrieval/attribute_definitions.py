@@ -15,9 +15,8 @@
 import functools as ft
 from typing import (
     Any,
-    Generator,
     Iterable,
-    Optional,
+    Optional, AsyncGenerator,
 )
 
 from neptune_api.api.retrieval import query_attribute_definitions_within_project
@@ -49,7 +48,7 @@ def fetch_attribute_definitions_single_filter(
     run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
     attribute_filter: filters._AttributeFilter,
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
-) -> Generator[util.Page[identifiers.AttributeDefinition], None, None]:
+) -> AsyncGenerator[util.Page[identifiers.AttributeDefinition]]:
     params: dict[str, Any] = {
         "projectIdentifiers": list(project_identifiers),
         "attributeNameFilter": dict(),
@@ -71,7 +70,7 @@ def fetch_attribute_definitions_single_filter(
     )
 
 
-def _fetch_attribute_definitions_page(
+async def _fetch_attribute_definitions_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> QueryAttributeDefinitionsResultDTO:
@@ -79,9 +78,9 @@ def _fetch_attribute_definitions_page(
 
     body = QueryAttributeDefinitionsBodyDTO.from_dict(params)
     call_api = retry.handle_errors_default(
-        with_neptune_client_metadata(query_attribute_definitions_within_project.sync_detailed)
+        with_neptune_client_metadata(query_attribute_definitions_within_project.asyncio_detailed)
     )
-    response = call_api(client=client, body=body)
+    response = await call_api(client=client, body=body)
 
     logger.debug(
         f"query_attribute_definitions_within_project response status: {response.status_code}, "

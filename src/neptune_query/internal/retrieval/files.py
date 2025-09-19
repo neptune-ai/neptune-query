@@ -58,7 +58,7 @@ class SignedFile:
     permission: Literal["read", "write"]
 
 
-def fetch_signed_urls(
+async def fetch_signed_urls(
     client: AuthenticatedClient,
     files: list[File] | list[SignedFile],
     permission: Literal["read", "write"] = "read",
@@ -72,8 +72,8 @@ def fetch_signed_urls(
 
     logger.debug(f"Calling signed_url_generic with body: {body}")
 
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(signed_url_generic.sync_detailed))
-    response = call_api(client=client, body=body)
+    call_api = retry.handle_errors_default(with_neptune_client_metadata(signed_url_generic.asyncio_detailed))
+    response = await call_api(client=client, body=body)
 
     logger.debug(
         f"signed_url_generic response status: {response.status_code}, "
@@ -109,7 +109,7 @@ def _verify_provider(provider: Provider) -> Literal["azure", "gcp", "aws"]:
         raise ValueError(f"Unsupported storage provider: {provider}")
 
 
-def refresh_signed_file(
+async def refresh_signed_file(
     client: AuthenticatedClient,
     signed_file: SignedFile,
 ) -> SignedFile:
@@ -117,7 +117,7 @@ def refresh_signed_file(
     Refreshes the signed file URL by fetching a new signed URL from the server.
     This is useful when the original signed URL has expired or is no longer valid.
     """
-    new_signed_files = fetch_signed_urls(client=client, files=[signed_file], permission=signed_file.permission)
+    new_signed_files = await fetch_signed_urls(client=client, files=[signed_file], permission=signed_file.permission)
     return new_signed_files[0]
 
 
@@ -128,7 +128,7 @@ class DownloadResult:
     content: Optional[Union[str, bytes]] = None
 
 
-def download_file(
+async def download_file(
     signed_file: SignedFile,
     target_path: pathlib.Path,
     max_concurrency: int = env.NEPTUNE_QUERY_FILES_MAX_CONCURRENCY.get(),
@@ -138,6 +138,7 @@ def download_file(
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # TODO: make async
     if signed_file.provider == "azure":
         result = _download_file_azure(signed_file, target_path, max_concurrency, timeout)
     elif signed_file.provider == "gcp":
@@ -205,7 +206,7 @@ def _download_file_requests(
             return DownloadResult(status="transient", status_code=e.response.status_code, content=e.response.content)
 
 
-def download_file_complete(
+async def download_file_complete(
     client: AuthenticatedClient,
     signed_file: SignedFile,
     target_path: pathlib.Path,
@@ -216,7 +217,7 @@ def download_file_complete(
     result = None
     try:
         while attempt <= max_tries:
-            result = download_file(
+            result = await download_file(
                 signed_file=signed_file,
                 target_path=target_path,
             )
@@ -226,7 +227,7 @@ def download_file_complete(
                 return None
             elif result.status == "expired":
                 attempt += 1
-                signed_file = refresh_signed_file(
+                signed_file = await refresh_signed_file(
                     client=client,
                     signed_file=signed_file,
                 )

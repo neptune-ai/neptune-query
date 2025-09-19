@@ -23,7 +23,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    TypeVar,
+    TypeVar, AsyncGenerator,
 )
 
 from neptune_api.api.retrieval import search_leaderboard_entries_proto
@@ -135,7 +135,7 @@ class FetchSysAttrs(Protocol[T]):
         limit: Optional[int] = None,
         batch_size: int = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get(),
         container_type: ContainerType = ContainerType.EXPERIMENT,
-    ) -> Generator[util.Page[T], None, None]:
+    ) -> AsyncGenerator[util.Page[T]]:
         ...
 
 
@@ -153,7 +153,7 @@ def _create_fetch_sys_attrs(
         limit: Optional[int] = None,
         batch_size: int = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get(),
         container_type: ContainerType = default_container_type,
-    ) -> Generator[util.Page[T], None, None]:
+    ) -> AsyncGenerator[util.Page[T]]:
         params: dict[str, Any] = {
             "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_names],
             "pagination": {"limit": batch_size},
@@ -217,7 +217,7 @@ fetch_run_sys_ids = _create_fetch_sys_attrs(
 fetch_sys_ids = fetch_experiment_sys_ids
 
 
-def _fetch_sys_attrs_page(
+async def _fetch_sys_attrs_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
     project_identifier: identifiers.ProjectIdentifier,
@@ -227,8 +227,8 @@ def _fetch_sys_attrs_page(
     )
 
     body = SearchLeaderboardEntriesParamsDTO.from_dict(params)
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(search_leaderboard_entries_proto.sync_detailed))
-    response = call_api(client=client, project_identifier=project_identifier, type=["run"], body=body)
+    call_api = retry.handle_errors_default(with_neptune_client_metadata(search_leaderboard_entries_proto.asyncio_detailed))
+    response = await call_api(client=client, project_identifier=project_identifier, type=["run"], body=body)
 
     logger.debug(
         f"search_leaderboard_entries_proto response status: {response.status_code}, "

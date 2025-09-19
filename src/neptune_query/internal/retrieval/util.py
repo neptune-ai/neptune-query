@@ -23,7 +23,7 @@ from typing import (
     Generator,
     Generic,
     Optional,
-    TypeVar,
+    TypeVar, AsyncGenerator, Awaitable,
 )
 
 from google.protobuf.message import Message
@@ -40,19 +40,24 @@ class Page(Generic[T]):
     items: list[T]
 
 
-def fetch_pages(
+async def fetch_pages(
     client: AuthenticatedClient,
-    fetch_page: Callable[[AuthenticatedClient, _Params], R],
+    fetch_page: Callable[[AuthenticatedClient, _Params], Awaitable[R]],
     process_page: Callable[[R], Page[T]],
     make_new_page_params: Callable[[_Params, Optional[R]], Optional[_Params]],
     params: _Params,
-) -> Generator[Page[T], None, None]:
+) -> AsyncGenerator[Page[T]]:
     page_params = make_new_page_params(params, None)
     while page_params is not None:
-        data = fetch_page(client, page_params)
+        data = await fetch_page(client, page_params)
         page = process_page(data)
         yield page
         page_params = make_new_page_params(page_params, data)
+
+
+async def empty_async_generator() -> AsyncGenerator[Page[T]]:
+    if False:
+        yield
 
 
 class ProtobufPayload(File):

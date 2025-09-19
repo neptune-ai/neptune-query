@@ -15,75 +15,112 @@
 
 from __future__ import annotations
 
-import concurrent
+import asyncio
 import contextlib
 import threading
-from concurrent.futures import (
-    Executor,
-    Future,
-    ThreadPoolExecutor,
-)
+from asyncio import Task
+from collections.abc import Awaitable
 from typing import (
     Any,
     Callable,
     Generator,
-    Iterable,
     Optional,
     ParamSpec,
     Type,
-    TypeVar,
+    TypeVar, AsyncGenerator, Tuple, Iterable, Iterator,
 )
-
-from .. import env
 
 T = TypeVar("T")
 P = ParamSpec("P")
 R = TypeVar("R")
-OUT = tuple[set[Future[R]], Optional[R]]
 
 
-def create_thread_pool_executor() -> Executor:
-    max_workers = env.NEPTUNE_QUERY_MAX_WORKERS.get()
-    return ThreadPoolExecutor(max_workers=max_workers)
-
-
-def generate_concurrently(
-    items: Generator[T, None, None],
-    executor: Executor,
-    downstream: Callable[[T], OUT],
-) -> OUT:
+async def take_head(generator: AsyncGenerator[T]) -> Optional[Tuple[T, AsyncGenerator[T]]]:
     try:
-        head: T = next(items)
-        futures = {
-            _submit_with_thread_local_propagation(executor, downstream, head),
-            _submit_with_thread_local_propagation(executor, generate_concurrently, items, executor, downstream),
-        }
-        return futures, None
+        head = await anext(generator)
+        return head, generator
+    except StopAsyncIteration:
+        return None
+
+
+async def merge_async_generators(generators: Iterable[AsyncGenerator[T]]) -> AsyncGenerator[T]:
+    tasks: set[Task[Optional[Tuple[T, AsyncGenerator[T]]]]] = {
+        asyncio.create_task(take_head(gen)) for gen in generators
+    }
+
+    while tasks:
+        tasks_done, tasks_pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+        tasks_new = set()
+        for task in tasks_done:
+            result = await task
+            if result is not None:
+                item, generator = result
+                new_task = asyncio.create_task(take_head(generator))
+                tasks_new.add(new_task)
+                yield item
+
+        tasks = tasks_pending | tasks_new
+
+
+async def map_async_generator(
+    items: AsyncGenerator[T],
+    downstream: Callable[[T], R],
+) -> AsyncGenerator[R]:
+    async for item in items:
+        yield downstream(item)
+
+
+async def flat_map_async_generator(
+    items: AsyncGenerator[T],
+    downstream: Callable[[T], AsyncGenerator[R]],
+) -> AsyncGenerator[R]:
+    try:
+        head = await anext(items)
+    except StopAsyncIteration:
+        return
+
+    generators = [
+        downstream(head),
+        flat_map_async_generator(items, downstream),
+    ]
+
+    async for item in merge_async_generators(generators):
+        yield item
+
+
+async def flat_map_sync(
+    items: Iterator[T],
+    downstream: Callable[[T], AsyncGenerator[R]],
+) -> AsyncGenerator[R]:
+    try:
+        head = next(items)
     except StopIteration:
-        return set(), None
+        return
+
+    generators = [
+        downstream(head),
+        flat_map_sync(items, downstream),
+    ]
+
+    async for item in merge_async_generators(generators):
+        yield item
 
 
-def fork_concurrently(executor: Executor, downstreams: Iterable[Callable[[], OUT]]) -> OUT:
-    futures = {_submit_with_thread_local_propagation(executor, downstream) for downstream in downstreams}
-    return futures, None
+async def return_value_async(item: Awaitable[R]) -> AsyncGenerator[R]:
+    result = await item
+    yield result
 
 
-def return_value(item: R) -> OUT:
-    return set(), item
+async def return_value(item: R) -> AsyncGenerator[R]:
+    yield item
 
 
-def gather_results(output: OUT) -> Generator[R, None, None]:
-    futures, value = output
-    if value is not None:
-        yield value
-    while futures:
-        done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-        futures = not_done
-        for future in done:
-            new_futures, value = future.result()
-            futures.update(new_futures)
-            if value is not None:
-                yield value
+async def gather_results(output: AsyncGenerator[R]) -> list[R]:
+    results = []
+    async for item in output:
+        results.append(item)
+    return results
 
 
 _thread_local_storage = threading.local()
@@ -110,19 +147,3 @@ def get_thread_local(key: str, expected_type: Type[T]) -> Optional[T]:
     if value is not None and not isinstance(value, expected_type):
         raise RuntimeError(f"Expected {expected_type} for key '{key}', got {type(value)}")
     return value
-
-
-def _submit_with_thread_local_propagation(
-    executor: Executor, task: Callable[P, OUT], *args: P.args, **kwargs: P.kwargs
-) -> Future[OUT]:
-    thread_local_ctx = {
-        key[len(THREAD_LOCAL_PREFIX) :]: getattr(_thread_local_storage, key)
-        for key in dir(_thread_local_storage)
-        if key.startswith(THREAD_LOCAL_PREFIX)
-    }
-
-    def _use_thread_local_context(downstream: Callable[P, OUT], *args: P.args, **kwargs: P.kwargs) -> OUT:
-        with use_thread_local(thread_local_ctx):
-            return downstream(*args, **kwargs)
-
-    return executor.submit(_use_thread_local_context, task, *args, **kwargs)

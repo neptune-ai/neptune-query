@@ -15,12 +15,11 @@
 import functools as ft
 from typing import (
     Any,
-    Generator,
     Iterable,
     NamedTuple,
     Optional,
     Tuple,
-    Union,
+    Union, AsyncGenerator,
 )
 
 from neptune_api.api.retrieval import get_series_values_proto
@@ -33,6 +32,7 @@ from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import (
 from neptune_api.types import UNSET
 
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
+from .util import empty_async_generator
 
 from ..identifiers import RunAttributeDefinition
 from ..logger import get_logger
@@ -58,10 +58,9 @@ def fetch_series_values(
     container_type: ContainerType,
     step_range: Tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
-) -> Generator[util.Page[tuple[RunAttributeDefinition, list[SeriesValue]]], None, None]:
+) -> AsyncGenerator[util.Page[tuple[RunAttributeDefinition, list[SeriesValue]]]]:
     if not run_attribute_definitions:
-        yield from []
-        return
+        return empty_async_generator()
 
     run_attribute_definitions = list(run_attribute_definitions)
     width = len(str(len(run_attribute_definitions) - 1))
@@ -91,7 +90,7 @@ def fetch_series_values(
     if tail_limit is not None:
         params["perSeriesPointsLimit"] = tail_limit
 
-    yield from util.fetch_pages(
+    return util.fetch_pages(
         client=client,
         fetch_page=_fetch_series_page,
         process_page=ft.partial(
@@ -102,15 +101,15 @@ def fetch_series_values(
     )
 
 
-def _fetch_series_page(
+async def _fetch_series_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> ProtoSeriesValuesResponseDTO:
     logger.debug(f"Calling get_series_values_proto with params: {params}")
 
     body = SeriesValuesRequest.from_dict(params)
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(get_series_values_proto.sync_detailed))
-    response = call_api(client=client, body=body, use_deprecated_string_fields=False)
+    call_api = retry.handle_errors_default(with_neptune_client_metadata(get_series_values_proto.asyncio_detailed))
+    response = await call_api(client=client, body=body, use_deprecated_string_fields=False)
 
     logger.debug(
         f"get_series_values_proto response status: {response.status_code}, "

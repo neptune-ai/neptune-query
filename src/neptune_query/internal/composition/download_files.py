@@ -15,7 +15,7 @@
 import pathlib
 from typing import (
     Generator,
-    Optional,
+    Optional, AsyncGenerator,
 )
 
 import pandas as pd
@@ -37,6 +37,7 @@ from ..retrieval.search import ContainerType
 from ..retrieval.split import split_files
 
 
+# TODO !!!
 def download_files(
     *,
     files: list[types.File],
@@ -48,42 +49,39 @@ def download_files(
     valid_context = validate_context(context or get_context())
     client = _client.get_client(context=valid_context)
 
-    with concurrency.create_thread_pool_executor() as executor:
+    def generate_signed_files() -> Generator[tuple[types.File, _files.SignedFile], None, None]:
+        for file_group in split_files(files):
+            signed_files = _files.fetch_signed_urls(client=client, files=file_group)
+            yield from zip(file_group, signed_files)
 
-        def generate_signed_files() -> Generator[tuple[types.File, _files.SignedFile], None, None]:
-            for file_group in split_files(files):
-                signed_files = _files.fetch_signed_urls(client=client, files=file_group)
-                yield from zip(file_group, signed_files)
-
-        output = concurrency.generate_concurrently(
-            items=generate_signed_files(),
-            executor=executor,
-            downstream=lambda file_tuple: concurrency.return_value(
-                (
-                    file_tuple[0],
-                    _files.download_file_complete(
-                        client=client,
-                        signed_file=file_tuple[1],
-                        target_path=_files.create_target_path(
-                            destination=destination,
-                            file=file_tuple[0],
-                        ),
+    output = concurrency.generate_concurrently(
+        items=generate_signed_files(),
+        downstream=lambda file_tuple: concurrency.return_value(
+            (
+                file_tuple[0],
+                _files.download_file_complete(
+                    client=client,
+                    signed_file=file_tuple[1],
+                    target_path=_files.create_target_path(
+                        destination=destination,
+                        file=file_tuple[0],
                     ),
-                )
-            ),
-        )
+                ),
+            )
+        ),
+    )
 
-        results: Generator[
-            tuple[types.File, Optional[pathlib.Path]],
-            None,
-            None,
-        ] = concurrency.gather_results(output)
+    results: Generator[
+        tuple[types.File, Optional[pathlib.Path]],
+        None,
+        None,
+    ] = concurrency.gather_results(output)
 
-        file_paths: dict[types.File, Optional[pathlib.Path]] = {}
-        for file, path in results:
-            file_paths[file] = path
+    file_paths: dict[types.File, Optional[pathlib.Path]] = {}
+    for file, path in results:
+        file_paths[file] = path
 
-        return create_files_dataframe(
-            file_paths,
-            container_type=container_type,
-        )
+    return create_files_dataframe(
+        file_paths,
+        container_type=container_type,
+    )

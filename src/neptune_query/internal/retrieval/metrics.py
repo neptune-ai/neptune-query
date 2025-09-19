@@ -17,7 +17,7 @@ import functools as ft
 from typing import (
     Any,
     Optional,
-    Union,
+    Union
 )
 
 from neptune_api.api.retrieval import get_multiple_float_series_values_proto
@@ -26,14 +26,13 @@ from neptune_api.models import FloatTimeSeriesValuesRequest
 from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoFloatSeriesValuesResponseDTO
 
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
-
+from .search import ContainerType
 from .. import identifiers
 from ..logger import get_logger
 from ..retrieval import (
     retry,
     util,
 )
-from .search import ContainerType
 
 logger = get_logger()
 
@@ -50,7 +49,7 @@ FloatPointValue = tuple[float, float, float, bool, float]
 TOTAL_POINT_LIMIT: int = 1_000_000
 
 
-def fetch_multiple_series_values(
+async def fetch_multiple_series_values(
     client: AuthenticatedClient,
     run_attribute_definitions: list[identifiers.RunAttributeDefinition],
     include_inherited: bool,
@@ -97,7 +96,7 @@ def fetch_multiple_series_values(
         run_attribute: [] for run_attribute in run_attribute_definitions
     }
 
-    for page_result in util.fetch_pages(
+    async for page_result in util.fetch_pages(
         client=client,
         fetch_page=_fetch_metrics_page,
         process_page=ft.partial(_process_metrics_page, request_id_to_attribute=request_id_to_attribute),
@@ -116,7 +115,7 @@ def fetch_multiple_series_values(
     return results
 
 
-def _fetch_metrics_page(
+async def _fetch_metrics_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
 ) -> ProtoFloatSeriesValuesResponseDTO:
@@ -124,9 +123,9 @@ def _fetch_metrics_page(
 
     body = FloatTimeSeriesValuesRequest.from_dict(params)
     call_api = retry.handle_errors_default(
-        with_neptune_client_metadata(get_multiple_float_series_values_proto.sync_detailed)
+        with_neptune_client_metadata(get_multiple_float_series_values_proto.asyncio_detailed)
     )
-    response = call_api(client=client, body=body)
+    response = await call_api(client=client, body=body)
 
     logger.debug(
         f"get_multiple_float_series_values_proto response status: {response.status_code}, "

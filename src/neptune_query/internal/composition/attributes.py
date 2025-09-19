@@ -13,12 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from concurrent.futures import Executor
 from typing import (
-    Generator,
     Iterable,
     Optional,
-    Tuple,
+    Tuple, AsyncGenerator,
 )
 
 from neptune_api.client import AuthenticatedClient
@@ -35,36 +33,34 @@ from ..retrieval import util
 from ..retrieval.attribute_filter import split_attribute_filters
 
 
-def fetch_attribute_definitions(
+async def fetch_attribute_definitions(
     client: AuthenticatedClient,
     project_identifiers: Iterable[identifiers.ProjectIdentifier],
     run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
     attribute_filter: filters._BaseAttributeFilter,
-    executor: Executor,
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
-) -> Generator[util.Page[identifiers.AttributeDefinition], None, None]:
+) -> AsyncGenerator[util.Page[identifiers.AttributeDefinition]]:
     pages_filters = _fetch_attribute_definitions(
-        client, project_identifiers, run_identifiers, attribute_filter, batch_size, executor
+        client, project_identifiers, run_identifiers, attribute_filter, batch_size
     )
 
     seen_items: set[identifiers.AttributeDefinition] = set()
-    for page, filter_ in pages_filters:
+    async for page, filter_ in pages_filters:
         new_items = [item for item in page.items if item not in seen_items]
         seen_items.update(new_items)
         yield util.Page(items=new_items)
 
 
-def _fetch_attribute_definitions(
+async def _fetch_attribute_definitions(
     client: AuthenticatedClient,
     project_identifiers: Iterable[identifiers.ProjectIdentifier],
     run_identifiers: Optional[Iterable[identifiers.RunIdentifier]],
     attribute_filter: filters._BaseAttributeFilter,
     batch_size: int,
-    executor: Executor,
-) -> Generator[tuple[util.Page[identifiers.AttributeDefinition], filters._AttributeFilter], None, None]:
+) -> AsyncGenerator[tuple[util.Page[identifiers.AttributeDefinition], filters._AttributeFilter]]:
     def go_fetch_single(
         filter_: filters._AttributeFilter,
-    ) -> Generator[util.Page[identifiers.AttributeDefinition], None, None]:
+    ) -> AsyncGenerator[util.Page[identifiers.AttributeDefinition]]:
         return att_defs.fetch_attribute_definitions_single_filter(
             client=client,
             project_identifiers=project_identifiers,
@@ -75,46 +71,44 @@ def _fetch_attribute_definitions(
 
     filters_ = split_attribute_filters(attribute_filter)
 
-    output = concurrency.generate_concurrently(
+    items = concurrency.flat_map_sync(
         items=(filter_ for filter_ in filters_),
-        executor=executor,
-        downstream=lambda filter_: concurrency.generate_concurrently(
+        downstream=lambda filter_: concurrency.flat_map_async_generator(
             items=go_fetch_single(filter_),
-            executor=executor,
             downstream=lambda _page: concurrency.return_value((_page, filter_)),
         ),
     )
-    yield from concurrency.gather_results(output)
+
+    async for item in items:
+        yield item
 
 
-def fetch_attribute_values(
+async def fetch_attribute_values(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     run_identifiers: Iterable[identifiers.RunIdentifier],
     attribute_filter: filters._BaseAttributeFilter,
-    executor: Executor,
     batch_size: int = env.NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE.get(),
-) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
+) -> AsyncGenerator[util.Page[att_vals.AttributeValue]]:
     pages_filters = _fetch_attribute_values(
-        client, project_identifier, run_identifiers, attribute_filter, batch_size, executor
+        client, project_identifier, run_identifiers, attribute_filter, batch_size
     )
 
     seen_items: set[Tuple[identifiers.RunIdentifier, identifiers.AttributeDefinition]] = set()
-    for page in pages_filters:
+    async for page in pages_filters:
         new_items = [item for item in page.items if (item.run_identifier, item.attribute_definition) not in seen_items]
         seen_items.update((item.run_identifier, item.attribute_definition) for item in new_items)
         yield util.Page(items=new_items)
 
 
-def _fetch_attribute_values(
+async def _fetch_attribute_values(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     run_identifiers: Iterable[identifiers.RunIdentifier],
     attribute_filter: filters._BaseAttributeFilter,
     batch_size: int,
-    executor: Executor,
-) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
-    def go_fetch_single(filter_: filters._AttributeFilter) -> Generator[util.Page[att_vals.AttributeValue], None, None]:
+) -> AsyncGenerator[util.Page[att_vals.AttributeValue]]:
+    def go_fetch_single(filter_: filters._AttributeFilter) -> AsyncGenerator[util.Page[att_vals.AttributeValue]]:
         return att_vals.fetch_attribute_values(
             client=client,
             project_identifier=project_identifier,
@@ -125,13 +119,10 @@ def _fetch_attribute_values(
 
     filters_ = split_attribute_filters(attribute_filter)
 
-    output = concurrency.generate_concurrently(
+    items = concurrency.flat_map_sync(
         items=(filter_ for filter_ in filters_),
-        executor=executor,
-        downstream=lambda filter_: concurrency.generate_concurrently(
-            items=go_fetch_single(filter_),
-            executor=executor,
-            downstream=lambda _page: concurrency.return_value(_page),
-        ),
+        downstream=go_fetch_single,
     )
-    yield from concurrency.gather_results(output)
+
+    async for item in items:
+        yield item

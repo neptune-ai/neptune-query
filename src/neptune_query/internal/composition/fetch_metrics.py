@@ -12,12 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from concurrent.futures import Executor
+import asyncio
 from typing import (
-    Generator,
     Literal,
-    Optional,
+    Optional, AsyncGenerator,
 )
 
 import pandas as pd
@@ -76,41 +74,34 @@ def fetch_metrics(
     valid_context = validate_context(context or get_context())
     client = get_client(context=valid_context)
 
-    with (
-        concurrency.create_thread_pool_executor() as executor,
-        concurrency.create_thread_pool_executor() as fetch_attribute_definitions_executor,
-    ):
-        inference_result = type_inference.infer_attribute_types_in_filter(
-            client=client,
-            project_identifier=project_identifier,
-            filter_=filter_,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-        )
-        inferred_filter = inference_result.get_result_or_raise()
-        inference_result.emit_warnings()
+    inference_result = type_inference.infer_attribute_types_in_filter(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=filter_,
+    )
+    inferred_filter = inference_result.get_result_or_raise()
+    inference_result.emit_warnings()
 
-        metrics_data, sys_id_to_label_mapping = _fetch_metrics(
-            filter_=inferred_filter,
-            attributes=restricted_attributes,
-            client=client,
-            project_identifier=project_identifier,
-            step_range=step_range,
-            lineage_to_the_root=lineage_to_the_root,
-            include_point_previews=include_point_previews,
-            tail_limit=tail_limit,
-            executor=executor,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-            container_type=container_type,
-        )
+    metrics_data, sys_id_to_label_mapping = _fetch_metrics(
+        filter_=inferred_filter,
+        attributes=restricted_attributes,
+        client=client,
+        project_identifier=project_identifier,
+        step_range=step_range,
+        lineage_to_the_root=lineage_to_the_root,
+        include_point_previews=include_point_previews,
+        tail_limit=tail_limit,
+        container_type=container_type,
+    )
 
-        df = create_metrics_dataframe(
-            metrics_data=metrics_data,
-            sys_id_label_mapping=sys_id_to_label_mapping,
-            index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
-            timestamp_column_name="absolute_time" if include_time == "absolute" else None,
-            include_point_previews=include_point_previews,
-            type_suffix_in_column_names=type_suffix_in_column_names,
-        )
+    df = create_metrics_dataframe(
+        metrics_data=metrics_data,
+        sys_id_label_mapping=sys_id_to_label_mapping,
+        index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
+        timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        include_point_previews=include_point_previews,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+    )
 
     return df
 
@@ -120,8 +111,6 @@ def _fetch_metrics(
     attributes: _BaseAttributeFilter,
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
-    executor: Executor,
-    fetch_attribute_definitions_executor: Executor,
     step_range: tuple[Optional[float], Optional[float]],
     lineage_to_the_root: bool,
     include_point_previews: bool,
@@ -130,8 +119,8 @@ def _fetch_metrics(
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
-    def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
-        for page in search.fetch_sys_id_labels(container_type)(
+    async def go_fetch_sys_attrs() -> AsyncGenerator[list[identifiers.SysId]]:
+        async for page in search.fetch_sys_id_labels(container_type)(
             client=client,
             project_identifier=project_identifier,
             filter_=filter_,
@@ -142,30 +131,28 @@ def _fetch_metrics(
                 sys_ids.append(item.sys_id)
             yield sys_ids
 
-    output = concurrency.generate_concurrently(
+    output: AsyncGenerator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]] = concurrency.flat_map_async_generator(
         items=go_fetch_sys_attrs(),
-        executor=executor,
-        downstream=lambda sys_ids: fetch_attribute_definitions_split(
-            client=client,
-            project_identifier=project_identifier,
-            attribute_filter=attributes,
-            executor=executor,
-            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-            sys_ids=sys_ids,
-            downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
+        downstream=lambda sys_ids: concurrency.flat_map_async_generator(
+            items=fetch_attribute_definitions_split(
+                client=client,
+                project_identifier=project_identifier,
+                attribute_filter=attributes,
+                sys_ids=sys_ids,
+            ),
+            downstream=lambda pair: concurrency.flat_map_sync(
                 items=split.split_series_attributes(
                     items=(
                         identifiers.RunAttributeDefinition(
                             run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
                             attribute_definition=definition,
                         )
-                        for sys_id in sys_ids_split
-                        for definition in definitions_page.items
+                        for sys_id in pair[0]
+                        for definition in pair[1].items
                         if definition.type == "float_series"
                     )
                 ),
-                executor=executor,
-                downstream=lambda run_attribute_definitions_split: concurrency.return_value(
+                downstream=lambda run_attribute_definitions_split: concurrency.return_value_async(
                     fetch_multiple_series_values(
                         client=client,
                         run_attribute_definitions=run_attribute_definitions_split,
@@ -180,13 +167,15 @@ def _fetch_metrics(
         ),
     )
 
-    results: Generator[
-        dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None
-    ] = concurrency.gather_results(output)
+    async def build_result(
+            generator: AsyncGenerator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]]
+    ) -> dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]:
+        results: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
+        async for result in generator:
+            for run_attribute_definition, metric_points in result.items():
+                results.setdefault(run_attribute_definition, []).extend(metric_points)
+        return results
 
-    metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
-    for result in results:
-        for run_attribute_definition, metric_points in result.items():
-            metrics_data.setdefault(run_attribute_definition, []).extend(metric_points)
+    metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = asyncio.run(build_result(output))
 
     return metrics_data, sys_id_label_mapping

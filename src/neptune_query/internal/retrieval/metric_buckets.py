@@ -83,7 +83,7 @@ def int_to_uuid(num: int) -> str:
     return f"00000000-0000-0000-0000-{num:012d}"
 
 
-def fetch_time_series_buckets(
+async def fetch_time_series_buckets(
     client: AuthenticatedClient,
     run_attribute_definitions: Iterable[RunAttributeDefinition],
     container_type: ContainerType,
@@ -145,8 +145,8 @@ def fetch_time_series_buckets(
 
     logger.debug(f"Calling get_timeseries_buckets_proto with body: {request_object}")
 
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.sync_detailed))
-    response = call_api(
+    call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.asyncio_detailed))
+    response = await call_api(
         client=client,
         body=ProtobufPayload(request_object),
     )

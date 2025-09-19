@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import copy
 from collections import defaultdict
-from concurrent.futures import Executor
 from dataclasses import dataclass
 from typing import (
     Generic,
@@ -26,6 +26,7 @@ from typing import (
 
 from neptune_api.client import AuthenticatedClient
 
+from . import concurrency
 from ...exceptions import AttributeTypeInferenceError
 from ...warnings import AttributeWarning
 from .. import (
@@ -166,7 +167,6 @@ def infer_attribute_types_in_filter(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     filter_: Optional[filters._Filter],
-    fetch_attribute_definitions_executor: Executor,
 ) -> InferenceState[Optional[filters._Filter]]:
     if filter_ is None:
         return InferenceState(attributes=[], result=None)
@@ -182,7 +182,6 @@ def infer_attribute_types_in_filter(
     _infer_attribute_types_from_api(
         client=client,
         project_identifier=project_identifier,
-        fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
         inference_state=state,
     )
 
@@ -194,7 +193,6 @@ def infer_attribute_types_in_sort_by(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     sort_by: filters._Attribute,
-    fetch_attribute_definitions_executor: Executor,
 ) -> InferenceState[filters._Attribute]:
     state = InferenceState.from_attribute(sort_by)
     if state.is_complete():
@@ -207,7 +205,6 @@ def infer_attribute_types_in_sort_by(
     _infer_attribute_types_from_api(
         client=client,
         project_identifier=project_identifier,
-        fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
         inference_state=state,
     )
 
@@ -287,7 +284,6 @@ def _infer_attribute_types_locally(
 def _infer_attribute_types_from_api(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
-    fetch_attribute_definitions_executor: Executor,
     inference_state: InferenceState,
 ) -> None:
     attribute_states = inference_state.incomplete_attributes()
@@ -299,12 +295,11 @@ def _infer_attribute_types_from_api(
         project_identifiers=[project_identifier],
         run_identifiers=None,
         attribute_filter=attribute_filter_by_name,
-        executor=fetch_attribute_definitions_executor,
     )
 
     inferred_attributes = defaultdict(set)
 
-    for page in output:
+    for page in asyncio.run(concurrency.gather_results(output)):
         for attr_def in page.items:
             for state in attribute_states:
                 if state.attribute.name == attr_def.name:

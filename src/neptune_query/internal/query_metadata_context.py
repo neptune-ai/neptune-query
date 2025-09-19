@@ -32,8 +32,6 @@ from typing import (
     TypeVar,
 )
 
-from neptune_api.types import Response
-
 from neptune_query.internal.composition import concurrency
 
 # This flag is used to control whether query metadata should be added to the request headers
@@ -75,9 +73,9 @@ T = ParamSpec("T")
 R = TypeVar("R")
 
 
-def with_neptune_client_metadata(func: Callable[T, Response[R]]) -> Callable[T, Response[R]]:
+def with_neptune_client_metadata(func: Callable[T, R]) -> Callable[T, R]:
     @functools.wraps(func)
-    def wrapper(*args: T.args, **kwargs: T.kwargs) -> Response[R]:
+    def wrapper(*args: T.args, **kwargs: T.kwargs) -> R:
         query_metadata: Optional[QueryMetadata] = concurrency.get_thread_local(
             "query_metadata", expected_type=QueryMetadata
         )
