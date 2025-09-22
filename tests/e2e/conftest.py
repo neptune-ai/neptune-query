@@ -85,7 +85,7 @@ def project():
 def run_with_attributes(project, api_token, client):
     runs = {}
     force_data_generation = os.getenv("NEPTUNE_E2E_FORCE_DATA_GENERATION", "").lower() in ("true", "1", "yes")
-    
+
     for experiment in TEST_DATA.experiments:
         project_id = project.project_identifier
 
