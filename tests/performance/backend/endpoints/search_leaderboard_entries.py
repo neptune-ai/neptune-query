@@ -4,10 +4,7 @@ Endpoint for handling leaderboard entries search requests.
 import json
 import random
 import time
-from typing import (
-    Final,
-    Optional,
-)
+from typing import Final
 
 from fastapi import (
     APIRouter,
@@ -18,15 +15,13 @@ from neptune_api.models.search_leaderboard_entries_params_dto import SearchLeade
 from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
     ProtoLeaderboardEntriesSearchResultDTO,
 )
+from performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from performance.backend.utils.logging import setup_logger
 from performance.backend.utils.metrics import RequestMetrics
+from performance.backend.utils.timing import Timer
 
 # Import attribute types from neptune_query
-from neptune_query.internal.retrieval.attribute_types import (
-    ALL_TYPES,
-    ATTRIBUTE_LITERAL,
-    map_attribute_type_backend_to_python,
-)
+from neptune_query.internal.retrieval.attribute_types import ALL_TYPES
 from tests.performance.backend.perf_request import SearchLeaderboardEntriesConfig
 from tests.performance.backend.utils.exceptions import MalformedRequestError
 from tests.performance.backend.utils.random_utils import (
@@ -46,30 +41,6 @@ logger = setup_logger("search_leaderboard_entries")
 router = APIRouter()
 
 
-def _parse_attribute_type(attr_type: str) -> Optional[ATTRIBUTE_LITERAL]:
-    """Convert string attribute type to standard attribute type.
-
-    Args:
-        attr_type: String representation of attribute type
-
-    Returns:
-        Corresponding attribute type from ATTRIBUTE_LITERAL or None if not recognized
-    """
-    # Handle python-style attribute types
-    lowercase_type = attr_type.lower()
-
-    # Check if it's already a valid attribute type
-    if lowercase_type in ALL_TYPES:
-        return lowercase_type  # type: ignore
-
-    # Try to map backend type to python type
-    backend_mapped = map_attribute_type_backend_to_python(lowercase_type)
-    if backend_mapped in ALL_TYPES:
-        return backend_mapped  # type: ignore
-
-    return None
-
-
 def _build_page_result(
     endpoint_config: SearchLeaderboardEntriesConfig, limit: int, offset: int, request_id: str
 ) -> bytes:
@@ -85,7 +56,7 @@ def _build_page_result(
         Serialized protobuf response with generated entries
 
     Raises:
-        NotImplementedError: If an unsupported attribute type is requested
+        ValueError: If an unsupported attribute type is requested
     """
     start = offset
     end = min(offset + limit, endpoint_config.total_entries_count)
@@ -106,12 +77,13 @@ def _build_page_result(
 
     # Pre-process attribute types for faster lookup
     processed_attrs = {
-        name: _parse_attribute_type(attr_type) for name, attr_type in endpoint_config.requested_attributes.items()
+        name: attr_type.lower() if attr_type.lower() in ALL_TYPES else None
+        for name, attr_type in endpoint_config.requested_attributes.items()
     }
-    invalid_attrs = [name for name, attr_type in processed_attrs.items() if attr_type is None]
 
-    if invalid_attrs:
-        logger.warning(f"[{request_id}] Found invalid attribute types: {invalid_attrs}")
+    if invalid_attrs := {name: attr_type for name, attr_type in processed_attrs.items() if attr_type is None}:
+        logger.error(f"[{request_id}] Found invalid attribute types: {invalid_attrs}")
+        raise NotImplementedError(f"[{request_id}] Found invalid attribute types: {invalid_attrs}")
 
     entries_generated = 0
     for idx in range(start, end):
@@ -166,23 +138,23 @@ async def search_leaderboard_entries(request: Request) -> Response:
 
     try:
         # Parse request body
-        parse_start_ms = time.time() * 1000
-        raw_body = await request.json()
-        parsed_request = SearchLeaderboardEntriesParamsDTO.from_dict(raw_body)
+        with Timer() as parsing_timer:
+            raw_body = await request.json()
+            parsed_request = SearchLeaderboardEntriesParamsDTO.from_dict(raw_body)
 
-        # Get the configuration from middleware
-        perf_config = getattr(request.state, "perf_config", None)
-        if not perf_config:
-            logger.warning(f"[{request_id}] No performance configuration found")
-            raise MalformedRequestError("Missing or invalid X-Perf-Request header")
+            # Get the configuration from middleware
+            perf_config = getattr(request.state, PERF_REQUEST_CONFIG_ATTRIBUTE_NAME, None)
+            if not perf_config:
+                logger.error(f"[{request_id}] No performance configuration found")
+                raise MalformedRequestError("Missing or invalid X-Perf-Request header")
 
-        # Get endpoint-specific configuration using the config path (with /api prefix)
-        endpoint_config = perf_config.get_endpoint_config(SEARCH_LEADERBOARD_ENTRIES_CONFIG_PATH, "POST")
-        if not endpoint_config or not isinstance(endpoint_config, SearchLeaderboardEntriesConfig):
-            logger.warning(f"[{request_id}] Missing configuration for this endpoint")
-            raise MalformedRequestError("Missing configuration for this endpoint")
+            # Get endpoint-specific configuration using the config path (with /api prefix)
+            endpoint_config = perf_config.get_endpoint_config(SEARCH_LEADERBOARD_ENTRIES_CONFIG_PATH, "POST")
+            if not endpoint_config or not isinstance(endpoint_config, SearchLeaderboardEntriesConfig):
+                logger.warning(f"[{request_id}] Missing configuration for this endpoint")
+                raise MalformedRequestError("Missing configuration for this endpoint")
 
-        metrics.parse_time_ms = time.time() * 1000 - parse_start_ms
+        metrics.parse_time_ms = parsing_timer.time_ms
 
         # Extract pagination parameters
         limit = int(parsed_request.pagination.limit)
@@ -197,20 +169,16 @@ async def search_leaderboard_entries(request: Request) -> Response:
         )
 
         # Generate and return protobuf response
-        generation_start_ms = time.time() * 1000
-        payload = _build_page_result(endpoint_config, limit, offset, request_id)
-        metrics.generation_time_ms = time.time() * 1000 - generation_start_ms
+        with Timer() as data_generation_timer:
+            payload = _build_page_result(endpoint_config, limit, offset, request_id)
+
+        metrics.generation_time_ms = data_generation_timer.time_ms
         metrics.returned_payload_size_bytes = len(payload)
 
         return Response(
             content=payload,
             media_type="application/octet-stream",
             status_code=200,
-            headers={
-                "X-Response-Entries": str(min(limit, max(0, endpoint_config.total_entries_count - offset))),
-                "X-Response-Size": str(metrics.returned_payload_size_bytes),
-                "X-Generation-Time-Ms": str(round(metrics.generation_time_ms, 2)),
-            },
         )
 
     except MalformedRequestError as exc:

@@ -6,8 +6,8 @@ import time
 from typing import Dict
 
 from fastapi import FastAPI
-from performance.backend.middleware.config_middleware import PerfRequestConfigMiddleware
-from performance.backend.middleware.latency_middleware import LatencyAddingMiddleware
+from performance.backend.middleware.add_latency_middleware import LatencyAddingMiddleware
+from performance.backend.middleware.read_perf_config_middleware import PerfRequestConfigMiddleware
 from performance.backend.middleware.request_metrics_middleware import RequestMetricsMiddleware
 from performance.backend.utils.logging import (
     configure_root_logger,

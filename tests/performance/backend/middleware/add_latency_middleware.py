@@ -10,6 +10,8 @@ from fastapi import (
     Request,
     Response,
 )
+from performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
+from performance.backend.utils.exceptions import MalformedRequestError
 from performance.backend.utils.logging import setup_logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -21,29 +23,24 @@ class LatencyAddingMiddleware(BaseHTTPMiddleware):
     """Middleware for simulating latency in performance testing."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Add simulated latency to responses.
-
-        Args:
-            request: The incoming request
-            call_next: The next middleware or endpoint in the chain
-
-        Returns:
-            The response with simulated latency applied if configured
-        """
         request_id = getattr(request.state, "id", "unknown")
-        start_time_ms = time.time() * 1000
+        start_time_ms = time.perf_counter_ns() / 1_000_000  # Convert to milliseconds
 
         # Call the next handler (endpoint)
         response = await call_next(request)
 
         # Check for latency configuration
-        perf_config = getattr(request.state, "perf_config", None)
-        if perf_config and perf_config.latency:
+        perf_request_config = getattr(request.state, PERF_REQUEST_CONFIG_ATTRIBUTE_NAME, None)
+        if not perf_request_config:
+            logger.error("No performance request configuration found; skipping latency addition.")
+            raise MalformedRequestError("No performance request configuration found; skipping latency addition.")
+
+        if perf_request_config.latency:
             # Calculate how long we've spent processing so far
-            elapsed_time_ms = (time.time() * 1000) - start_time_ms
+            elapsed_time_ms = (time.perf_counter_ns() / 1_000_000) - start_time_ms
 
             # Generate random latency in the specified range using uniform distribution
-            target_latency_ms = random.uniform(perf_config.latency.min_ms, perf_config.latency.max_ms)
+            target_latency_ms = random.uniform(perf_request_config.latency.min_ms, perf_request_config.latency.max_ms)
 
             # Subtract the time already spent processing
             remaining_latency_ms = max(0.0, target_latency_ms - elapsed_time_ms)
