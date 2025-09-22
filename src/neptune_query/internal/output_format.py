@@ -543,7 +543,7 @@ def _pivot_df(
     df: pd.DataFrame,
     index_column_name: str,
     timestamp_column_name: Optional[str],
-    extra_value_columns: list[str],
+    extra_value_columns: list[tuple[str, str]],
 ) -> pd.DataFrame:
     # Holds all existing (experiment, step) pairs
     # This is needed because pivot_table will remove rows if they are all NaN

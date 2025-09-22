@@ -16,10 +16,7 @@ from neptune_query.internal.identifiers import (
     SysId,
 )
 from neptune_query.internal.retrieval.attribute_types import ALL_TYPES
-from neptune_query.internal.retrieval.metrics import (
-    FloatPointValue,
-    StepIndex,
-)
+from neptune_query.internal.retrieval.metrics import FloatPointValue
 
 
 @st.composite

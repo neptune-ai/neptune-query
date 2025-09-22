@@ -1,14 +1,9 @@
 name: Run fuzzy tests - neptune-query
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'dev_requirements.txt'
-      - 'pyproject.toml'
   push:
     branches:
       - main
@@ -44,3 +39,23 @@ jobs:
           test-directory: fuzzy
           report-job: 'test fuzzy (${{ matrix.os }} - py${{ matrix.python-version }})'
           report-suffix: 'fuzzy-${{ matrix.python-version }}-${{ matrix.os }}'
+
+      - name: Notify Slack on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+            const payload = {
+              username: "GitHub Actions",
+              text: `Fuzzy tests failed in the repository: <https://github.com/${context.repo.owner}/${context.repo.repo}|${context.repo.owner}/${context.repo.repo}>. Please check the details.`
+            };
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
