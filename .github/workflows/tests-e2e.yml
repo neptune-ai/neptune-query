@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
+    inputs:
+      force_data_generation:
+        description: 'Force data generation (skip experiment existence check)'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -51,6 +57,7 @@ jobs:
           NEPTUNE_E2E_WORKSPACE: ${{ secrets.E2E_WORKSPACE }}
           NEPTUNE_E2E_PROJECT: ${{ secrets[format('E2E_PROJECT{0}', matrix.env_suffix)] }}
           NEPTUNE_E2E_API_TOKEN: ${{ secrets[format('E2E_API_TOKEN{0}', matrix.env_suffix)] }}
+          NEPTUNE_E2E_FORCE_DATA_GENERATION: ${{ inputs.force_data_generation || 'false' }}
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
           pytest --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
