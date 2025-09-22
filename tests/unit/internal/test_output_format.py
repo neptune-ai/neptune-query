@@ -1715,3 +1715,168 @@ def test_create_metric_buckets_dataframe_completely_nan():
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
     pd.testing.assert_frame_equal(df, expected_df)
+
+
+def test_create_metrics_dataframe_all_nan_values():
+    """Test that create_metrics_dataframe preserves column structure when all values are NaN."""
+    # Given - data with all NaN values
+    data = {
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+
+    # When
+    df = create_metrics_dataframe(
+        metrics_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+
+    # Then - should preserve column structure even with NaN values
+    expected_df = pd.DataFrame(
+        data={"path1": [float("nan")]},
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+    # Verify that the column exists and contains NaN
+    assert "path1" in df.columns
+    assert pd.isna(df["path1"].iloc[0])
+
+
+def test_create_metrics_dataframe_all_nan_values_with_type_suffix():
+    """Test that create_metrics_dataframe preserves column structure when all values are NaN with type suffix."""
+    # Given - data with all NaN values and type suffix enabled
+    data = {
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+
+    # When
+    df = create_metrics_dataframe(
+        metrics_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=True,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+
+    # Then - should preserve column structure with type suffix
+    expected_df = pd.DataFrame(
+        data={"path1:float_series": [float("nan")]},
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+    # Verify that the column exists and contains NaN
+    assert "path1:float_series" in df.columns
+    assert pd.isna(df["path1:float_series"].iloc[0])
+
+
+def test_create_metrics_dataframe_mixed_nan_and_valid_values():
+    """Test that create_metrics_dataframe preserves column structure when some values are NaN and others are valid."""
+    # Given - data with one valid value and one NaN value (same experiment, same step)
+    data = {
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # valid value
+        ],
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # NaN value
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+
+    # When
+    df = create_metrics_dataframe(
+        metrics_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+
+    # Then - should preserve both columns even though one has NaN
+    expected_df = pd.DataFrame(
+        data={
+            "path1": [10.0],
+            "path2": [float("nan")],
+        },
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+    # Verify that both columns exist
+    assert "path1" in df.columns
+    assert "path2" in df.columns
+    assert df["path1"].iloc[0] == 10.0
+    assert pd.isna(df["path2"].iloc[0])
+
+
+def test_create_metrics_dataframe_mixed_nan_and_valid_values_with_type_suffix():
+    """Test that create_metrics_dataframe preserves column structure when some values are NaN and others are valid,
+    with type suffix."""
+    # Given - data with one valid value and one NaN value (same experiment, same step)
+    data = {
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # valid value
+        ],
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # NaN value
+        ],
+    }
+    sys_id_label_mapping = {
+        SysId("sysid1"): "exp1",
+    }
+
+    # When
+    df = create_metrics_dataframe(
+        metrics_data=data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=True,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+
+    # Then - should preserve both columns even though one has NaN
+    expected_df = pd.DataFrame(
+        data={
+            "path1:float_series": [10.0],
+            "path2:float_series": [float("nan")],
+        },
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+    # Verify that both columns exist
+    assert "path1:float_series" in df.columns
+    assert "path2:float_series" in df.columns
+    assert df["path1:float_series"].iloc[0] == 10.0
+    assert pd.isna(df["path2:float_series"].iloc[0])
