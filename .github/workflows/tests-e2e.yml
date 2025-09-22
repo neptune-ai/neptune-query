@@ -52,11 +52,8 @@ jobs:
           NEPTUNE_E2E_PROJECT: ${{ secrets[format('E2E_PROJECT{0}', matrix.env_suffix)] }}
           NEPTUNE_E2E_API_TOKEN: ${{ secrets[format('E2E_API_TOKEN{0}', matrix.env_suffix)] }}
           TEST_MARKERS: ${{ matrix.test_markers }}
-        # First run all test in parallel with retries for speed
-        # Then run failed tests sequentially to get better logs
         run: |
-          pytest --retries=3 --retry-delay=2 --dist=loadfile -n 8 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e ||
-          pytest --lf ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
+          pytest --retries=3 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
       - name: Report
         uses: mikepenz/action-junit-report@v5
         if: always()
