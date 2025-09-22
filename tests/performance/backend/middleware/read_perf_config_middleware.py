@@ -2,6 +2,7 @@
 Middleware for handling performance testing configuration parsing.
 Parses X-Perf-Request headers and attaches config to request state.
 """
+import json
 from typing import (
     Callable,
     Final,
@@ -11,11 +12,10 @@ from fastapi import (
     Request,
     Response,
 )
-from performance.backend.utils.exceptions import MalformedRequestError
-from performance.backend.utils.logging import setup_logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from tests.performance.backend.perf_request import PerfRequestConfig
+from tests.performance.backend.utils.logging import setup_logger
 
 # Configure logger
 logger = setup_logger("perf_config_middleware")
@@ -28,8 +28,6 @@ class PerfRequestConfigMiddleware(BaseHTTPMiddleware):
     """Middleware for handling performance testing configuration from X-Perf-Request header."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        request_id = getattr(request.state, "id", "unknown")
-
         header_value = None
         try:
             header_value = request.headers.get("X-Perf-Request")
@@ -37,10 +35,11 @@ class PerfRequestConfigMiddleware(BaseHTTPMiddleware):
             # Attach the parsed config to the request state for endpoint handlers
             # and other middleware components to use
             setattr(request.state, PERF_REQUEST_CONFIG_ATTRIBUTE_NAME, perf_request_config)
-            logger.debug(f"[{request_id}] Parsed X-Perf-Request header")
+            logger.debug("Parsed X-Perf-Request header")
         except Exception as e:
-            logger.warning(f"[{request_id}] Error parsing X-Perf-Request header ({header_value}): {str(e)}")
-            raise MalformedRequestError(f"Invalid X-Perf-Request header {header_value}") from e
+            logger.error(f"Error parsing X-Perf-Request header ({header_value}): {str(e)}")
+            response_content = {"code": 400, "message": f"Malformed X-Perf-Request header: {str(e)}"}
+            return Response(status_code=400, content=json.dumps(response_content))
 
         # Call the next handler (endpoint)
         response = await call_next(request)

@@ -6,15 +6,19 @@ import time
 from typing import Dict
 
 from fastapi import FastAPI
-from performance.backend.middleware.add_latency_middleware import LatencyAddingMiddleware
-from performance.backend.middleware.read_perf_config_middleware import PerfRequestConfigMiddleware
-from performance.backend.middleware.request_metrics_middleware import RequestMetricsMiddleware
-from performance.backend.utils.logging import (
+
+from tests.performance.backend.endpoints.get_multiple_float_series_values import router as float_series_values_router
+from tests.performance.backend.endpoints.query_attribute_definitions_within_project import (
+    router as query_attribute_definitions_router,
+)
+from tests.performance.backend.endpoints.search_leaderboard_entries import router as search_leaderboard_entries_router
+from tests.performance.backend.middleware.add_latency_middleware import LatencyAddingMiddleware
+from tests.performance.backend.middleware.read_perf_config_middleware import PerfRequestConfigMiddleware
+from tests.performance.backend.middleware.request_logging_middleware import RequestLoggingMiddleware
+from tests.performance.backend.utils.logging import (
     configure_root_logger,
     setup_logger,
 )
-
-from tests.performance.backend.endpoints.search_leaderboard_entries import router as search_leaderboard_entries_router
 
 # Configure root logger first to prevent any duplicate logging
 configure_root_logger()
@@ -31,15 +35,17 @@ api_app = FastAPI(title="Performance Test API", version="0.0.1")
 # Add middleware for performance testing to the API sub-app only
 # IMPORTANT: middleware are executed in reverse order from how they're added
 # The last middleware added is executed first, so we add them in the reverse order:
-# 1. LatencyMiddleware (added first, executed last)
-# 2. PerfConfigMiddleware (added second, executed second)
-# 3. RequestMetricsMiddleware (added last, executed first)
-api_app.add_middleware(LatencyAddingMiddleware)  # Executed last (innermost)
-api_app.add_middleware(PerfRequestConfigMiddleware)  # Executed second
-api_app.add_middleware(RequestMetricsMiddleware)  # Executed first (outermost)
+# - RequestLoggingMiddleware
+# - PerfConfigMiddleware
+# - LatencyMiddleware
+api_app.add_middleware(LatencyAddingMiddleware)
+api_app.add_middleware(PerfRequestConfigMiddleware)
+api_app.add_middleware(RequestLoggingMiddleware)
 
 # Include routers for API endpoints in the sub-app
 api_app.include_router(search_leaderboard_entries_router)
+api_app.include_router(query_attribute_definitions_router)
+api_app.include_router(float_series_values_router)
 
 # Mount the API sub-app under the /api path
 app.mount("/api", api_app)

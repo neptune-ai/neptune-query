@@ -10,10 +10,11 @@ from fastapi import (
     Request,
     Response,
 )
-from performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
-from performance.backend.utils.exceptions import MalformedRequestError
-from performance.backend.utils.logging import setup_logger
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from tests.performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
+from tests.performance.backend.utils.exceptions import MalformedRequestError
+from tests.performance.backend.utils.logging import setup_logger
 
 # Configure logger
 logger = setup_logger("latency_middleware")
@@ -35,12 +36,18 @@ class LatencyAddingMiddleware(BaseHTTPMiddleware):
             logger.error("No performance request configuration found; skipping latency addition.")
             raise MalformedRequestError("No performance request configuration found; skipping latency addition.")
 
-        if perf_request_config.latency:
+        # Get endpoint-specific configuration
+        path = request.url.path
+        method = request.method
+        endpoint_config = perf_request_config.get_endpoint_config(path, method)
+
+        # Check if we have endpoint config with latency settings
+        if endpoint_config.latency:
             # Calculate how long we've spent processing so far
             elapsed_time_ms = (time.perf_counter_ns() / 1_000_000) - start_time_ms
 
             # Generate random latency in the specified range using uniform distribution
-            target_latency_ms = random.uniform(perf_request_config.latency.min_ms, perf_request_config.latency.max_ms)
+            target_latency_ms = random.uniform(endpoint_config.latency.min_ms, endpoint_config.latency.max_ms)
 
             # Subtract the time already spent processing
             remaining_latency_ms = max(0.0, target_latency_ms - elapsed_time_ms)

@@ -27,7 +27,7 @@ class LatencyConfig:
 class EndpointConfig:
     """Base class for endpoint-specific configuration."""
 
-    pass
+    latency: Optional[LatencyConfig]
 
 
 @dataclass
@@ -40,16 +40,45 @@ class SearchLeaderboardEntriesConfig(EndpointConfig):
 
 
 @dataclass
+class QueryAttributeDefinitionsConfig(EndpointConfig):
+    """Configuration for the query_attribute_definitions_within_project endpoint."""
+
+    # Total number of attribute definitions to return
+    total_definitions_count: int = 0
+    # Attribute types to include in the response (name -> type)
+    attribute_types: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FloatTimeSeriesValuesConfig(EndpointConfig):
+    """Configuration for the get_multiple_float_series_values endpoint."""
+
+    # The server will use hashing to compute desired point count for each series.
+    # This allows randomness for non-random series names.
+    seed: int
+
+    # Probability that a (experiment, attribute definition) pair exists
+    existence_probability: float
+    # Minimum number of points per series
+
+    series_cardinality_policy: str
+    # if policy is "uniform", this defines the (min, max) range for number of points per series
+    series_cardinality_uniform_range: Optional[tuple[int, int]] = field(default=None)
+    # if policy is "bucketed", this defines the buckets and their probabilities
+    # a list of (probability, number_of_points) tuples; the probabilities will be normalized by the server
+    series_cardinality_buckets: Optional[list[tuple[float, float]]] = field(default=None)
+
+
+@dataclass
 class PerfRequestConfig:
     """Schema for the X-Perf-Request header."""
 
     # Registry of endpoint paths to their configuration classes
     ENDPOINT_CONFIG_CLASSES: ClassVar[Dict[str, dict[str, type]]] = {
-        "/api/leaderboard/v1/proto/leaderboard/entries/search/": {"POST": SearchLeaderboardEntriesConfig}
+        "/api/leaderboard/v1/proto/leaderboard/entries/search/": {"POST": SearchLeaderboardEntriesConfig},
+        "/api/leaderboard/v1/leaderboard/attributes/definitions/query": {"POST": QueryAttributeDefinitionsConfig},
+        "/api/leaderboard/v1/proto/attributes/series/float": {"POST": FloatTimeSeriesValuesConfig},
     }
-
-    # Generic configurations
-    latency: Optional[LatencyConfig] = field(default_factory=LatencyConfig)
 
     # Endpoint-specific configurations: path -> method -> config
     endpoints_configuration: Dict[str, Dict[str, EndpointConfig]] = field(default_factory=dict)
@@ -116,10 +145,6 @@ class PerfRequestConfig:
         # Create a new config object
         config = cls()
 
-        # Parse generic configurations
-        if "latency" in data:
-            config.latency = LatencyConfig(**data["latency"])
-
         # Parse endpoint-specific configurations
         if "endpoints_configuration" in data:
             endpoints_data = data["endpoints_configuration"]
@@ -128,8 +153,14 @@ class PerfRequestConfig:
                     # Look up the correct config class for this endpoint
                     config_class = cls.ENDPOINT_CONFIG_CLASSES.get(path, {}).get(method)
                     if config_class:
-                        # Create and add the config object
+                        # Handle latency configuration if present
+                        if "latency" in endpoint_config:
+                            latency_data = endpoint_config.pop("latency")
+                            endpoint_config["latency"] = LatencyConfig(**latency_data)
+
+                        # Create endpoint config object
                         endpoint_obj = config_class(**endpoint_config)
+
                         config.add_endpoint_config(path, method, endpoint_obj)
 
         return config

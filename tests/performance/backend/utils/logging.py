@@ -4,10 +4,13 @@ Provides a consistent logging configuration across all modules.
 """
 import logging
 import sys
+from contextvars import ContextVar
 from typing import (
     Dict,
     Optional,
 )
+
+request_id_ctx = ContextVar("request_id", default="-")
 
 
 class RequestIdFilter(logging.Filter):
@@ -17,9 +20,9 @@ class RequestIdFilter(logging.Filter):
         super().__init__(name)
         self.request_id = "-"
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
-            record.request_id = self.request_id
+            record.request_id = request_id_ctx.get()
         return True
 
 
@@ -89,10 +92,7 @@ def setup_logger(logger_name: str, level: Optional[int] = None) -> logging.Logge
 
     # Configure formatter with request_id
     formatter = logging.Formatter(
-        fmt=(
-            "%(asctime)s.%(msecs)03d | %(levelname)s | %(name)s | %(module)s:%(lineno)d | [%(request_id)s] | "
-            "%(message)s"
-        ),
+        fmt=("%(asctime)s.%(msecs)03d | %(levelname)s | %(name)s | [%(request_id)s] | " "%(message)s"),
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 

@@ -20,10 +20,10 @@ import pytest
 from neptune_api import AuthenticatedClient
 from neptune_api.credentials import Credentials
 from neptune_api.types import OAuthToken
-from performance.backend.utils.logging import setup_logger
 
 import neptune_query.internal.client as client
 from neptune_query import set_api_token
+from tests.performance.backend.utils.logging import setup_logger
 
 # Get a logger for the test framework using our centralized configuration
 logger = setup_logger("performance_tests")
@@ -52,10 +52,15 @@ def _run_server(host: str, port: int) -> None:  # pragma: no cover - helper for 
     try:
         import uvicorn
 
-        from tests.performance.backend.main import app
-
         logger.info(f"Starting performance test server at {host}:{port}")
-        uvicorn.run(app, host=host, port=port, log_level="info", access_log=False)
+        uvicorn.run(
+            app="tests.performance.backend.main:app",
+            host=host,
+            port=port,
+            log_level="info",
+            access_log=False,
+            workers=8,
+        )
     except Exception:
         logger.error(f"Error in test server process:\n{traceback.format_exc()}")
         # Make sure the process exits so the test doesn't hang
@@ -75,7 +80,7 @@ def backend_server(backend_base_url: str) -> Iterator[None]:
 
     # Create a server process with proper signal handling
     ctx = multiprocessing.get_context("spawn")  # Use spawn for better cross-platform compatibility
-    proc = ctx.Process(target=_run_server, args=(host, port), daemon=True)
+    proc = ctx.Process(target=_run_server, args=(host, port), daemon=False)
 
     logger.info(f"Starting backend server process at {backend_base_url}")
     proc.start()
