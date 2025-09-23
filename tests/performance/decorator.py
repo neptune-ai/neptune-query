@@ -45,6 +45,7 @@ def expected_benchmark(
             wrapped_fn._original_fn = wrapped_fn
             wrapped_fn._collected_params = []
             wrapped_fn._collected_param_keys = list(params.keys())
+            wrapped_fn._expected_benchmarks = {}
 
         # Operate on the original function, not the wrapped one
         fn = wrapped_fn._original_fn
@@ -63,6 +64,7 @@ def expected_benchmark(
 
         fn_with_params = pytest.mark.parametrize(",".join(fn._collected_param_keys), fn._collected_params)(copy_fn(fn))
         fn_with_params._original_fn = fn
+        fn_with_params._expected_benchmarks[json.dumps(params)] = (min_p0, max_p80, max_p100)
 
         if not os.getenv("BENCHMARK_VALIDATE_FILE"):
             return fn_with_params
@@ -71,13 +73,17 @@ def expected_benchmark(
 
         @wraps(fn_with_params)
         def validation(*args, **kwargs):
-            if min_p0 is None or max_p80 is None or max_p100 is None:
+            # Extract the actual parameters used in this test run
+            my_params = {key: kwargs[key] for key in params.keys()}
+            params_str = json.dumps(my_params)
+            my_min_p0, my_max_p80, my_max_p100 = fn._expected_benchmarks[params_str]
+
+            if my_min_p0 is None or my_max_p80 is None or my_max_p100 is None:
                 warnings.warn("Benchmark thresholds not set, skipping validation.", category=UserWarning)
                 return
 
             perf_data = _get_benchmark_data()
 
-            params_str = json.dumps(params)
             assert fn.__name__, params_str in perf_data
             stats = perf_data[fn.__name__, params_str]
 
@@ -86,25 +92,25 @@ def expected_benchmark(
             p80 = times[int(len(times) * 0.8)]
             p100 = times[-1]
 
-            adjusted_min_p0 = min_p0 * BENCHMARK_PERFORMANCE_FACTOR
-            adjusted_max_p80 = max_p80 * BENCHMARK_PERFORMANCE_FACTOR
-            adjusted_max_p100 = max_p100 * BENCHMARK_PERFORMANCE_FACTOR
+            adjusted_min_p0 = my_min_p0 * BENCHMARK_PERFORMANCE_FACTOR
+            adjusted_max_p80 = my_max_p80 * BENCHMARK_PERFORMANCE_FACTOR
+            adjusted_max_p100 = my_max_p100 * BENCHMARK_PERFORMANCE_FACTOR
 
             detailed_msg = f"""
 
                 Benchmark '{fn.__name__}' with params {params_str} results:
 
-                0th percentile: {p0:.3f} s
-                Unadjusted min_p0: {min_p0:.3f} s
-                Adjusted (*) min_p0: {adjusted_min_p0:.3f} s
+                0th percentile:         {p0:.3f} s
+                Unadjusted min_p0:      {my_min_p0:.3f} s
+                Adjusted (*) min_p0:    {adjusted_min_p0:.3f} s
 
-                80th percentile: {p80:.3f} s
-                Unadjusted max_p80: {max_p80:.3f} s
-                Adjusted (*) max_p80: {adjusted_max_p80:.3f} s
+                80th percentile:        {p80:.3f} s
+                Unadjusted max_p80:     {my_max_p80:.3f} s
+                Adjusted (*) max_p80:   {adjusted_max_p80:.3f} s
 
-                100th percentile: {p100:.3f} s
-                Unadjusted max_p100: {max_p100:.3f} s
-                Adjusted (*) max_p100: {adjusted_max_p100:.3f} s
+                100th percentile:       {p100:.3f} s
+                Unadjusted max_p100:    {my_max_p100:.3f} s
+                Adjusted (*) max_p100:  {adjusted_max_p100:.3f} s
 
                 (*) Use the environment variable "BENCHMARK_PERFORMANCE_FACTOR" to adjust the thresholds.
 
@@ -113,9 +119,22 @@ def expected_benchmark(
 
 """
 
-            assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0:.3f}" + detailed_msg
-            assert p80 <= adjusted_max_p80, f"p80 {p80:.3f} is more than expected {adjusted_max_p80:.3f}" + detailed_msg
-            assert p100 <= adjusted_max_p100, f"max {p100:.3f} is more than expected {adjusted_max_p100:.3f}" + detailed_msg
+            if BENCHMARK_PERFORMANCE_FACTOR == 1.0:
+                adjusted_min_p0_str = f"{adjusted_min_p0:.3f}"
+                adjusted_max_p80_str = f"{adjusted_max_p80:.3f}"
+                adjusted_max_p100_str = f"{adjusted_max_p100:.3f}"
+            else:
+                adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {my_min_p0:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
+                adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {my_max_p80:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
+                adjusted_max_p100_str = (
+                    f"{adjusted_max_p100:.3f} (= {my_max_p100:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
+                )
+
+            assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0_str}" + detailed_msg
+            assert p80 <= adjusted_max_p80, f"p80 {p80:.3f} is more than expected {adjusted_max_p80_str}" + detailed_msg
+            assert p100 <= adjusted_max_p100, (
+                f"p100 {p100:.3f} is more than expected {adjusted_max_p100_str}" + detailed_msg
+            )
 
         return validation
 

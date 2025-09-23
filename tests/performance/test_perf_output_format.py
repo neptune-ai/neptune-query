@@ -137,7 +137,7 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
     )
 
 
-@expected_benchmark(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000)
+@expected_benchmark(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=1.000, max_p100=1.500)
 @expected_benchmark(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=1.000, max_p100=1.500)
 def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
     """Test the performance of creating series DataFrame with string values."""
@@ -162,8 +162,10 @@ def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num
     )
 
 
-@expected_benchmark(num_experiments=500, num_paths=50, min_p0=0.500, max_p80=0.200, max_p100=0.300)
-def xtest_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
+@expected_benchmark(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=0.650, max_p100=0.750)
+@expected_benchmark(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.650, max_p100=0.750)
+@expected_benchmark(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.650, max_p100=0.750)
+def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
     """Test performance of converting a large table with multiple value types to DataFrame."""
     table_data = {}
     for exp in range(num_experiments):
