@@ -42,9 +42,7 @@ def pytest_sessionfinish(session, exitstatus):
 
         # Rerun the tests in validation mode
         os.environ["BENCHMARK_VALIDATE_FILE"] = str(report_path)
-        cp = subprocess.run(
-            [sys.executable] + sys.argv + ["-W", "ignore::pytest_benchmark.logger.PytestBenchmarkWarning"]
-        )
+        subprocess.run([sys.executable] + sys.argv + ["-W", "ignore::pytest_benchmark.logger.PytestBenchmarkWarning"])
 
     finally:
         try:

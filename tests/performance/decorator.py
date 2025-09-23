@@ -131,9 +131,7 @@ def expected_benchmark(
             else:
                 adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {my_min_p0:.3f} * {performance_factor})"
                 adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {my_max_p80:.3f} * {performance_factor})"
-                adjusted_max_p100_str = (
-                    f"{adjusted_max_p100:.3f} (= {my_max_p100:.3f} * {performance_factor})"
-                )
+                adjusted_max_p100_str = f"{adjusted_max_p100:.3f} (= {my_max_p100:.3f} * {performance_factor})"
 
             assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0_str}" + detailed_msg
             assert p80 <= adjusted_max_p80, f"p80 {p80:.3f} is more than expected {adjusted_max_p80_str}" + detailed_msg
