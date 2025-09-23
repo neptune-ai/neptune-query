@@ -3,6 +3,7 @@ behave
 mock
 pre-commit
 pytest
+pytest-benchmark
 pytest-mock
 pytest-retry
 pytest-timeout
