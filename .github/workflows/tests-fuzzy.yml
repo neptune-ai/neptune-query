@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - dev/.*
+  pull_request:  # TODO: Remove this once it's to be merged - seems I cannot use dispatch before it's merged
 
 jobs:
   test:

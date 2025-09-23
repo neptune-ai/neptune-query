@@ -468,24 +468,31 @@ def create_metric_buckets_dataframe(
         columns=[container_column_name, "path"],
         values=["x", "y"],
         observed=True,
-        dropna=False,
+        dropna=True,
         sort=False,
     )
 
     df = _restore_labels_in_columns(df, container_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
 
-    # Clear out any columns that were not requested, but got added because of dropna=False
-    desired_columns = [
-        (
-            dim,
-            sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
-            run_attr_definition.attribute_definition.name,
+    # Add back any columns that were removed because they were all NaN
+    if buckets_data:
+        desired_columns = pd.MultiIndex.from_tuples(
+            [
+                (
+                    dim,
+                    sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
+                    run_attr_definition.attribute_definition.name,
+                )
+                for run_attr_definition in buckets_data.keys()
+                for dim in ("x", "y")
+            ],
+            names=["bucket", container_column_name, "metric"],
         )
-        for run_attr_definition in buckets_data.keys()
-        for dim in ("x", "y")
-    ]
-    df = df.filter(desired_columns, axis="columns")
+        df = df.reindex(columns=desired_columns)
+    else:
+        # Handle empty case - create expected column structure
+        df.columns = pd.MultiIndex.from_product([["x", "y"], [], []], names=["bucket", container_column_name, "metric"])
 
     df = df.reorder_levels([1, 2, 0], axis="columns")
     df = df.sort_index(axis="columns", level=[0, 1])
@@ -500,8 +507,9 @@ def create_metric_buckets_dataframe(
 
 def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     """
-    1st returned bucket is always (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
+    1st returned bucket is (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
     resulting in a new bucket [first_point, end].
+    If there's only one bucket, it should have form (first_point, inf). We transform it to [first_point, first_point].
     """
     df.index = df.index.astype(object)  # IntervalIndex cannot mix Intervals closed from different sides
 
