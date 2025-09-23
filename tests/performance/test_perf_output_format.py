@@ -16,7 +16,7 @@ from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
 from neptune_query.internal.retrieval.series import SeriesValue
 
-from .util import expected_benchmark
+from .decorator import expected_benchmark
 
 EXPERIMENT_IDENTIFIER = RunIdentifier(ProjectIdentifier("project/abc"), SysId("XXX-1"))
 
