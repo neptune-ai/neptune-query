@@ -100,13 +100,13 @@ def expected_benchmark(
 
                 Benchmark '{fn.__name__}' with params {params_str} results:
 
-                0th percentile:         {p0:.3f} s
-                Unadjusted min_p0:      {my_min_p0:.3f} s
-                Adjusted (*) min_p0:    {adjusted_min_p0:.3f} s
+                0th percentile:       {p0:.3f} s
+                Unadjusted min_p0:    {my_min_p0:.3f} s
+                Adjusted (*) min_p0:  {adjusted_min_p0:.3f} s
 
-                80th percentile:        {p80:.3f} s
-                Unadjusted max_p80:     {my_max_p80:.3f} s
-                Adjusted (*) max_p80:   {adjusted_max_p80:.3f} s
+                80th percentile:       {p80:.3f} s
+                Unadjusted max_p80:    {my_max_p80:.3f} s
+                Adjusted (*) max_p80:  {adjusted_max_p80:.3f} s
 
                 100th percentile:       {p100:.3f} s
                 Unadjusted max_p100:    {my_max_p100:.3f} s
