@@ -34,12 +34,6 @@ jobs:
           python -m pip install --upgrade pip &&
           pip install -r dev_requirements.txt
 
-      - name: (Optional) Collect performance data
-        env:
-            BENCHMARK_NO_VALIDATION: "1"
-        run: |
-          pytest tests/performance
-
       - name: Validate performance data
         run: |
           pytest --junitxml="test-results/test-performance.xml" tests/performance

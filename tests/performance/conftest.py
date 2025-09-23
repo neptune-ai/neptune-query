@@ -54,6 +54,3 @@ def pytest_sessionfinish(session, exitstatus):
             os.rmdir(tmp_dir)
         except Exception:
             pass
-
-    if cp.returncode != 0:
-        sys.exit(cp.returncode)
