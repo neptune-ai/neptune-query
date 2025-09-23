@@ -5,12 +5,13 @@ from functools import (
     cache,
     wraps,
 )
+from typing import Any
 
 import pytest
 
 
 @cache
-def _get_benchmark_data() -> dict[tuple[str, str], dict[str, float]]:
+def _get_benchmark_data() -> dict[tuple[str, str], dict[str, Any]]:
     benchmark_output_file = os.getenv("BENCHMARK_VALIDATE_FILE")
     if benchmark_output_file is None:
         raise RuntimeError("Environment variable BENCHMARK_VALIDATE_FILE is not set.")
@@ -19,7 +20,7 @@ def _get_benchmark_data() -> dict[tuple[str, str], dict[str, float]]:
     with open(benchmark_output_file) as f:
         data = json.load(f)
         for benchmark in data["benchmarks"]:
-            name = benchmark["name"].split("[")[0]  # Remove params from name
+            name = benchmark["name"].split("[")[0]  # Remove params from the name
             params = json.dumps(benchmark["params"])
             stats[name, params] = benchmark["stats"]
 
@@ -69,10 +70,10 @@ def expected_benchmark(
         if not os.getenv("BENCHMARK_VALIDATE_FILE"):
             return fn_with_params
 
-        BENCHMARK_PERFORMANCE_FACTOR = float(os.getenv("BENCHMARK_PERFORMANCE_FACTOR", "1.0"))
+        performance_factor = float(os.getenv("BENCHMARK_PERFORMANCE_FACTOR", "1.0"))
 
         @wraps(fn_with_params)
-        def validation(*args, **kwargs):
+        def validation(*_args, **kwargs):
             # Extract the actual parameters used in this test run
             my_params = {key: kwargs[key] for key in params.keys()}
             params_str = json.dumps(my_params)
@@ -92,9 +93,9 @@ def expected_benchmark(
             p80 = times[int(len(times) * 0.8)]
             p100 = times[-1]
 
-            adjusted_min_p0 = my_min_p0 * BENCHMARK_PERFORMANCE_FACTOR
-            adjusted_max_p80 = my_max_p80 * BENCHMARK_PERFORMANCE_FACTOR
-            adjusted_max_p100 = my_max_p100 * BENCHMARK_PERFORMANCE_FACTOR
+            adjusted_min_p0 = my_min_p0 * performance_factor
+            adjusted_max_p80 = my_max_p80 * performance_factor
+            adjusted_max_p100 = my_max_p100 * performance_factor
 
             p0_marker = "✓" if p0 >= adjusted_min_p0 else "✗"
             p80_marker = "✓" if p80 <= adjusted_max_p80 else "✗"
@@ -123,15 +124,15 @@ def expected_benchmark(
 
 """
 
-            if BENCHMARK_PERFORMANCE_FACTOR == 1.0:
+            if performance_factor == 1.0:
                 adjusted_min_p0_str = f"{adjusted_min_p0:.3f}"
                 adjusted_max_p80_str = f"{adjusted_max_p80:.3f}"
                 adjusted_max_p100_str = f"{adjusted_max_p100:.3f}"
             else:
-                adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {my_min_p0:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
-                adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {my_max_p80:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
+                adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {my_min_p0:.3f} * {performance_factor})"
+                adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {my_max_p80:.3f} * {performance_factor})"
                 adjusted_max_p100_str = (
-                    f"{adjusted_max_p100:.3f} (= {my_max_p100:.3f} * {BENCHMARK_PERFORMANCE_FACTOR})"
+                    f"{adjusted_max_p100:.3f} (= {my_max_p100:.3f} * {performance_factor})"
                 )
 
             assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0_str}" + detailed_msg
