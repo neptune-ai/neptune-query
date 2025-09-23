@@ -191,6 +191,7 @@ def test_fetch_runs_table(
     expected = pd.DataFrame(expected_data).sort_values("run", ascending=False)
     expected["run"] = expected["run"].astype(object)
     expected.set_index("run", drop=True, inplace=True)
+    expected.columns.name = "attribute"
 
     pd.testing.assert_frame_equal(df, expected)
 

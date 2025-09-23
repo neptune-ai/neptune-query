@@ -26,11 +26,7 @@ from .. import (
     identifiers,
 )
 from ..composition import concurrency
-from ..composition.attributes import (
-    AttributeDefinitionAggregation,
-    fetch_attribute_definition_aggregations,
-    fetch_attribute_definitions,
-)
+from ..composition.attributes import fetch_attribute_definitions
 from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
     search,
@@ -62,39 +58,6 @@ def fetch_attribute_definitions_split(
             ),
             executor=executor,
             downstream=lambda definitions: downstream(sys_ids_split, definitions),
-        ),
-    )
-
-
-def fetch_attribute_definition_aggregations_split(
-    client: AuthenticatedClient,
-    project_identifier: identifiers.ProjectIdentifier,
-    attribute_filter: filters._BaseAttributeFilter,
-    executor: Executor,
-    fetch_attribute_definitions_executor: Executor,
-    sys_ids: list[identifiers.SysId],
-    downstream: Callable[
-        [
-            list[identifiers.SysId],
-            util.Page[identifiers.AttributeDefinition],
-            util.Page[AttributeDefinitionAggregation],
-        ],
-        concurrency.OUT,
-    ],
-) -> concurrency.OUT:
-    return concurrency.generate_concurrently(
-        items=split.split_sys_ids(sys_ids),
-        executor=executor,
-        downstream=lambda sys_ids_split: concurrency.generate_concurrently(
-            fetch_attribute_definition_aggregations(
-                client=client,
-                project_identifiers=[project_identifier],
-                run_identifiers=[identifiers.RunIdentifier(project_identifier, sys_id) for sys_id in sys_ids_split],
-                attribute_filter=attribute_filter,
-                executor=fetch_attribute_definitions_executor,
-            ),
-            executor=executor,
-            downstream=lambda page_pair: downstream(sys_ids_split, page_pair[0], page_pair[1]),
         ),
     )
 
