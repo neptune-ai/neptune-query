@@ -7,9 +7,6 @@ from functools import (
 )
 
 import pytest
-from pytest_benchmark.logger import PytestBenchmarkWarning
-
-warnings.filterwarnings("ignore", category=PytestBenchmarkWarning)
 
 
 @cache
@@ -29,25 +26,20 @@ def _get_benchmark_data() -> dict[tuple[str, str], dict[str, float]]:
     return stats
 
 
-def copy_fn(fn):
-    @wraps(fn)
-    def new_fn(*args, **kwargs):
-        return fn(*args, **kwargs)
-
-    return new_fn
-
-
 def expected_benchmark(
     min_p0: float = None,
     max_p80: float = None,
     max_p100: float = None,
     **params: object,
 ):
-    warnings.filterwarnings("ignore", category=PytestBenchmarkWarning)
+    def copy_fn(fn):
+        @wraps(fn)
+        def new_fn(*args, **kwargs):
+            return fn(*args, **kwargs)
+
+        return new_fn
 
     def wrapper(wrapped_fn):
-        warnings.filterwarnings("ignore", category=PytestBenchmarkWarning)
-
         # Save the original function in case of multiple decorators
         if not hasattr(wrapped_fn, "_original_fn"):
             wrapped_fn._original_fn = wrapped_fn
@@ -121,9 +113,9 @@ def expected_benchmark(
 
 """
 
-            assert p0 >= min_p0, f"p0 {p0:.3f} is less than expected {min_p0:.3f}" + detailed_msg
-            assert p80 <= max_p80, f"p80 {p80:.3f} is more than expected {max_p80:.3f}" + detailed_msg
-            assert p100 <= max_p100, f"max {p100:.3f} is more than expected {max_p100:.3f}" + detailed_msg
+            assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0:.3f}" + detailed_msg
+            assert p80 <= adjusted_max_p80, f"p80 {p80:.3f} is more than expected {adjusted_max_p80:.3f}" + detailed_msg
+            assert p100 <= adjusted_max_p100, f"max {p100:.3f} is more than expected {adjusted_max_p100:.3f}" + detailed_msg
 
         return validation
 
