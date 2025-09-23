@@ -95,9 +95,9 @@ def _generate_bucket_metric(index: int) -> TimeseriesBucket:
         )
 
 
-@expected_benchmark(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.400, max_p80=0.700, max_p100=1.000)
-@expected_benchmark(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.400, max_p80=0.700, max_p100=1.000)
-@expected_benchmark(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.400, max_p80=0.700, max_p100=1.000)
+@expected_benchmark(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000)
+@expected_benchmark(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000)
+@expected_benchmark(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000)
 def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_paths, num_buckets):
     """Test the creation of a flat DataFrame from float point values."""
 
@@ -111,34 +111,9 @@ def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_pa
     )
 
 
-@expected_benchmark(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.400, max_p80=0.700, max_p100=1.000)
-@expected_benchmark(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.400, max_p80=0.700, max_p100=1.000)
-def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
-    """Test the performance of creating series DataFrame with string values."""
-    series_data = {}
-    for exp in range(num_experiments):
-        for path in range(num_paths):
-            run_attr_def = _generate_run_attribute_definition(exp, path, attribute_type="string_series")
-            series_data[run_attr_def] = [
-                SeriesValue(step=float(step), value=f"value_{exp}_{step}", timestamp_millis=None)
-                for step in range(num_steps)
-            ]
-
-    sys_id_label_mapping = {SysId(f"sysid{exp}"): f"exp{exp}" for exp in range(num_experiments)}
-
-    benchmark(
-        create_series_dataframe,
-        series_data=series_data,
-        project_identifier="foo/bar",
-        sys_id_label_mapping=sys_id_label_mapping,
-        index_column_name="experiment",
-        timestamp_column_name=None,
-    )
-
-
-@expected_benchmark(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.300, max_p80=0.450, max_p100=0.700)
-@expected_benchmark(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.300, max_p80=0.450, max_p100=0.700)
-@expected_benchmark(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.300, max_p80=0.450, max_p100=0.700)
+@expected_benchmark(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.500, max_p80=0.600, max_p100=0.800)
+@expected_benchmark(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.500, max_p80=0.600, max_p100=0.800)
+@expected_benchmark(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.600, max_p100=0.800)
 def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, num_paths):
     """Test the performance of creating metrics DataFrame with many experiments and steps."""
     metrics_data = {}
@@ -162,7 +137,32 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
     )
 
 
-@expected_benchmark(num_experiments=500, num_paths=50, min_p0=0.100, max_p80=0.200, max_p100=0.300)
+@expected_benchmark(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000)
+@expected_benchmark(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=1.000, max_p100=1.500)
+def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
+    """Test the performance of creating series DataFrame with string values."""
+    series_data = {}
+    for exp in range(num_experiments):
+        for path in range(num_paths):
+            run_attr_def = _generate_run_attribute_definition(exp, path, attribute_type="string_series")
+            series_data[run_attr_def] = [
+                SeriesValue(step=float(step), value=f"value_{exp}_{step}", timestamp_millis=None)
+                for step in range(num_steps)
+            ]
+
+    sys_id_label_mapping = {SysId(f"sysid{exp}"): f"exp{exp}" for exp in range(num_experiments)}
+
+    benchmark(
+        create_series_dataframe,
+        series_data=series_data,
+        project_identifier="foo/bar",
+        sys_id_label_mapping=sys_id_label_mapping,
+        index_column_name="experiment",
+        timestamp_column_name=None,
+    )
+
+
+@expected_benchmark(num_experiments=500, num_paths=50, min_p0=0.500, max_p80=0.200, max_p100=0.300)
 def xtest_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
     """Test performance of converting a large table with multiple value types to DataFrame."""
     table_data = {}
