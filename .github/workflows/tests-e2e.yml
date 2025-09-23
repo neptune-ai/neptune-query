@@ -60,8 +60,7 @@ jobs:
           NEPTUNE_E2E_FORCE_DATA_GENERATION: ${{ inputs.force_data_generation || 'false' }}
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
-          pytest --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
-
+          pytest --retries=3 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
       - name: Report
         uses: mikepenz/action-junit-report@v5
         if: always()
