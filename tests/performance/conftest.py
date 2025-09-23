@@ -14,9 +14,10 @@ if not os.getenv("BENCHMARK_VALIDATE_FILE"):
 
 def pytest_configure(config):
     if not os.getenv("BENCHMARK_VALIDATE_FILE"):
-        # Test at least 5 rounds, at least for 5 seconds
-        config.option.benchmark_min_rounds = 5
-        config.option.benchmark_max_time = 5.0
+        # Perform at least 15 rounds per test
+        # Testing at least for 10 seconds per test
+        config.option.benchmark_min_rounds = 15
+        config.option.benchmark_max_time = 10.0
         config.option.benchmark_disable_gc = True
         config.option.benchmark_time_unit = "ms"
         config.option.benchmark_sort = "name"
