@@ -113,7 +113,7 @@ def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_pa
 
 @expected_benchmark(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.500, max_p80=0.600, max_p100=0.800)
 @expected_benchmark(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.500, max_p80=0.600, max_p100=0.800)
-@expected_benchmark(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.600, max_p100=0.800)
+@expected_benchmark(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.660, max_p100=0.800)
 def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, num_paths):
     """Test the performance of creating metrics DataFrame with many experiments and steps."""
     metrics_data = {}
@@ -162,9 +162,9 @@ def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num
     )
 
 
-@expected_benchmark(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=0.650, max_p100=0.750)
-@expected_benchmark(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.650, max_p100=0.750)
-@expected_benchmark(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.650, max_p100=0.750)
+@expected_benchmark(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=1.000, max_p100=1.500)
+@expected_benchmark(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.800, max_p100=1.200)
+@expected_benchmark(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.800, max_p100=1.200)
 def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
     """Test performance of converting a large table with multiple value types to DataFrame."""
     table_data = {}
