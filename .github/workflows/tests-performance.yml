@@ -20,9 +20,6 @@ jobs:
   test:
     runs-on: tools-gha-runners
     timeout-minutes: 30
-    env:
-        BENCHMARK_OUTPUT_FILE: benchmark_results.json
-        BENCHMARK_PARAMS: "--benchmark-min-rounds=100 --benchmark-disable-gc --benchmark-time-unit=ms"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,13 +34,15 @@ jobs:
           python -m pip install --upgrade pip &&
           pip install -r dev_requirements.txt
 
-      - name: Run benchmark - collect performance data
+      - name: (Optional) Collect performance data
+        env:
+            BENCHMARK_NO_VALIDATION: "1"
         run: |
-          pytest tests/performance --benchmark-only --benchmark-json=$BENCHMARK_OUTPUT_FILE $BENCHMARK_PARAMS
+          pytest tests/performance
 
       - name: Validate performance data
         run: |
-          BENCHMARK_VALIDATE=1 pytest --junitxml="test-results/test-performance.xml" tests/performance
+          pytest --junitxml="test-results/test-performance.xml" tests/performance
 
       - name: Report
         uses: mikepenz/action-junit-report@v5
