@@ -40,6 +40,7 @@ jobs:
           test-directory: fuzzy
           report-job: 'test fuzzy (${{ matrix.os }} - py${{ matrix.python-version }})'
           report-suffix: 'fuzzy-${{ matrix.python-version }}-${{ matrix.os }}'
+          timeout: "600"
 
       - name: Notify Slack on failure
         if: failure() && github.event_name == 'schedule'
