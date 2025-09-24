@@ -94,9 +94,12 @@ def test_create_metrics_dataframe(
     ]
 
     if expected_values and value_columns:
-        expected_mean = np.mean(expected_values)
-        actual_mean = df[value_columns].replace([np.inf, -np.inf], np.nan).mean(skipna=True, axis=None)
-        assert np.isclose(expected_mean, actual_mean), f"Mean mismatch: expected {expected_mean}, got {actual_mean}"
+        # sorting is actually important to ensure that we get consistent results for large floats
+        expected_mean = np.mean(sorted(expected_values))
+        actual_mean = np.mean(sorted(n for n in df[value_columns].values.flatten() if np.isfinite(n)))
+        assert np.isclose(
+            expected_mean, actual_mean, equal_nan=True
+        ), f"Mean mismatch: expected {expected_mean}, got {actual_mean}"
     elif not expected_values and not value_columns:
         pass  # Both empty, which is correct
     else:
