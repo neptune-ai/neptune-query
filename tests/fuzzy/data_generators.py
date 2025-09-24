@@ -15,9 +15,14 @@ from neptune_query.internal.identifiers import (
     RunIdentifier,
     SysId,
 )
-from neptune_query.internal.retrieval.attribute_types import ALL_TYPES
+from neptune_query.internal.retrieval.attribute_types import (
+    ALL_TYPES,
+    File,
+    Histogram,
+)
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
 from neptune_query.internal.retrieval.metrics import FloatPointValue
+from neptune_query.internal.retrieval.series import SeriesValue
 
 
 @st.composite
@@ -252,3 +257,92 @@ def timeseries_bucket(draw, *, index: int, from_x: float, to_x: float) -> Timese
         negative_inf_count=negative_inf_count,
         finite_points_sum=finite_points_sum,
     )
+
+
+@st.composite
+def series_datasets(draw) -> Tuple[dict[RunAttributeDefinition, list[SeriesValue]], dict[SysId, str]]:
+    project_identifier = draw(project_identifiers())
+    run_attribute_definition_list = draw(
+        st.lists(
+            run_attribute_definitions(
+                project_identifier=project_identifier, types=["string_series", "file_series", "histogram_series"]
+            )
+        )
+    )
+    series_data = {
+        run_attribute_definition: draw(
+            series_values(max_size=1024, series_type=run_attribute_definition.attribute_definition.type)
+        )
+        for run_attribute_definition in run_attribute_definition_list
+    }
+
+    label_mapping = draw(generate_label_mapping(run_attribute_definition_list))
+
+    return series_data, label_mapping
+
+
+@st.composite
+def series_values(
+    draw, *, min_size: int = 0, max_size: Optional[int] = None, series_type: str = "string_series"
+) -> list[SeriesValue]:
+    size = draw(st.integers(min_value=min_size, max_value=max_size))
+    step_list = draw(
+        st.lists(
+            st.floats(allow_nan=False, allow_infinity=False, min_value=0),
+            min_size=size,
+            max_size=size,
+            unique=True,
+        ).map(sorted)
+    )
+    timestamp_millis_list = draw(
+        st.lists(
+            st.datetimes(
+                min_value=pd.Timestamp.min,
+                max_value=pd.Timestamp.max,
+                allow_imaginary=False,
+                timezones=st.just(datetime.timezone.utc),
+            ).map(lambda dt: int(dt.timestamp() * 1000)),
+            min_size=size,
+            max_size=size,
+        )
+    )
+
+    # Generate values based on the specific series type
+    values_list = []
+    for _ in range(size):
+        if series_type == "string_series":
+            value = draw(st.text(min_size=0, max_size=1000))
+        elif series_type == "file_series":
+            value = File(
+                path=draw(st.text(min_size=1, max_size=200)),
+                size_bytes=draw(st.integers(min_value=0, max_value=1000000)),
+                mime_type=draw(st.sampled_from(["text/plain", "image/png", "application/json", "text/csv"])),
+            )
+        elif series_type == "histogram_series":
+            bin_count = draw(st.integers(min_value=2, max_value=20))
+            edges = draw(
+                st.lists(
+                    st.floats(allow_nan=False, allow_infinity=False), min_size=bin_count + 1, max_size=bin_count + 1
+                )
+            )
+            edges.sort()
+            values = draw(
+                st.lists(
+                    st.floats(allow_nan=False, allow_infinity=False, min_value=0),
+                    min_size=bin_count,
+                    max_size=bin_count,
+                )
+            )
+            value = Histogram(
+                type=draw(st.sampled_from(["linear", "logarithmic"])),
+                edges=edges,
+                values=values,
+            )
+        else:
+            raise ValueError(f"Unsupported series type: {series_type}")
+        values_list.append(value)
+
+    return [
+        SeriesValue(step=step, value=value, timestamp_millis=timestamp_millis)
+        for step, value, timestamp_millis in zip(step_list, values_list, timestamp_millis_list)
+    ]

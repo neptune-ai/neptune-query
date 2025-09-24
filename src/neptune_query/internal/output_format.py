@@ -383,7 +383,7 @@ def create_series_dataframe(
         ("value", "object"),
     ]
     if timestamp_column_name:
-        types.append((timestamp_column_name, "uint64"))
+        types.append((timestamp_column_name, "int64"))
 
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),

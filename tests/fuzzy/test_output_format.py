@@ -12,6 +12,7 @@ from hypothesis import strategies as st
 from neptune_query.internal.output_format import (
     create_metric_buckets_dataframe,
     create_metrics_dataframe,
+    create_series_dataframe,
 )
 from neptune_query.internal.retrieval.metrics import (
     StepIndex,
@@ -20,6 +21,7 @@ from neptune_query.internal.retrieval.metrics import (
 from tests.fuzzy.data_generators import (
     metric_buckets_datasets,
     metric_datasets,
+    series_datasets,
 )
 
 
@@ -154,3 +156,61 @@ def test_create_metric_buckets_dataframe(buckets_dataset, container_column_name)
 
     expected_columns = sorted(expected_columns)
     assert df.columns.tolist() == expected_columns
+
+
+@settings(max_examples=1000, deadline=timedelta(seconds=10))
+@given(
+    series_dataset=series_datasets(),
+    timestamp_column_name=st.one_of(st.just(None), st.sampled_from(["absolute_time"])),
+    index_column_name=st.sampled_from(["experiment", "run"]),
+)
+def test_create_series_dataframe(series_dataset, timestamp_column_name, index_column_name):
+    series_data, sys_id_label_mapping = series_dataset
+
+    # Use a dummy project identifier for the test
+    project_identifier = "test-org/test-project"
+
+    df = create_series_dataframe(
+        series_data=series_data,
+        project_identifier=project_identifier,
+        sys_id_label_mapping=sys_id_label_mapping,
+        index_column_name=index_column_name,
+        timestamp_column_name=timestamp_column_name,
+    )
+    note(f"index: {df.index}")
+    note(f"columns: {df.columns}")
+    note(f"df: {df}")
+
+    # validate index
+    expected_experiment_steps = sorted(
+        list(
+            {
+                (sys_id_label_mapping[run_attributes.run_identifier.sys_id], point.step)
+                for run_attributes, points in series_data.items()
+                for point in points
+            }
+        )
+    )
+    assert df.index.tolist() == expected_experiment_steps
+
+    # validate columns
+    expected_attributes = sorted(
+        list({run_attributes.attribute_definition.name for run_attributes, points in series_data.items() if points})
+    )
+    expected_subcolumns = ["value"]
+    if timestamp_column_name:
+        expected_subcolumns.append(timestamp_column_name)
+    if len(expected_subcolumns) > 1:
+        expected_columns = sorted([(attr, subcol) for attr in expected_attributes for subcol in expected_subcolumns])
+    else:
+        expected_columns = expected_attributes
+    assert df.columns.tolist() == expected_columns
+
+    # validate actual values using count comparison (since values can be complex objects)
+    expected_count = sum(len(points) for points in series_data.values())
+    value_columns = [
+        col for col in df.columns if (isinstance(col, tuple) and col[1] == "value") or (not isinstance(col, tuple))
+    ]
+    actual_count = sum(df[col].count() for col in value_columns)
+
+    assert expected_count == actual_count, f"Value count mismatch: expected {expected_count}, got {actual_count}"
