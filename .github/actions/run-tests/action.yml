@@ -15,6 +15,10 @@ inputs:
     description: 'Working directory'
     required: false
     default: .
+  timeout:
+    description: "Test timeout in seconds"
+    required: false
+    default: "120"
 
 runs:
   using: "composite"
@@ -23,7 +27,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         pytest -v "./tests/${{ inputs.test-directory }}" \
-        --timeout=120 --timeout_method=thread \
+        --timeout=${{ inputs.timeout }} --timeout_method=thread \
         --color=yes \
         --junitxml="${{ inputs.working-directory }}/test-results/test-${{ inputs.report-suffix }}.xml"
       shell: bash
