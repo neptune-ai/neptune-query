@@ -61,6 +61,8 @@ EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(
     identifiers.ProjectIdentifier("project/abc"), identifiers.SysId("XXX-1")
 )
 
+EXPECTED_COLUMN_ORDER = ["value", "absolute_time", "is_preview", "preview_completion"]
+
 
 def test_convert_experiment_table_to_dataframe_empty():
     # given
@@ -664,6 +666,7 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
 
     expected_df = pd.DataFrame(
         data={
+            ("path1", "value"): [100.0, 200.0],
             ("path1", "is_preview"): [
                 True,
                 True,
@@ -672,7 +675,6 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
                 0.999,
                 0.998,
             ],
-            ("path1", "value"): [100.0, 200.0],
         },
         index=pd.MultiIndex.from_tuples(
             tuples=[
@@ -746,7 +748,7 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
         )
 
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
@@ -795,7 +797,7 @@ def test_create_string_series_dataframe_with_absolute_timestamp():
         ("path2", "value"): [np.nan, "bbb", np.nan],
     }
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
     pd.testing.assert_frame_equal(df, expected_df)
@@ -856,7 +858,7 @@ def test_create_histogram_dataframe_with_absolute_timestamp():
         ],
     }
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
     pd.testing.assert_frame_equal(df, expected_df)
@@ -935,7 +937,7 @@ def test_create_file_series_dataframe_with_absolute_timestamp():
         ("path2", "value"): [np.nan, downloadable_files[1], np.nan],
     }
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
     pd.testing.assert_frame_equal(df, expected_df)
@@ -982,6 +984,7 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
             _format_path_name("path1", type_suffix_in_column_names): [10.0, np.nan, 30.0],
             _format_path_name("path2", type_suffix_in_column_names): [np.nan, 20.0, np.nan],
         }
+        expected = dict(sorted(expected.items()))
     else:
         # MultiIndex columns are returned on include_preview=True
         expected = {
@@ -992,9 +995,10 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
             (_format_path_name("path2", type_suffix_in_column_names), "is_preview"): [np.nan, False, np.nan],
             (_format_path_name("path2", type_suffix_in_column_names), "preview_completion"): [np.nan, 1.0, np.nan],
         }
+        expected = dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1]))))
 
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        expected,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
@@ -1043,7 +1047,7 @@ def test_create_metrics_dataframe_random_order():
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_preview", [True, False])
-@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
 def test_create_empty_metrics_dataframe(
     type_suffix_in_column_names: bool, include_preview: bool, timestamp_column_name: str
 ):
@@ -1072,7 +1076,7 @@ def test_create_empty_metrics_dataframe(
     pd.testing.assert_frame_equal(df, expected_df)
 
 
-@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
 def test_create_empty_series_dataframe(timestamp_column_name: str):
     # Given empty dataframe
 
@@ -1170,7 +1174,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
         )
 
     expected_df = pd.DataFrame(
-        dict(sorted(expected.items())),
+        dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
@@ -1780,7 +1784,7 @@ def test_create_metrics_dataframe_all_nan_values(
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_point_previews", [False, True])
-@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
 def test_create_metrics_dataframe_all_nan_row_preserved(
     type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
 ):
@@ -1823,32 +1827,36 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
 
     # Add value columns (always present)
     if include_point_previews or timestamp_column_name:
-        expected_data[base_path1_name] = {"value": [10.0, float("nan")]}
-        expected_data[base_path2_name] = {"value": [20.0, float("nan")]}
+        expected_data[(base_path1_name, "value")] = [10.0, float("nan")]
+        expected_data[(base_path2_name, "value")] = [20.0, float("nan")]
     else:
         expected_data[base_path1_name] = [10.0, float("nan")]
         expected_data[base_path2_name] = [20.0, float("nan")]
 
     # Add timestamp columns if requested
     if timestamp_column_name:
-        expected_data[base_path1_name][timestamp_column_name] = [
+        expected_data[(base_path1_name, timestamp_column_name)] = [
             datetime(2023, 1, 1, tzinfo=timezone.utc),
             datetime(2023, 1, 2, tzinfo=timezone.utc),
         ]
-        expected_data[base_path2_name][timestamp_column_name] = [
+        expected_data[(base_path2_name, timestamp_column_name)] = [
             datetime(2023, 1, 1, tzinfo=timezone.utc),
             datetime(2023, 1, 2, tzinfo=timezone.utc),
         ]
 
     # Add preview columns if requested
     if include_point_previews:
-        expected_data[base_path1_name]["is_preview"] = [False, False]
-        expected_data[base_path1_name]["preview_completion"] = [1.0, 1.0]
-        expected_data[base_path2_name]["is_preview"] = [False, False]
-        expected_data[base_path2_name]["preview_completion"] = [1.0, 1.0]
+        expected_data[(base_path1_name, "is_preview")] = [False, False]
+        expected_data[(base_path1_name, "preview_completion")] = [1.0, 1.0]
+        expected_data[(base_path2_name, "is_preview")] = [False, False]
+        expected_data[(base_path2_name, "preview_completion")] = [1.0, 1.0]
 
-    if isinstance(expected_data[base_path1_name], dict):
-        expected_data = {(path, k): vs for path, kvs in expected_data.items() for k, vs in kvs.items()}
+    if include_point_previews or timestamp_column_name:
+        expected_data = dict(
+            sorted(expected_data.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))
+        )
+    else:
+        expected_data = dict(sorted(expected_data.items()))
 
     expected_df = pd.DataFrame(
         data=expected_data,
