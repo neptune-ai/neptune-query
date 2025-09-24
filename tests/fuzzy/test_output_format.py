@@ -48,19 +48,16 @@ def test_create_metrics_dataframe(
 
     # validate index
     expected_experiment_steps = sorted(
-        list(
             {
                 (sys_id_label_mapping[run_attributes.run_identifier.sys_id], point[StepIndex])
                 for run_attributes, points in metrics_data.items()
                 for point in points
             }
-        )
     )
     assert df.index.tolist() == expected_experiment_steps
 
     # validate columns
     expected_attributes = sorted(
-        list(
             {
                 f"{run_attributes.attribute_definition.name}:{run_attributes.attribute_definition.type}"
                 if type_suffix_in_column_names
@@ -68,7 +65,6 @@ def test_create_metrics_dataframe(
                 for run_attributes, points in metrics_data.items()
                 if points
             }
-        )
     )
     expected_subcolumns = ["value"]
     if timestamp_column_name:
@@ -180,13 +176,11 @@ def test_create_series_dataframe(series_dataset, timestamp_column_name, index_co
 
     # validate index
     expected_experiment_steps = sorted(
-        list(
             {
                 (sys_id_label_mapping[run_attributes.run_identifier.sys_id], point.step)
                 for run_attributes, points in series_data.items()
                 for point in points
             }
-        )
     )
     assert df.index.tolist() == expected_experiment_steps
 
