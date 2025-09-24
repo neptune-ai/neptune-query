@@ -9,7 +9,6 @@ import traceback
 from typing import (
     Any,
     Dict,
-    Generator,
     Iterator,
     Optional,
 )
@@ -162,7 +161,7 @@ def backend_server(backend_base_url: str) -> Iterator[None]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def api_token(backend_base_url: str) -> Generator[str]:
+def api_token(backend_base_url: str) -> str:
     """Create and configure a fake API token for testing.
 
     Args:
@@ -180,7 +179,7 @@ def api_token(backend_base_url: str) -> Generator[str]:
     set_api_token(api_token)
 
     # and return
-    yield api_token
+    return api_token
 
 
 class ClientProviderWithHeaderInjection:
@@ -200,7 +199,7 @@ class ClientProviderWithHeaderInjection:
 
 
 @pytest.fixture(scope="function")
-def http_client(monkeypatch, backend_base_url: str, api_token: str) -> Generator[ClientProviderWithHeaderInjection]:
+def http_client(monkeypatch, backend_base_url: str, api_token: str) -> ClientProviderWithHeaderInjection:
     """Create and configure an HTTP client for API testing.
 
     Returns:
@@ -223,4 +222,12 @@ def http_client(monkeypatch, backend_base_url: str, api_token: str) -> Generator
 
     monkeypatch.setattr(client, "get_client", client_provider)
 
-    yield client_provider
+    return client_provider
+
+
+def resolve_timeout(default_seconds: float) -> float:
+    test_mode = os.environ.get("NEPTUNE_PERFORMANCE_TEST_MODE", "normal")
+    if test_mode == "baseline_discovery":
+        return 3_600.0  # 1 hour for baseline discovery
+
+    return default_seconds

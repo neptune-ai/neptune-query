@@ -8,6 +8,7 @@ import pytest
 from humanize import metric
 
 from neptune_query import fetch_metrics
+from tests.performance.conftest import resolve_timeout
 from tests.performance.test_helpers import PerfRequestBuilder
 
 
@@ -45,7 +46,7 @@ class Scenario:
         )
 
     def to_pytest_param(self, timeout: float):
-        return pytest.param(self, id=self._name(), marks=pytest.mark.timeout(timeout, func_only=True))
+        return pytest.param(self, id=self._name(), marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
 
 
 @pytest.mark.parametrize(

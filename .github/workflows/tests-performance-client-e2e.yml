@@ -1,0 +1,59 @@
+name: Client e2e performance tests (mocked backend)
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # Run at 7:00 daily
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: Test mode (use baseline_discovery to run without timeouts on test cases)
+        required: true
+        type: choice
+        options:
+            - normal
+            - baseline_discovery
+        default: normal
+  push:
+    branches:
+      - main
+      - dev/.*
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/performance/**'
+      - 'dev_requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/tests-performance-client-e2e.yml'
+
+jobs:
+  test:
+    runs-on: tools-gha-runners
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip &&
+          pip install -r dev_requirements.txt
+
+      - name: Run performance tests
+        env:
+          NEPTUNE_PERFORMANCE_TEST_MODE: 'baseline_discovery'   # TEMPORARY; change to ${{ inputs.test_mode }}
+        run: |
+          pytest --junitxml="test-results/test-client-e2e-performance.xml" tests/performance -k list_experiments
+
+      - name: Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: "./test-results/test-client-e2e-performance*.xml"
+          update_check: true
+          annotate_notice: true
+          job_name: "Client e2e performance tests"

@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
 import pytest
+from humanize import metric
 
 from neptune_query import list_experiments
+from tests.performance.conftest import resolve_timeout
 from tests.performance.test_helpers import PerfRequestBuilder
 
 
@@ -11,8 +13,17 @@ class Scenario:
     experiments_count: int
     latency_range_ms: tuple[int, int]
 
-    def to_pytest_param(self, name: str, timeout: float):
-        return pytest.param(self, id=name, marks=pytest.mark.timeout(timeout, func_only=True))
+    def _name(self):
+        return "; ".join(
+            f"{key}={value}"
+            for key, value in {
+                "exp_count": metric(self.experiments_count, precision=0),
+                "latency_range_ms": self.latency_range_ms,
+            }.items()
+        )
+
+    def to_pytest_param(self, timeout: float):
+        return pytest.param(self, id=self._name(), marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
 
 
 @pytest.mark.parametrize(
@@ -21,11 +32,11 @@ class Scenario:
         Scenario(
             experiments_count=29_000,
             latency_range_ms=(500, 500),
-        ).to_pytest_param(name="29k-experiments-500ms-latency", timeout=2.5),
+        ).to_pytest_param(timeout=2.5),
         Scenario(
             experiments_count=1_000_000,
             latency_range_ms=(30, 30),
-        ).to_pytest_param(name="1M-experiments-30ms-latency", timeout=5),
+        ).to_pytest_param(timeout=5),
     ],
 )
 def test_list_experiments(scenario, http_client):
