@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import numpy as np
 import pandas as pd
 from hypothesis import (
     given,
@@ -12,14 +13,17 @@ from neptune_query.internal.output_format import (
     create_metric_buckets_dataframe,
     create_metrics_dataframe,
 )
-from neptune_query.internal.retrieval.metrics import StepIndex
+from neptune_query.internal.retrieval.metrics import (
+    StepIndex,
+    ValueIndex,
+)
 from tests.fuzzy.data_generators import (
     metric_buckets_datasets,
     metric_datasets,
 )
 
 
-@settings(max_examples=1000, deadline=timedelta(minutes=1))
+@settings(max_examples=1000, deadline=timedelta(seconds=10))
 @given(
     metric_dataset=metric_datasets(),
     timestamp_column_name=st.one_of(st.just(None), st.sampled_from(["absolute_time"])),
@@ -79,8 +83,25 @@ def test_create_metrics_dataframe(
         expected_columns = expected_attributes
     assert df.columns.tolist() == expected_columns
 
+    # validate actual values using mean comparison (finite values only)
+    expected_values = [
+        point[ValueIndex] for points in metrics_data.values() for point in points if np.isfinite(point[ValueIndex])
+    ]
+    value_columns = [
+        col for col in df.columns if (isinstance(col, tuple) and col[1] == "value") or (not isinstance(col, tuple))
+    ]
 
-@settings(max_examples=1000, deadline=timedelta(minutes=1))
+    if expected_values and value_columns:
+        expected_mean = np.mean(expected_values)
+        actual_mean = df[value_columns].replace([np.inf, -np.inf], np.nan).mean(skipna=True, axis=None)
+        assert np.isclose(expected_mean, actual_mean), f"Mean mismatch: expected {expected_mean}, got {actual_mean}"
+    elif not expected_values and not value_columns:
+        pass  # Both empty, which is correct
+    else:
+        assert False, f"Mismatch: expected_values={len(expected_values)}, value_columns={len(value_columns)}"
+
+
+@settings(max_examples=1000, deadline=timedelta(seconds=10))
 @given(
     buckets_dataset=metric_buckets_datasets(),
     container_column_name=st.sampled_from(["experiment", "run"]),
