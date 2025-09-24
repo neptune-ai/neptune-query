@@ -291,7 +291,7 @@ def create_metrics_dataframe(
     ]
 
     if timestamp_column_name:
-        types.append((timestamp_column_name, "uint64"))
+        types.append((timestamp_column_name, "int64"))
 
     if include_point_previews:
         types.append(("is_preview", "bool"))
@@ -304,7 +304,7 @@ def create_metrics_dataframe(
     if timestamp_column_name:
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
-    df = _pivot_df(df, include_point_previews, index_column_name, timestamp_column_name)
+    df = _pivot_df(df, index_column_name, timestamp_column_name, extra_value_columns=types[4:])
     df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, "float_series" if type_suffix_in_column_names else None)
     df = _sort_index_and_columns(df, index_column_name)
@@ -383,7 +383,7 @@ def create_series_dataframe(
         ("value", "object"),
     ]
     if timestamp_column_name:
-        types.append((timestamp_column_name, "uint64"))
+        types.append((timestamp_column_name, "int64"))
 
     df = pd.DataFrame(
         np.fromiter(generate_categorized_rows(), dtype=types),
@@ -392,7 +392,7 @@ def create_series_dataframe(
     if timestamp_column_name:
         df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
 
-    df = _pivot_df(df, False, index_column_name, timestamp_column_name)
+    df = _pivot_df(df, index_column_name, timestamp_column_name, extra_value_columns=types[4:])
     df = _restore_labels_in_index(df, index_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
     df = _sort_index_and_columns(df, index_column_name)
@@ -468,24 +468,31 @@ def create_metric_buckets_dataframe(
         columns=[container_column_name, "path"],
         values=["x", "y"],
         observed=True,
-        dropna=False,
+        dropna=True,
         sort=False,
     )
 
     df = _restore_labels_in_columns(df, container_column_name, label_mapping)
     df = _restore_path_column_names(df, path_mapping, None)
 
-    # Clear out any columns that were not requested, but got added because of dropna=False
-    desired_columns = [
-        (
-            dim,
-            sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
-            run_attr_definition.attribute_definition.name,
+    # Add back any columns that were removed because they were all NaN
+    if buckets_data:
+        desired_columns = pd.MultiIndex.from_tuples(
+            [
+                (
+                    dim,
+                    sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
+                    run_attr_definition.attribute_definition.name,
+                )
+                for run_attr_definition in buckets_data.keys()
+                for dim in ("x", "y")
+            ],
+            names=["bucket", container_column_name, "metric"],
         )
-        for run_attr_definition in buckets_data.keys()
-        for dim in ("x", "y")
-    ]
-    df = df.filter(desired_columns, axis="columns")
+        df = df.reindex(columns=desired_columns)
+    else:
+        # Handle empty case - create expected column structure
+        df.columns = pd.MultiIndex.from_product([["x", "y"], [], []], names=["bucket", container_column_name, "metric"])
 
     df = df.reorder_levels([1, 2, 0], axis="columns")
     df = df.sort_index(axis="columns", level=[0, 1])
@@ -500,8 +507,9 @@ def create_metric_buckets_dataframe(
 
 def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     """
-    1st returned bucket is always (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
+    1st returned bucket is (-inf, first_point], which we merge with the 2nd bucket (first_point, end],
     resulting in a new bucket [first_point, end].
+    If there's only one bucket, it should have form (first_point, inf). We transform it to [first_point, first_point].
     """
     df.index = df.index.astype(object)  # IntervalIndex cannot mix Intervals closed from different sides
 
@@ -541,13 +549,12 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
 
 def _pivot_df(
     df: pd.DataFrame,
-    include_point_previews: bool,
     index_column_name: str,
     timestamp_column_name: Optional[str],
+    extra_value_columns: list[tuple[str, str]],
 ) -> pd.DataFrame:
     # Holds all existing (experiment, step) pairs
-    # This is needed because pivot_table will add rows for all combinations of (experiment, step)
-    # even if they don't exist in the original data, filling the rows with NaNs.
+    # This is needed because pivot_table will remove rows if they are all NaN
     observed_idx = pd.MultiIndex.from_frame(
         df[[index_column_name, "step"]]
         .astype(
@@ -563,12 +570,21 @@ def _pivot_df(
         # Handle empty DataFrame case to avoid pandas dtype errors
         df[timestamp_column_name] = pd.Series(dtype="datetime64[ns]")
 
-    if include_point_previews or timestamp_column_name:
+    if extra_value_columns:
+        # Holds all existing columns
+        # This is needed because pivot_table will remove columns if they are all NaN
+        value_columns = ["value"] + [col[0] for col in extra_value_columns]
+        observed_columns = pd.MultiIndex.from_tuples(
+            [(value, path) for path in df["path"].unique() for value in value_columns], names=[None, "path"]
+        )
+
         # if there are multiple value columns, don't specify them and rely on pandas to create the column multi-index
         df = df.pivot_table(
             index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=True, sort=False
         )
     else:
+        observed_columns = df["path"].unique()
+
         # when there's only "value", define values explicitly, to make pandas generate a flat index
         df = df.pivot_table(
             index=[index_column_name, "step"],
@@ -580,8 +596,8 @@ def _pivot_df(
             sort=False,
         )
 
-    # Include only observed (experiment, step) pairs
-    return df.reindex(observed_idx)
+    # Add back any columns that were removed because they were all NaN
+    return df.reindex(index=observed_idx, columns=observed_columns)
 
 
 def _restore_labels_in_index(
