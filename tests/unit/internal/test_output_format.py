@@ -1,4 +1,4 @@
-import itertools
+import itertools as it
 import pathlib
 from datetime import (
     datetime,
@@ -594,7 +594,7 @@ def test_create_metrics_dataframe_shape(include_preview):
     if not include_preview:
         expected_columns = all_paths
     else:
-        expected_columns = set(itertools.product(all_paths, ["value", "is_preview", "preview_completion"]))
+        expected_columns = set(it.product(all_paths, ["value", "is_preview", "preview_completion"]))
 
     assert set(df.columns) == expected_columns, f"DataFrame should have {len(all_paths)} columns"
     assert (
@@ -1683,6 +1683,7 @@ def test_create_metric_buckets_dataframe_completely_nan():
             _generate_bucket_metric_nan(index=1),
             _generate_bucket_metric_nan(index=2),
         ],
+        _generate_run_attribute_definition(experiment=1, path=3): [],
     }
     sys_id_label_mapping = {
         SysId("sysid1"): "exp1",
@@ -1701,6 +1702,8 @@ def test_create_metric_buckets_dataframe_completely_nan():
         ("exp1", "path1", "y"): [0.0, 200.0],
         ("exp2", "path2", "x"): [np.nan, np.nan],
         ("exp2", "path2", "y"): [np.nan, np.nan],
+        ("exp1", "path3", "x"): [np.nan, np.nan],
+        ("exp1", "path3", "y"): [np.nan, np.nan],
     }
 
     expected_df = pd.DataFrame(
@@ -1717,7 +1720,12 @@ def test_create_metric_buckets_dataframe_completely_nan():
     pd.testing.assert_frame_equal(df, expected_df)
 
 
-def test_create_metrics_dataframe_all_nan_values():
+@pytest.mark.parametrize("type_suffix_in_column_names", [False, True])
+@pytest.mark.parametrize("include_point_previews", [False, True])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+def test_create_metrics_dataframe_all_nan_values(
+    type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
+):
     """Test that create_metrics_dataframe preserves column structure when all values are NaN."""
     # Given - data with all NaN values
     data = {
@@ -1735,32 +1743,61 @@ def test_create_metrics_dataframe_all_nan_values():
     df = create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
-        type_suffix_in_column_names=False,
-        include_point_previews=False,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=include_point_previews,
         index_column_name="experiment",
+        timestamp_column_name=timestamp_column_name,
     )
 
     # Then - should preserve column structure even with NaN values
+    base_column_name = "path1:float_series" if type_suffix_in_column_names else "path1"
+
+    # Build expected data based on parameters
+    expected_data = {}
+
+    # Add value column (always present)
+    if include_point_previews or timestamp_column_name:
+        expected_data[(base_column_name, "value")] = [float("nan")]
+    else:
+        expected_data[base_column_name] = [float("nan")]
+
+    # Add timestamp column if requested
+    if timestamp_column_name:
+        expected_data[(base_column_name, timestamp_column_name)] = [datetime(2023, 1, 1, tzinfo=timezone.utc)]
+
+    # Add preview columns if requested
+    if include_point_previews:
+        expected_data[(base_column_name, "is_preview")] = [False]
+        expected_data[(base_column_name, "preview_completion")] = [1.0]
+
     expected_df = pd.DataFrame(
-        data={"path1": [float("nan")]},
+        data=expected_data,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
     )
 
     pd.testing.assert_frame_equal(df, expected_df)
 
-    # Verify that the column exists and contains NaN
-    assert "path1" in df.columns
-    assert pd.isna(df["path1"].iloc[0])
 
-
-def test_create_metrics_dataframe_all_nan_values_with_type_suffix():
-    """Test that create_metrics_dataframe preserves column structure when all values are NaN with type suffix."""
-    # Given - data with all NaN values and type suffix enabled
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_point_previews", [False, True])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+def test_create_metrics_dataframe_all_nan_row_preserved(
+    type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
+):
+    """Test that create_metrics_dataframe preserves rows where all values are NaN."""
+    # Given - data with one row having all NaN values and another row with numerical values
     data = {
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),
+            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # step 1: valid value
+            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
+        ],
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
+        ): [
+            (_make_timestamp(2023, 1, 1), 1.0, 20.0, False, 1.0),  # step 1: valid value
+            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
         ],
     }
     sys_id_label_mapping = {
@@ -1771,38 +1808,80 @@ def test_create_metrics_dataframe_all_nan_values_with_type_suffix():
     df = create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
-        type_suffix_in_column_names=True,
-        include_point_previews=False,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=include_point_previews,
         index_column_name="experiment",
+        timestamp_column_name=timestamp_column_name,
     )
 
-    # Then - should preserve column structure with type suffix
+    # Then - should preserve both rows, including the one with all NaN values
+    base_path1_name = "path1:float_series" if type_suffix_in_column_names else "path1"
+    base_path2_name = "path2:float_series" if type_suffix_in_column_names else "path2"
+
+    # Build expected data based on parameters
+    expected_data = {}
+
+    # Add value columns (always present)
+    if include_point_previews or timestamp_column_name:
+        expected_data[base_path1_name] = {"value": [10.0, float("nan")]}
+        expected_data[base_path2_name] = {"value": [20.0, float("nan")]}
+    else:
+        expected_data[base_path1_name] = [10.0, float("nan")]
+        expected_data[base_path2_name] = [20.0, float("nan")]
+
+    # Add timestamp columns if requested
+    if timestamp_column_name:
+        expected_data[base_path1_name][timestamp_column_name] = [
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+            datetime(2023, 1, 2, tzinfo=timezone.utc),
+        ]
+        expected_data[base_path2_name][timestamp_column_name] = [
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+            datetime(2023, 1, 2, tzinfo=timezone.utc),
+        ]
+
+    # Add preview columns if requested
+    if include_point_previews:
+        expected_data[base_path1_name]["is_preview"] = [False, False]
+        expected_data[base_path1_name]["preview_completion"] = [1.0, 1.0]
+        expected_data[base_path2_name]["is_preview"] = [False, False]
+        expected_data[base_path2_name]["preview_completion"] = [1.0, 1.0]
+
+    if isinstance(expected_data[base_path1_name], dict):
+        expected_data = {(path, k): vs for path, kvs in expected_data.items() for k, vs in kvs.items()}
+
     expected_df = pd.DataFrame(
-        data={"path1:float_series": [float("nan")]},
-        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+        data=expected_data,
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
 
     pd.testing.assert_frame_equal(df, expected_df)
 
-    # Verify that the column exists and contains NaN
-    assert "path1:float_series" in df.columns
-    assert pd.isna(df["path1:float_series"].iloc[0])
 
-
-def test_create_metrics_dataframe_mixed_nan_and_valid_values():
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_point_previews", [False, True])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
+    type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
+):
     """Test that create_metrics_dataframe preserves column structure when some values are NaN and others are valid."""
-    # Given - data with one valid value and one NaN value (same experiment, same step)
+    # Given - data with one column having all NaN values and another column with valid values across multiple steps
     data = {
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # valid value
+            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # step 1: valid value
+            (_make_timestamp(2023, 1, 2), 2.0, 20.0, False, 1.0),  # step 2: valid value
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # NaN value
+            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # step 1: NaN value
+            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
         ],
+        RunAttributeDefinition(
+            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path3", "float_series")
+        ): [],  # empty series will be ignored
     }
     sys_id_label_mapping = {
         SysId("sysid1"): "exp1",
@@ -1812,71 +1891,51 @@ def test_create_metrics_dataframe_mixed_nan_and_valid_values():
     df = create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
-        type_suffix_in_column_names=False,
-        include_point_previews=False,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=include_point_previews,
         index_column_name="experiment",
+        timestamp_column_name=timestamp_column_name,
     )
 
-    # Then - should preserve both columns even though one has NaN
+    # Then - should preserve both columns even though one has all NaN values
+    base_path1_name = "path1:float_series" if type_suffix_in_column_names else "path1"
+    base_path2_name = "path2:float_series" if type_suffix_in_column_names else "path2"
+
+    # Build expected data based on parameters
+    expected_data = {}
+
+    # Add value columns (always present)
+    if include_point_previews or timestamp_column_name:
+        expected_data[base_path1_name] = {"value": [10.0, 20.0]}
+        expected_data[base_path2_name] = {"value": [float("nan"), float("nan")]}
+    else:
+        expected_data[base_path1_name] = [10.0, 20.0]
+        expected_data[base_path2_name] = [float("nan"), float("nan")]
+
+    # Add timestamp columns if requested
+    if timestamp_column_name:
+        expected_data[base_path1_name][timestamp_column_name] = [
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+            datetime(2023, 1, 2, tzinfo=timezone.utc),
+        ]
+        expected_data[base_path2_name][timestamp_column_name] = [
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+            datetime(2023, 1, 2, tzinfo=timezone.utc),
+        ]
+
+    # Add preview columns if requested
+    if include_point_previews:
+        expected_data[base_path1_name]["is_preview"] = [False, False]
+        expected_data[base_path1_name]["preview_completion"] = [1.0, 1.0]
+        expected_data[base_path2_name]["is_preview"] = [False, False]
+        expected_data[base_path2_name]["preview_completion"] = [1.0, 1.0]
+
+    if isinstance(expected_data[base_path1_name], dict):
+        expected_data = {(path, k): vs for path, kvs in expected_data.items() for k, vs in kvs.items()}
+
     expected_df = pd.DataFrame(
-        data={
-            "path1": [10.0],
-            "path2": [float("nan")],
-        },
-        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
+        data=expected_data,
+        index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
 
     pd.testing.assert_frame_equal(df, expected_df)
-
-    # Verify that both columns exist
-    assert "path1" in df.columns
-    assert "path2" in df.columns
-    assert df["path1"].iloc[0] == 10.0
-    assert pd.isna(df["path2"].iloc[0])
-
-
-def test_create_metrics_dataframe_mixed_nan_and_valid_values_with_type_suffix():
-    """Test that create_metrics_dataframe preserves column structure when some values are NaN and others are valid,
-    with type suffix."""
-    # Given - data with one valid value and one NaN value (same experiment, same step)
-    data = {
-        RunAttributeDefinition(
-            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
-        ): [
-            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # valid value
-        ],
-        RunAttributeDefinition(
-            RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
-        ): [
-            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # NaN value
-        ],
-    }
-    sys_id_label_mapping = {
-        SysId("sysid1"): "exp1",
-    }
-
-    # When
-    df = create_metrics_dataframe(
-        metrics_data=data,
-        sys_id_label_mapping=sys_id_label_mapping,
-        type_suffix_in_column_names=True,
-        include_point_previews=False,
-        index_column_name="experiment",
-    )
-
-    # Then - should preserve both columns even though one has NaN
-    expected_df = pd.DataFrame(
-        data={
-            "path1:float_series": [10.0],
-            "path2:float_series": [float("nan")],
-        },
-        index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
-    )
-
-    pd.testing.assert_frame_equal(df, expected_df)
-
-    # Verify that both columns exist
-    assert "path1:float_series" in df.columns
-    assert "path2:float_series" in df.columns
-    assert df["path1:float_series"].iloc[0] == 10.0
-    assert pd.isna(df["path2:float_series"].iloc[0])

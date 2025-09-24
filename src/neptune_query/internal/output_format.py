@@ -653,7 +653,7 @@ def _sort_index_and_columns(df: pd.DataFrame, index_column_name: str) -> pd.Data
     if isinstance(df.columns, pd.MultiIndex):
         df.columns.names = (None, None)
         df = df.swaplevel(axis="columns")
-        df = df.sort_index(axis="columns", level=0)
+        df = df.sort_index(axis="columns", level=0, kind="stable", sort_remaining=False)
     else:
         df.columns.name = None
         df = df.sort_index(axis="columns")
