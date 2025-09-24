@@ -25,7 +25,7 @@ from tests.fuzzy.data_generators import (
 )
 
 
-@settings(max_examples=1000, deadline=timedelta(seconds=10))
+@settings(max_examples=2000, deadline=timedelta(seconds=10))
 @given(
     metric_dataset=metric_datasets(),
     timestamp_column_name=st.one_of(st.just(None), st.sampled_from(["absolute_time"])),
@@ -106,7 +106,7 @@ def test_create_metrics_dataframe(
         assert False, f"Mismatch: expected_values={len(expected_values)}, value_columns={len(value_columns)}"
 
 
-@settings(max_examples=1000, deadline=timedelta(seconds=10))
+@settings(max_examples=2000, deadline=timedelta(seconds=10))
 @given(
     buckets_dataset=metric_buckets_datasets(),
     container_column_name=st.sampled_from(["experiment", "run"]),
@@ -161,7 +161,7 @@ def test_create_metric_buckets_dataframe(buckets_dataset, container_column_name)
     assert df.columns.tolist() == expected_columns
 
 
-@settings(max_examples=1000, deadline=timedelta(seconds=10))
+@settings(max_examples=2000, deadline=timedelta(seconds=10))
 @given(
     series_dataset=series_datasets(),
     timestamp_column_name=st.one_of(st.just(None), st.sampled_from(["absolute_time"])),
