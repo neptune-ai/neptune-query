@@ -8,7 +8,13 @@ on:
     branches:
       - main
       - dev/.*
-  pull_request:  # TODO: Remove this once it's to be merged - seems I cannot use dispatch before it's merged
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/fuzzy/**'
+      - 'dev_requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/tests-fuzzy.yml'
 
 jobs:
   test:
@@ -40,7 +46,9 @@ jobs:
           test-directory: fuzzy
           report-job: 'test fuzzy (${{ matrix.os }} - py${{ matrix.python-version }})'
           report-suffix: 'fuzzy-${{ matrix.python-version }}-${{ matrix.os }}'
-          timeout: "600"
+          timeout: "900"
+        env:
+          NEPTUNE_E2E_HYPOTHESIS_PROFILE: ${{ github.event_name == 'schedule' && 'ci-nightly' || 'ci-quick' }}
 
       - name: Notify Slack on failure
         if: failure() && github.event_name == 'schedule'
