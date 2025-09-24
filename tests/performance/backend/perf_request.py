@@ -19,8 +19,8 @@ from typing import (
 class LatencyConfig:
     """Configuration for simulated latency."""
 
-    min_ms: float = 0.0
-    max_ms: float = 0.0
+    min_ms: float
+    max_ms: float
 
 
 @dataclass
@@ -35,18 +35,23 @@ class SearchLeaderboardEntriesConfig(EndpointConfig):
     """Configuration for the search_leaderboard_entries endpoint."""
 
     # name -> type, e.g. {"accuracy": "float", "status": "string"}
-    requested_attributes: Dict[str, str] = field(default_factory=dict)
-    total_entries_count: int = 0
+    requested_attributes: Dict[str, str]
+    total_entries_count: int
 
 
 @dataclass
 class QueryAttributeDefinitionsConfig(EndpointConfig):
     """Configuration for the query_attribute_definitions_within_project endpoint."""
 
+    # The server will use hashing to compute the definitions  to return
+    # This allows stability across multiple calls
+    seed: int
+
     # Total number of attribute definitions to return
-    total_definitions_count: int = 0
+    total_definitions_count: int
+
     # Attribute types to include in the response (name -> type)
-    attribute_types: list[str] = field(default_factory=list)
+    attribute_types: list[str]
 
 
 @dataclass

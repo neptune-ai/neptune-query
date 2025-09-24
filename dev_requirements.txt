@@ -11,3 +11,4 @@ icecream
 git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
 fastapi == 0.116.2
 uvicorn == 0.35.0
+humanize == 4.13.0

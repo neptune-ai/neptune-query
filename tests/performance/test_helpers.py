@@ -40,6 +40,7 @@ class PerfRequestBuilder:
 
     def with_query_attribute_definitions(
         self,
+        seed: int,
         attribute_types: list[str],
         total_definitions: int,
         latency_range_ms: Optional[tuple[float, float]] = None,
@@ -56,7 +57,7 @@ class PerfRequestBuilder:
             path="/api/leaderboard/v1/leaderboard/attributes/definitions/query",
             method="POST",
             config=QueryAttributeDefinitionsConfig(
-                latency=latency, attribute_types=attribute_types, total_definitions_count=total_definitions
+                latency=latency, seed=seed, attribute_types=attribute_types, total_definitions_count=total_definitions
             ),
         )
         return self

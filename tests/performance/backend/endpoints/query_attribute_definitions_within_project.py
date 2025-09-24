@@ -26,9 +26,9 @@ from neptune_query.internal.retrieval.attribute_types import map_attribute_type_
 from tests.performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from tests.performance.backend.perf_request import QueryAttributeDefinitionsConfig
 from tests.performance.backend.utils.exceptions import MalformedRequestError
+from tests.performance.backend.utils.hashing_utils import hash_to_string
 from tests.performance.backend.utils.logging import setup_logger
 from tests.performance.backend.utils.metrics import RequestMetrics
-from tests.performance.backend.utils.random_utils import random_string
 from tests.performance.backend.utils.timing import Timer
 
 # Path without /api prefix since we're mounting under /api in the main app
@@ -67,12 +67,12 @@ def _build_result(
     return QueryAttributeDefinitionsResultDTO(
         entries=[
             AttributeDefinitionDTO(
-                name=random_string(),
+                name=hash_to_string(returned_in_previous_pages + i, length=10),
                 type=AttributeTypeDTO(
                     map_attribute_type_python_to_backend(random.choice(endpoint_config.attribute_types))
                 ),
             )
-            for _ in range(to_be_returned_in_this_page)
+            for i in range(to_be_returned_in_this_page)
         ],
         next_page=NextPageDTO(
             limit=0,

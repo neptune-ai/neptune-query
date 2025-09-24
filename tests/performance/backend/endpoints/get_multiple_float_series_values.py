@@ -24,6 +24,7 @@ from neptune_api.types import Unset
 from tests.performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from tests.performance.backend.perf_request import FloatTimeSeriesValuesConfig
 from tests.performance.backend.utils.exceptions import MalformedRequestError
+from tests.performance.backend.utils.hashing_utils import hash_to_uniform_0_1
 from tests.performance.backend.utils.logging import setup_logger
 from tests.performance.backend.utils.metrics import RequestMetrics
 from tests.performance.backend.utils.timing import Timer
@@ -53,7 +54,7 @@ def _compute_series_cardinality(
     Returns:
         Number of points to generate for this series
     """
-    hash_value = _hash_to_uniform_0_1(experiment_id, attribute_def, config.seed)
+    hash_value = hash_to_uniform_0_1(experiment_id, attribute_def, config.seed)
 
     if config.series_cardinality_policy == "uniform":
         if not config.series_cardinality_uniform_range:
@@ -240,14 +241,3 @@ async def get_multiple_float_series_values(request: Request) -> Response:
 
 def _map_unset_to_none(value):
     return None if isinstance(value, Unset) else value
-
-
-def _hash_to_uniform_64bit(*xs) -> float:
-    s = json.dumps(xs, separators=(",", ":"), sort_keys=True).encode()
-    # 8-byte deterministic hash -> integer in [0, 2^64-1]
-    h = hashlib.blake2b(s, digest_size=8).digest()
-    return int.from_bytes(h, "big")
-
-
-def _hash_to_uniform_0_1(*xs) -> float:
-    return _hash_to_uniform_64bit(*xs) / 2**64
