@@ -27,6 +27,8 @@ def pytest_configure(config):
 def pytest_benchmark_update_json(config, benchmarks, output_json):
     with open(report_path, "w") as f:
         json.dump(output_json, f, indent=2)
+    with open("benchmark_results.json", "w") as f:
+        json.dump(output_json, f, indent=2)
 
 
 def pytest_sessionfinish(session, exitstatus):
