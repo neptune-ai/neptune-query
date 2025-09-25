@@ -104,7 +104,7 @@ def create_expected_data_string_series(
 
     sorted_columns = list(sorted(columns))
     if include_time == "absolute":
-        absolute_columns = [[(c, "absolute_time"), (c, "value")] for c in sorted_columns]
+        absolute_columns = [[(c, "value"), (c, "absolute_time")] for c in sorted_columns]
         return df, list(it.chain.from_iterable(absolute_columns)), filtered_exps
     else:
         return df, sorted_columns, filtered_exps
@@ -332,7 +332,7 @@ def create_expected_data_histogram_series(
 
     sorted_columns = list(sorted(columns))
     if include_time == "absolute":
-        absolute_columns = [[(c, "absolute_time"), (c, "value")] for c in sorted_columns]
+        absolute_columns = [[(c, "value"), (c, "absolute_time")] for c in sorted_columns]
         return df, list(it.chain.from_iterable(absolute_columns)), filtered_exps
     else:
         return df, sorted_columns, filtered_exps
@@ -552,7 +552,7 @@ def create_expected_data_file_series(
 
     sorted_columns = list(sorted(columns))
     if include_time == "absolute":
-        absolute_columns = [[(c, "absolute_time"), (c, "value")] for c in sorted_columns]
+        absolute_columns = [[(c, "value"), (c, "absolute_time")] for c in sorted_columns]
         return df, list(it.chain.from_iterable(absolute_columns)), filtered_exps
     else:
         return df, sorted_columns, filtered_exps
