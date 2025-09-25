@@ -19,13 +19,15 @@ from neptune_api.models.float_time_series_values_request import FloatTimeSeriesV
 from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.series_values_pb2 import (
     ProtoFloatSeriesValuesResponseDTO,
 )
-from neptune_api.types import Unset
 
 from tests.performance.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from tests.performance.backend.perf_request import FloatTimeSeriesValuesConfig
 from tests.performance.backend.utils.exceptions import MalformedRequestError
 from tests.performance.backend.utils.hashing_utils import hash_to_uniform_0_1
-from tests.performance.backend.utils.logging import setup_logger
+from tests.performance.backend.utils.logging import (
+    map_unset_to_none,
+    setup_logger,
+)
 from tests.performance.backend.utils.metrics import RequestMetrics
 from tests.performance.backend.utils.timing import Timer
 
@@ -127,7 +129,7 @@ def _build_float_series_response(
         # Extract experiment_id and attribute_name from TimeSeries
         experiment_id = series_req.series.holder.identifier
         attribute_name = series_req.series.attribute
-        after_step = _map_unset_to_none(series_req.after_step)
+        after_step = map_unset_to_none(series_req.after_step)
 
         # Check if this series exists based on probability
         # Always use the seed from the perf config for consistent hashing
@@ -237,7 +239,3 @@ async def get_multiple_float_series_values(request: Request) -> Response:
             media_type="application/x-protobuf",
             status_code=500,
         )
-
-
-def _map_unset_to_none(value):
-    return None if isinstance(value, Unset) else value

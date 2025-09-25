@@ -27,7 +27,11 @@ from tests.performance.backend.middleware.read_perf_config_middleware import PER
 from tests.performance.backend.perf_request import QueryAttributeDefinitionsConfig
 from tests.performance.backend.utils.exceptions import MalformedRequestError
 from tests.performance.backend.utils.hashing_utils import hash_to_string
-from tests.performance.backend.utils.logging import setup_logger
+from tests.performance.backend.utils.logging import (
+    map_unset_to_none,
+    repr_list,
+    setup_logger,
+)
 from tests.performance.backend.utils.metrics import RequestMetrics
 from tests.performance.backend.utils.timing import Timer
 
@@ -42,16 +46,9 @@ router = APIRouter()
 
 
 def _build_result(
-    endpoint_config: QueryAttributeDefinitionsConfig, pagination_token: Optional[NextPageDTO]
+    endpoint_config: QueryAttributeDefinitionsConfig, experiment_ids: list[str], pagination_token: Optional[NextPageDTO]
 ) -> QueryAttributeDefinitionsResultDTO:
-    """Build a response according to the endpoint configuration.
-
-    Args:
-        endpoint_config: Configuration for the endpoint
-
-    Returns:
-        Generated query attribute definitions result
-    """
+    """Build a response according to the endpoint configuration."""
     logger.debug(f"Building result with {endpoint_config.total_definitions_count} definitions")
 
     # we're encoding an "offset" within the next_page_token to facilitate pagination
@@ -67,7 +64,11 @@ def _build_result(
     return QueryAttributeDefinitionsResultDTO(
         entries=[
             AttributeDefinitionDTO(
-                name=hash_to_string(returned_in_previous_pages + i, length=10),
+                name=hash_to_string(
+                    endpoint_config.seed,
+                    returned_in_previous_pages + i,
+                    length=10,
+                ),
                 type=AttributeTypeDTO(
                     map_attribute_type_python_to_backend(random.choice(endpoint_config.attribute_types))
                 ),
@@ -114,14 +115,20 @@ async def query_attribute_definitions_within_project(request: Request) -> Respon
         )
         logger.info(
             f"Processing: projects={project_ids} "
+            f"seed={endpoint_config.seed} "
             f"total_definitions={endpoint_config.total_definitions_count} "
-            f"attribute_types={endpoint_config.attribute_types} "
+            f"experiments={map_unset_to_none(repr_list(parsed_request.experiment_ids_filter))} "
+            f"attribute_types={repr_list(endpoint_config.attribute_types)} "
             f"next_page={_next_page_dto_to_str(parsed_request.next_page)}"
         )
 
         # Generate and return response
         with Timer() as data_generation_timer:
-            result = _build_result(endpoint_config, pagination_token=parsed_request.next_page)
+            result = _build_result(
+                endpoint_config,
+                experiment_ids=parsed_request.experiment_ids_filter,
+                pagination_token=parsed_request.next_page,
+            )
             payload = json.dumps(result.to_dict())
 
         metrics.generation_time_ms = data_generation_timer.time_ms

@@ -10,6 +10,8 @@ from typing import (
     Optional,
 )
 
+from neptune_api.types import Unset
+
 request_id_ctx = ContextVar("request_id", default="-")
 
 
@@ -109,3 +111,14 @@ def setup_logger(logger_name: str, level: Optional[int] = None) -> logging.Logge
     _CONFIGURED_LOGGERS[logger_name] = logger
 
     return logger
+
+
+def map_unset_to_none(value):
+    return None if isinstance(value, Unset) else value
+
+
+def repr_list(lst):
+    if len(lst) < 5:
+        return str(lst)
+    else:
+        return str(lst[:5] + ["..."]) + f" (total {len(lst)})"

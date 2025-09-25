@@ -57,7 +57,10 @@ class PerfRequestBuilder:
             path="/api/leaderboard/v1/leaderboard/attributes/definitions/query",
             method="POST",
             config=QueryAttributeDefinitionsConfig(
-                latency=latency, seed=seed, attribute_types=attribute_types, total_definitions_count=total_definitions
+                latency=latency,
+                seed=seed,
+                attribute_types=attribute_types,
+                total_definitions_count=total_definitions,
             ),
         )
         return self
