@@ -53,7 +53,7 @@ def expected_benchmark(
 
         if list(params.keys()) != fn._collected_param_keys:
             raise ValueError(
-                "All parametrize_once decorators must have the same parameter keys. "
+                "All expected_benchmark decorators must have the same parameter keys. "
                 f"Expected {wrapped_fn._collected_param_keys}, got {list(params.keys())}"
             )
 
@@ -77,6 +77,7 @@ def expected_benchmark(
             # Extract the actual parameters used in this test run
             my_params = {key: kwargs[key] for key in params.keys()}
             params_str = json.dumps(my_params)
+
             my_min_p0, my_max_p80, my_max_p100 = fn._expected_benchmarks[params_str]
 
             if my_min_p0 is None or my_max_p80 is None or my_max_p100 is None:
@@ -101,9 +102,10 @@ def expected_benchmark(
             p80_marker = "✓" if p80 <= adjusted_max_p80 else "✗"
             p100_marker = "✓" if p100 <= adjusted_max_p100 else "✗"
 
+            params_human = ", ".join(f"{k}={v!r}" for k, v in params.items())
             detailed_msg = f"""
 
-                Benchmark '{fn.__name__}' with params {params_str} results:
+                Benchmark '{fn.__name__}' with params {params_human} results:
 
                 {p0_marker} 0th percentile:       {p0:.3f} s
                   Unadjusted min_p0:    {my_min_p0:.3f} s
