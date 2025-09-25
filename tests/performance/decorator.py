@@ -29,7 +29,7 @@ def _get_benchmark_data() -> dict[tuple[str, str], dict[str, Any]]:
 
 
 @dataclass
-class PerfomanceCase:
+class PerformanceTestCaseSpec:
     fn_name: str
     params: dict[str, Any]
     min_p0: float | None
@@ -47,7 +47,7 @@ class PerfomanceCase:
 
 def expected_benchmark(*multiple_cases: dict, **single_case: dict):
     def wrapper(fn):
-        perf_cases = []
+        specs = []
         param_keys = {}
 
         all_cases = multiple_cases or [single_case]
@@ -63,8 +63,8 @@ def expected_benchmark(*multiple_cases: dict, **single_case: dict):
                     f"Expected {param_keys}, got {case_param_keys}"
                 )
 
-            perf_cases.append(
-                PerfomanceCase(
+            specs.append(
+                PerformanceTestCaseSpec(
                     fn_name=fn.__name__,
                     params={k: case[k] for k in param_keys},
                     min_p0=case.get("min_p0"),
@@ -76,7 +76,7 @@ def expected_benchmark(*multiple_cases: dict, **single_case: dict):
         if not os.getenv("BENCHMARK_VALIDATE_FILE"):
             pytest.mark.parametrize(
                 ",".join(param_keys),
-                [case.get_params_for_parametrize() for case in perf_cases],
+                [spec.get_params_for_parametrize() for spec in specs],
             )(fn)
             return fn
 
@@ -84,53 +84,53 @@ def expected_benchmark(*multiple_cases: dict, **single_case: dict):
 
         @wraps(fn)
         def validation(*args, **kwargs):
-            # Find the matching performance case
-            perf_case: PerfomanceCase | None = None
-            for case in perf_cases:
+            # Find the matching spec
+            spec: PerformanceTestCaseSpec | None = None
+            for case in specs:
                 if all(kwargs.get(k) == v for k, v in case.params.items()):
-                    perf_case = case
+                    spec = case
                     break
 
-            assert perf_case is not None, "No matching performance case found for the given parameters."
+            assert spec is not None, "No matching performance case found for the given parameters."
 
             # Extract the actual parameters used in this test run
-            if perf_case.min_p0 is None or perf_case.max_p80 is None or perf_case.max_p100 is None:
+            if spec.min_p0 is None or spec.max_p80 is None or spec.max_p100 is None:
                 warnings.warn("Benchmark thresholds not set, skipping validation.", category=UserWarning)
                 return
 
             perf_data = _get_benchmark_data()
 
-            assert perf_case.fn_name, perf_case.get_params_json() in perf_data
-            stats = perf_data[perf_case.fn_name, perf_case.get_params_json()]
+            assert spec.fn_name, spec.get_params_json() in perf_data
+            stats = perf_data[spec.fn_name, spec.get_params_json()]
 
             times = sorted(stats["data"])
             p0 = times[0]
             p80 = times[int(len(times) * 0.8)]
             p100 = times[-1]
 
-            adjusted_min_p0 = perf_case.min_p0 * performance_factor
-            adjusted_max_p80 = perf_case.max_p80 * performance_factor
-            adjusted_max_p100 = perf_case.max_p100 * performance_factor
+            adjusted_min_p0 = spec.min_p0 * performance_factor
+            adjusted_max_p80 = spec.max_p80 * performance_factor
+            adjusted_max_p100 = spec.max_p100 * performance_factor
 
             p0_marker = "✓" if p0 >= adjusted_min_p0 else "✗"
             p80_marker = "✓" if p80 <= adjusted_max_p80 else "✗"
             p100_marker = "✓" if p100 <= adjusted_max_p100 else "✗"
 
-            params_human = ", ".join(f"{k}={v!r}" for k, v in perf_case.params.items())
+            params_human = ", ".join(f"{k}={v!r}" for k, v in spec.params.items())
             detailed_msg = f"""
 
-                Benchmark '{perf_case.fn_name}' with params {params_human} results:
+                Benchmark '{spec.fn_name}' with params {params_human} results:
 
                 {p0_marker} 0th percentile:       {p0:.3f} s
-                  Unadjusted min_p0:    {perf_case.min_p0:.3f} s
+                  Unadjusted min_p0:    {spec.min_p0:.3f} s
                   Adjusted (*) min_p0:  {adjusted_min_p0:.3f} s
 
                 {p80_marker} 80th percentile:       {p80:.3f} s
-                  Unadjusted max_p80:    {perf_case.max_p80:.3f} s
+                  Unadjusted max_p80:    {spec.max_p80:.3f} s
                   Adjusted (*) max_p80:  {adjusted_max_p80:.3f} s
 
                 {p100_marker} 100th percentile:       {p100:.3f} s
-                  Unadjusted max_p100:    {perf_case.max_p100:.3f} s
+                  Unadjusted max_p100:    {spec.max_p100:.3f} s
                   Adjusted (*) max_p100:  {adjusted_max_p100:.3f} s
 
                 (*) Use the environment variable "BENCHMARK_PERFORMANCE_FACTOR" to adjust the thresholds.
@@ -145,9 +145,9 @@ def expected_benchmark(*multiple_cases: dict, **single_case: dict):
                 adjusted_max_p80_str = f"{adjusted_max_p80:.3f}"
                 adjusted_max_p100_str = f"{adjusted_max_p100:.3f}"
             else:
-                adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {perf_case.min_p0:.3f} * {performance_factor})"
-                adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {perf_case.max_p80:.3f} * {performance_factor})"
-                adjusted_max_p100_str = f"{adjusted_max_p100:.3f} (= {perf_case.max_p100:.3f} * {performance_factor})"
+                adjusted_min_p0_str = f"{adjusted_min_p0:.3f} (= {spec.min_p0:.3f} * {performance_factor})"
+                adjusted_max_p80_str = f"{adjusted_max_p80:.3f} (= {spec.max_p80:.3f} * {performance_factor})"
+                adjusted_max_p100_str = f"{adjusted_max_p100:.3f} (= {spec.max_p100:.3f} * {performance_factor})"
 
             assert p0 >= adjusted_min_p0, f"p0 {p0:.3f} is less than expected {adjusted_min_p0_str}" + detailed_msg
             assert p80 <= adjusted_max_p80, f"p80 {p80:.3f} is more than expected {adjusted_max_p80_str}" + detailed_msg
@@ -157,7 +157,7 @@ def expected_benchmark(*multiple_cases: dict, **single_case: dict):
 
         pytest.mark.parametrize(
             ",".join(param_keys),
-            [case.get_params_for_parametrize() for case in perf_cases],
+            [spec.get_params_for_parametrize() for spec in specs],
         )(validation)
 
         return validation
