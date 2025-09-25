@@ -45,9 +45,10 @@ jobs:
 
       - name: Run performance tests
         env:
+          NEPTUNE_PERFORMANCE_LOG_FILE: "test-results/test-client-e2e-performance.log"
           NEPTUNE_PERFORMANCE_TEST_MODE: 'baseline_discovery'   # TEMPORARY; change to ${{ inputs.test_mode }}
         run: |
-          pytest --junitxml="test-results/test-client-e2e-performance.xml" tests/performance
+          pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance
 
       - name: Report
         uses: mikepenz/action-junit-report@v5

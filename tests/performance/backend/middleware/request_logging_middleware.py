@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from tests.performance.backend.utils.logging import (
     request_id_ctx,
     request_id_filter,
+    scenario_name_ctx,
     setup_logger,
 )
 from tests.performance.backend.utils.metrics import RequestMetrics
@@ -30,9 +31,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Generate and attach request ID
         request_id = request.headers.get("X-Request-ID", default=f"req-{random_string(8)}")
+        scenario_name = request.headers.get("X-Scenario-Name", default="-")
         request.state.id = request_id
 
-        token: Token = request_id_ctx.set(request_id)
+        request_id_token: Token = request_id_ctx.set(request_id)
+        scenario_name_token: Token = scenario_name_ctx.set(scenario_name)
         try:
 
             logger.info(f"Handling {request.method} {request.url.path}")
@@ -50,6 +53,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Add basic timing headers to response
             response.headers["X-Process-Time-Ms"] = str(round(request.state.metrics.total_time_ms, 2))
             response.headers["X-Request-ID"] = request_id
+            response.headers["X-Scenario-Name"] = scenario_name
 
             # Log complete metrics
             log_result(request.state.metrics, response.status_code)
@@ -59,7 +63,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             return response
         finally:
-            request_id_ctx.reset(token)
+            request_id_ctx.reset(request_id_token)
+            scenario_name_ctx.reset(scenario_name_token)
 
 
 def log_result(metrics: RequestMetrics, status_code: int) -> None:

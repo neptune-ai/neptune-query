@@ -193,6 +193,10 @@ class ClientProviderWithHeaderInjection:
         """Update request headers for subsequent API calls."""
         self._headers.update({"X-Perf-Request": value})
 
+    def set_scenario_name_header(self, scenario_name: str) -> None:
+        """Update request headers for subsequent API calls."""
+        self._headers.update({"X-Scenario-Name": scenario_name})
+
     def __call__(self, context: Any, proxies: Optional[Dict[str, str]] = None) -> AuthenticatedClient:
         """Return a configured client with the current headers."""
         return self._client.with_headers(self._headers)

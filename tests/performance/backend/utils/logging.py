@@ -3,33 +3,51 @@ Logging utilities for the performance test backend.
 Provides a consistent logging configuration across all modules.
 """
 import logging
-import sys
+import os
 from contextvars import ContextVar
 from typing import (
     Dict,
     Optional,
 )
 
+import colorlog
 from neptune_api.types import Unset
 
+scenario_name_ctx = ContextVar("scenario_name", default="-")
 request_id_ctx = ContextVar("request_id", default="-")
 
+# Define default log file path and environment variable name
+DEFAULT_LOG_FILE = "performance_test.log"
+LOG_FILE_ENV_VAR = "NEPTUNE_PERFORMANCE_LOG_FILE"
 
-class RequestIdFilter(logging.Filter):
+# Define color scheme for different log levels
+LOG_COLORS = {
+    "DEBUG": "cyan",
+    "INFO": "green",
+    "WARNING": "yellow",
+    "ERROR": "red",
+    "CRITICAL": "bold_red",
+}
+
+
+class RequestMetadataFilter(logging.Filter):
     """Filter that adds request_id to log records."""
 
     def __init__(self, name: str = ""):
         super().__init__(name)
         self.request_id = "-"
+        self.scenario_name = "-"
 
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
             record.request_id = request_id_ctx.get()
+        if not hasattr(record, "scenario_name"):
+            record.scenario_name = scenario_name_ctx.get()
         return True
 
 
 # Create a singleton instance for the whole application
-request_id_filter = RequestIdFilter()
+request_id_filter = RequestMetadataFilter()
 
 # Store configured loggers to prevent duplicate setup
 _CONFIGURED_LOGGERS: Dict[str, logging.Logger] = {}
@@ -62,18 +80,6 @@ def configure_root_logger() -> None:
 
 
 def setup_logger(logger_name: str, level: Optional[int] = None) -> logging.Logger:
-    """Set up a logger with the standard configuration for the application.
-
-    This function ensures that each logger is only configured once to prevent
-    duplicate log messages.
-
-    Args:
-        logger_name: The name for the logger
-        level: The logging level to use (defaults to INFO if not specified)
-
-    Returns:
-        A configured logger instance
-    """
     # Configure root logger first
     configure_root_logger()
 
@@ -93,13 +99,23 @@ def setup_logger(logger_name: str, level: Optional[int] = None) -> logging.Logge
             logger.removeHandler(handler)
 
     # Configure formatter with request_id
-    formatter = logging.Formatter(
-        fmt=("%(asctime)s.%(msecs)03d | %(levelname)s | %(name)s | [%(request_id)s] | " "%(message)s"),
+    formatter = colorlog.ColoredFormatter(
+        fmt="%(asctime)s.%(msecs)03d | %(scenario_name)s "
+        "| %(log_color)s%(levelname)s%(reset)s | %(name)s | %(request_id)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
+        log_colors=LOG_COLORS,
     )
 
-    # Configure handler
-    handler = logging.StreamHandler(sys.stdout)
+    # Determine log file path from environment variable or use default
+    log_file_path = os.environ.get(LOG_FILE_ENV_VAR, DEFAULT_LOG_FILE)
+
+    # Create directory if it doesn't exist (for cases where path includes directories)
+    log_file_dir = os.path.dirname(log_file_path)
+    if log_file_dir and not os.path.exists(log_file_dir):
+        os.makedirs(log_file_dir)
+
+    # Configure file handler instead of stdout
+    handler = logging.FileHandler(log_file_path)
     handler.setFormatter(formatter)
     handler.addFilter(request_id_filter)
     logger.addHandler(handler)

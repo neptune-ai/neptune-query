@@ -13,7 +13,8 @@ class Scenario:
     experiments_count: int
     latency_range_ms: tuple[int, int]
 
-    def _name(self):
+    @property
+    def name(self):
         return "; ".join(
             f"{key}={value}"
             for key, value in {
@@ -23,7 +24,7 @@ class Scenario:
         )
 
     def to_pytest_param(self, timeout: float):
-        return pytest.param(self, id=self._name(), marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
+        return pytest.param(self, id=self.name, marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
 
 
 @pytest.mark.parametrize(
@@ -47,6 +48,7 @@ def test_list_experiments(scenario, http_client):
     )
 
     http_client.set_x_perf_request_header(value=perf_request.build())
+    http_client.set_scenario_name_header(scenario_name=scenario.name)
 
     experiments = list_experiments(
         project="workspace/project",

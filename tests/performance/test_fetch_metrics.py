@@ -38,7 +38,8 @@ class Scenario:
             else (self.steps_count_per_metric, self.steps_count_per_metric)
         )
 
-    def _name(self):
+    @property
+    def name(self):
         steps = (self.steps_range_per_metric[0] + self.steps_range_per_metric[1]) / 2
         points = self.expected_points if isinstance(self.expected_points, int) else self.expected_points.expected
         density = self.metric_existence_probability
@@ -55,7 +56,7 @@ class Scenario:
         )
 
     def to_pytest_param(self, timeout: float):
-        return pytest.param(self, id=self._name(), marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
+        return pytest.param(self, id=self.name, marks=pytest.mark.timeout(resolve_timeout(timeout), func_only=True))
 
 
 @pytest.mark.parametrize(
@@ -578,6 +579,7 @@ def test_fetch_metrics(scenario, http_client):
     )
 
     http_client.set_x_perf_request_header(value=perf_request.build())
+    http_client.set_scenario_name_header(scenario_name=scenario.name)
 
     metrics_df = fetch_metrics(
         project="workspace/project",
