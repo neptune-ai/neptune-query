@@ -55,6 +55,7 @@ def new_project_id(client: AuthenticatedClient, api_token):
     try:
         with filelock.FileLock(lockfile_path, timeout=300):
             project_name = generate_project_name(NEPTUNE_E2E_REUSE_PROJECT)
+
             if NEPTUNE_E2E_REUSE_PROJECT and project_exists(client, NEPTUNE_E2E_WORKSPACE, project_name):
                 return f"{NEPTUNE_E2E_WORKSPACE}/{project_name}"
 
@@ -95,7 +96,23 @@ def project_exists(client: AuthenticatedClient, workspace: str, project_id: str)
 def generate_project_name(reuse: bool = False) -> str:
     if reuse:
         return f"pye2e-runs-{data_hash(ALL_STATIC_RUNS)}-v1"
-    return f"pye2e-runs-{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-v1"
+
+    # Use a shared timestamp file to ensure all pytest-xdist workers use the same timestamp
+    timestamp_file = Path(tempfile.gettempdir()) / "neptune_e2e_v1_timestamp"
+
+    try:
+        if timestamp_file.exists():
+            with open(timestamp_file, "r") as f:
+                timestamp_str = f.read().strip()
+        else:
+            timestamp_str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+            with open(timestamp_file, "w") as f:
+                f.write(timestamp_str)
+    except (OSError, IOError):
+        timestamp_str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+    return f"pye2e-runs-{timestamp_str}-v1"
 
 
 def data_hash(data: Any):
