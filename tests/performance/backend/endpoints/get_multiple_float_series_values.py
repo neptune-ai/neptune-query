@@ -199,7 +199,7 @@ async def get_multiple_float_series_values(request: Request) -> Response:
             f"per_series_limit={parsed_request.per_series_points_limit} "
             f"existence_probability={endpoint_config.existence_probability} "
             f"cardinality_policy={endpoint_config.series_cardinality_policy} "
-            f"seed={endpoint_config.seed}"
+            f"seed={endpoint_config.seed} "
             f"cardinality_uniform_range={endpoint_config.series_cardinality_uniform_range} "
             f"cardinality_buckets={endpoint_config.series_cardinality_buckets}"
         )
