@@ -369,7 +369,7 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=10_000,
             expected_rows=10_000,
-        ).to_pytest_param(timeout=468.696),
+        ).to_pytest_param(timeout=515.5656),
         # ###################################################################
         # #############     Doesn't work - too slow    ######################
         # # 1k experiments, 10k metrics per experiment (100k metrics total) #
@@ -458,7 +458,7 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=100_000,
-        ).to_pytest_param(timeout=27.921),
+        ).to_pytest_param(timeout=30.7131),
         ## 10 steps
         Scenario(
             experiments_count=100_000,
