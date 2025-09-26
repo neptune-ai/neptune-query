@@ -562,7 +562,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
     ],
 )
-def test_fetch_metrics(scenario, http_client):
+def test_fetch_metrics(scenario, http_client, record_property):
     perf_request = (
         PerfRequestBuilder()
         .with_search_leaderboard_entries(
@@ -593,6 +593,8 @@ def test_fetch_metrics(scenario, http_client):
         experiments=".*",
         attributes=".*",
     )
+
+    record_property("dataframe_memory_usage", metrics_df.memory_usage(deep=True).sum())
 
     non_nan_values = metrics_df.count().sum()
     assert non_nan_values == scenario.expected_points

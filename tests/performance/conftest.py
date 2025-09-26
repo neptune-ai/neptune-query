@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 import httpx
 import pytest
+from humanize import naturalsize
 from neptune_api import AuthenticatedClient
 from neptune_api.credentials import Credentials
 from neptune_api.types import OAuthToken
@@ -235,3 +236,26 @@ def resolve_timeout(default_seconds: float) -> float:
         return 3_600.0  # 1 hour for baseline discovery
 
     return default_seconds
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # Let pytest create the report first
+    outcome = yield
+    rep = outcome.get_result()
+
+    # Only act after the test body ran
+    if rep.when != "call":
+        return
+    # if not item.config.getoption("--df-summary"):
+    #     return
+
+    # Look for properties added via record_property(...)
+    recorded_properties = dict(rep.user_properties or [])
+
+    # Write via terminal reporter to bypass capture
+    tr = item.config.pluginmanager.get_plugin("terminalreporter")
+    if tr is not None:
+        if "dataframe_memory_usage" in recorded_properties:
+            tr.write(f"df_mem_usage={naturalsize(recorded_properties['dataframe_memory_usage'])} ")
+        tr.write(f"duration={rep.duration:.3f}s ")
