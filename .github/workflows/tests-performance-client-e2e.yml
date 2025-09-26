@@ -12,7 +12,7 @@ on:
         options:
             - normal
             - baseline_discovery
-        default: normal
+        default: baseline_discovery
   push:
     branches:
       - main
