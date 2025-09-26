@@ -13,6 +13,10 @@ on:
             - normal
             - baseline_discovery
         default: normal
+      timeout_tolerance:
+        description: Timeout tolerance in as float; e.g. 1.2 means 20% tolerance
+        required: false
+        default: 1.1
   push:
     branches:
       - main
@@ -46,7 +50,7 @@ jobs:
       - name: Run performance tests
         env:
           NEPTUNE_PERFORMANCE_LOG_FILE: "test-results/test-client-e2e-performance.log"
-          NEPTUNE_PERFORMANCE_TEST_MODE: baseline_discovery # TODO: change to ${{ inputs.test_mode }}
+          NEPTUNE_PERFORMANCE_TEST_MODE: ${{ inputs.test_mode || 'normal' }}
         run: |
           pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance
 

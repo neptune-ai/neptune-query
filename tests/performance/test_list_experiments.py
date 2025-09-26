@@ -33,11 +33,11 @@ class Scenario:
         Scenario(
             experiments_count=29_000,
             latency_range_ms=(500, 500),
-        ).to_pytest_param(timeout=2.5),
+        ).to_pytest_param(timeout=1.617),
         Scenario(
             experiments_count=1_000_000,
             latency_range_ms=(30, 30),
-        ).to_pytest_param(timeout=5),
+        ).to_pytest_param(timeout=10.103),
     ],
 )
 def test_list_experiments(scenario, http_client):
