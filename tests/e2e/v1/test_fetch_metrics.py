@@ -156,7 +156,7 @@ def create_expected_data(
 
     sorted_columns = list(sorted(columns))
     if include_time == "absolute":
-        absolute_columns = [[(c, "absolute_time"), (c, "value")] for c in sorted_columns]
+        absolute_columns = [[(c, "value"), (c, "absolute_time")] for c in sorted_columns]
         return df, list(chain.from_iterable(absolute_columns)), filtered_experiments
     else:
         return df, sorted_columns, filtered_experiments
