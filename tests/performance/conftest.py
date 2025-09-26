@@ -235,7 +235,7 @@ def resolve_timeout(default_seconds: float) -> float:
     if test_mode == "baseline_discovery":
         return 3_600.0  # 1 hour for baseline discovery
 
-    tolerance = os.environ.get("NEPTUNE_PERFORMANCE_TEST_TOLERANCE_FACTOR", 1.1)
+    tolerance = float(os.environ.get("NEPTUNE_PERFORMANCE_TEST_TOLERANCE_FACTOR", 1.1))
 
     return default_seconds * tolerance
 
