@@ -17,7 +17,7 @@ on:
   pull_request: # Don't run e2e tests on PRs that don't modify source code
     paths:
       - 'src/**'
-      - 'tests/**'
+      - 'tests/e2e/**'
       - 'dev_requirements.txt'
       - 'pyproject.toml'
       - '.github/workflows/tests-e2e.yml'
