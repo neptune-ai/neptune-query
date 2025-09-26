@@ -23,8 +23,8 @@ from typing import (
 import pandas as pd
 from neptune_api.client import AuthenticatedClient
 
+from .. import client as _client
 from .. import identifiers
-from ..client import get_client
 from ..composition import (
     concurrency,
     type_inference,
@@ -74,7 +74,7 @@ def fetch_metrics(
     restricted_attributes = validation.restrict_attribute_filter_type(attributes, type_in={"float_series"})
 
     valid_context = validate_context(context or get_context())
-    client = get_client(context=valid_context)
+    client = _client.get_client(context=valid_context)
 
     with (
         concurrency.create_thread_pool_executor() as executor,
