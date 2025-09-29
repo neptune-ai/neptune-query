@@ -1,10 +1,10 @@
-from neptune_query.internal.identifiers import SysId
-from neptune_query.internal.output_format import (
+from neptune_fetcher.internal.identifiers import SysId
+from neptune_fetcher.internal.output_format import (
     convert_table_to_dataframe,
     create_metrics_dataframe,
     create_series_dataframe,
 )
-from neptune_query.internal.retrieval.series import SeriesValue
+from neptune_fetcher.internal.retrieval.series import SeriesValue
 
 from . import generate
 from .decorator import expected_benchmark

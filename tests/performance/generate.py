@@ -1,16 +1,16 @@
 import random
 import string
 
-import neptune_query.internal.retrieval.metrics as metrics
-from neptune_query.internal.identifiers import (
+import neptune_fetcher.internal.retrieval.metrics as metrics
+from neptune_fetcher.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
     SysId,
 )
-from neptune_query.internal.retrieval.attribute_types import FloatSeriesAggregations
-from neptune_query.internal.retrieval.attribute_values import AttributeValue
+from neptune_fetcher.internal.retrieval.attribute_types import FloatSeriesAggregations
+from neptune_fetcher.internal.retrieval.attribute_values import AttributeValue
 
 # Set the random seed for reproducibility
 random.seed(20250925)
