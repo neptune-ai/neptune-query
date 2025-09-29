@@ -8,13 +8,14 @@ on:
     branches:
       - main
       - dev/.*
+      - gabrys/.*
   pull_request:
     paths:
       - 'src/**'
       - 'tests/**'
+      - '.github/**'
       - 'dev_requirements.txt'
       - 'pyproject.toml'
-      - '.github/workflows/tests-performance.yml'
 
 jobs:
   test:
