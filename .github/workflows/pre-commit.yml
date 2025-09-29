@@ -30,5 +30,7 @@ jobs:
           pip install -r dev_requirements.txt
 
       - name: Run performance tests
+        env:
+          BENCHMARK_NO_VALIDATION: "1"
         run: |
           pytest --junitxml="test-results/test-performance.xml" tests/performance

@@ -92,9 +92,6 @@ warn_unused_ignores = "True"
 ignore_missing_imports = "True"
 
 [tool.pytest.ini_options]
-retries = 3
-retry_delay = 2
-addopts = "--dist=loadfile"
 markers = [
     "files: mark test as downloading files using the neptune storage api",
 ]
