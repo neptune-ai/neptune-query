@@ -58,6 +58,7 @@ def convert_table_to_dataframe(
     index_column_name: str = "experiment",
     flatten_aggregations: bool = False,
     flatten_file_properties: bool = False,
+    project_identifier: Optional[str] = None,
 ) -> pd.DataFrame:
 
     if flatten_aggregations:
@@ -189,6 +190,7 @@ def create_metrics_dataframe(
     include_point_previews: bool,
     index_column_name: str,
     timestamp_column_name: Optional[str] = None,
+    project_identifier: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Creates a memory-efficient DataFrame directly from FloatPointValue tuples.
@@ -295,6 +297,7 @@ def create_series_dataframe(
     sys_id_label_mapping: dict[identifiers.SysId, str],
     index_column_name: str,
     timestamp_column_name: Optional[str],
+    project_identifier: Optional[str] = None,
 ) -> pd.DataFrame:
     experiment_mapping: dict[identifiers.SysId, int] = {}
     path_mapping: dict[str, int] = {}
