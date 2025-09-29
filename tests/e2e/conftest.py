@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 import pytest
+import requests
 from neptune_api import AuthenticatedClient
 from neptune_api.credentials import Credentials
 from neptune_scale import Run
@@ -24,6 +25,7 @@ from neptune_query.internal.context import (
 )
 from neptune_query.internal.filters import _Filter
 from neptune_query.internal.identifiers import RunIdentifier
+from neptune_query.internal.retrieval import files as _files
 from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
 from tests.e2e.data import (
     FILE_SERIES_STEPS,
@@ -98,8 +100,26 @@ def run_with_attributes(project, api_token, client):
                 )
             )
             if existing.items:
+                # Check if files still exist (they might have been deleted due to retention)
+                if _files_still_exist(client, project_id, experiment):
+                    continue
+
+                run = Run(
+                    api_token=api_token,
+                    project=project_id,
+                    run_id=experiment.run_id,
+                    experiment_name=experiment.name,
+                    source_tracking_config=None,
+                    resume=True,
+                )
+
+                _log_experiment_files(run, experiment)
+
+                run.close()
+                runs[experiment.name] = run
                 continue
 
+        # Create new experiment with all data
         run = Run(
             api_token=api_token,
             project=project_id,
@@ -109,7 +129,7 @@ def run_with_attributes(project, api_token, client):
         )
 
         run.log_configs(experiment.config)
-        # This is how neptune-scale allows setting string set values currently
+        # This is the only way neptune-scale allows setting string set values currently
         run.log(tags_add=experiment.string_sets)
 
         for step in range(len(experiment.float_series[f"{PATH}/metrics/step"])):
@@ -132,11 +152,7 @@ def run_with_attributes(project, api_token, client):
         run.log_string_series(data=experiment.long_path_series, step=1, timestamp=NOW)
         run.log_metrics(data=experiment.long_path_metrics, step=1, timestamp=NOW)
 
-        run.assign_files(experiment.files)
-
-        for step in range(FILE_SERIES_STEPS):
-            file_data = {path: values[step] for path, values in experiment.file_series.items()}
-            run.log_files(files=file_data, step=step, timestamp=NOW + timedelta(seconds=int(step)))
+        _log_experiment_files(run, experiment)
 
         runs[experiment.name] = run
     for run in runs.values():
@@ -180,6 +196,63 @@ def experiment_identifiers(client, project, run_with_attributes) -> list[RunIden
 @pytest.fixture(scope="module")
 def experiment_identifier(experiment_identifiers) -> RunIdentifier:
     return experiment_identifiers[0]
+
+
+def _log_experiment_files(run, experiment):
+    """Log files for an experiment (both assigned files and file series)."""
+    run.assign_files(experiment.files)
+    for step in range(FILE_SERIES_STEPS):
+        file_data = {path: values[step] for path, values in experiment.file_series.items()}
+        run.log_files(files=file_data, step=step, timestamp=NOW + timedelta(seconds=int(step)))
+
+
+def _files_still_exist(client, project_id: str, experiment) -> bool:
+    """Check if files for an experiment still exist (not deleted due to retention)."""
+    try:
+        files_to_check = []
+
+        # Check file atoms (assigned files) and file series (last file in each series) using fetch_experiments_table
+        if experiment.files:
+            from neptune_query import fetch_experiments_table
+
+            attributes = list(experiment.files.keys() | experiment.file_series.keys())
+            attributes = [f for f in attributes if "does-not-exist" not in f]
+            atoms_df = fetch_experiments_table(
+                project=project_id,
+                experiments=experiment.name,
+                attributes=attributes,
+            )
+
+            if not atoms_df.empty:
+                from neptune_query._internal import resolve_files
+
+                atom_files = resolve_files(atoms_df)
+                files_to_check.extend(atom_files)
+
+        if not files_to_check:
+            return True
+
+        # Get signed URLs and test actual file existence with HEAD requests
+        signed_files = _files.fetch_signed_urls(client=client, files=files_to_check)
+
+        for signed_file in signed_files:
+            if not _test_file_exists(signed_file):
+                return False
+
+        return True
+
+    except Exception:
+        return False
+
+
+def _test_file_exists(signed_file) -> bool:
+    """Test if a file actually exists by making a HEAD request to the signed URL."""
+    try:
+        response = requests.head(signed_file.url, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        # Any error (timeout, network, etc.) means file doesn't exist or is inaccessible
+        return False
 
 
 @pytest.fixture
