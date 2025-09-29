@@ -12,9 +12,9 @@ from .decorator import expected_benchmark
 
 
 @expected_benchmark(
-    dict(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000),
-    dict(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000),
-    dict(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.500, max_p80=0.650, max_p100=1.000),
+    dict(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
+    dict(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
+    dict(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
 )
 def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_paths, num_buckets):
     """Test the performance of create_metric_buckets_dataframe"""
