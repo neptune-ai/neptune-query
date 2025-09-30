@@ -65,10 +65,13 @@ jobs:
         uses: mikepenz/action-junit-report@v5
         if: always()
         with:
+          check_name: 'E2E tests report'
           report_paths: "./test-results/test-e2e*.xml"
-          update_check: true
-          annotate_notice: true
-          job_name: "e2e tests"
+          detailed_summary: true
+          verbose_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
 
       - name: Notify Slack on failure
         if: failure() && github.event_name == 'schedule'

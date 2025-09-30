@@ -1,13 +1,13 @@
 name: Performance tests
 
+permissions:
+  checks: write
+
 on:
   schedule:
     - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - dev/.*
 #  pull_request:
 #    paths:
 #      - 'src/**'
@@ -45,3 +45,15 @@ jobs:
       - name: Run performance tests
         run: |
           pytest --junitxml="test-results/test-performance.xml" tests/performance
+
+      - name: Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: 'Performance tests report'
+          report_paths: "./test-results/test-performance.xml"
+          detailed_summary: true
+          verbose_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
