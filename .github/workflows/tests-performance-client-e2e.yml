@@ -64,7 +64,7 @@ jobs:
           NEPTUNE_PERFORMANCE_TEST_MODE: ${{ inputs.test_mode || 'normal' }}
           NEPTUNE_PERFORMANCE_TEST_TOLERANCE_FACTOR: 1.1
         run: |
-          pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance
+          pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance_e2e
 
       - uses: actions/upload-artifact@v4
         with:
