@@ -1,5 +1,8 @@
 name: Performance tests
 
+permissions:
+  checks: write
+
 on:
   schedule:
     - cron: '0 8 * * *' # Run at 8:00 daily
@@ -17,7 +20,7 @@ on:
 #      - '.github/workflows/tests-performance.yml'
 
 jobs:
-  test:
+  test-performance:
     runs-on: gcp-perf-test-dedicated
     container:
       image: ubuntu:24.04
@@ -45,3 +48,25 @@ jobs:
       - name: Run performance tests
         run: |
           pytest --junitxml="test-results/test-performance.xml" tests/performance
+
+      - name: Report measurements
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: 'Performance measurements'
+          report_paths: "./test-results/test-performance.xml"
+          detailed_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
+
+      - name: Performance validation
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: 'Performance validation'
+          report_paths: "./test-results/test-performance__validation.xml"
+          detailed_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
