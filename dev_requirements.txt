@@ -1,5 +1,6 @@
 -e .
 behave
+junit-xml
 mock
 pre-commit
 pytest
@@ -9,5 +10,6 @@ pytest-retry
 pytest-timeout
 pytest-xdist
 icecream
+tabulate
 git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
 hypothesis==6.139.2
