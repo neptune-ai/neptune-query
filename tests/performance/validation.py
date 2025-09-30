@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+import textwrap
 from dataclasses import dataclass
 from functools import cached_property, cache
 from pathlib import Path
@@ -133,28 +134,25 @@ def get_benchmark_tests(benchmark_path: str | Path) -> Generator[BenchmarkTest, 
 def generate_test_suite(benchmark_path: str) -> TestSuite:
     test_cases = []
     for test in get_benchmark_tests(benchmark_path):
-        name = f"{test.module_name}.{test.fn_name} [{test.spec.get_params_human()}]"
+        if get_performance_factor() == 1.0:
+            times = f"p0={test.p0:.3f}s, p80={test.p80:.3f}s, p100={test.p100:.3f}s"
+        else:
+            times = (
+                f"p0_adj={test.p0_adjusted:.3f}s, "
+                f"p80_adj={test.p80_adjusted:.3f}s, "
+                f"p100_adj={test.p100_adjusted:.3f}s"
+            )
 
-        tc_p0 = TestCase(name=f"{name} p0", elapsed_sec=test.p0)
-        tc_p80 = TestCase(name=f"{name} p80", elapsed_sec=test.p80)
-        tc_p100 = TestCase(name=f"{name} p100", elapsed_sec=test.p100)
+        name = f"{test.fn_name} ({test.spec.get_params_human()}) {times}"
 
-        if test.p0_result == "fail":
-            tc_p0.add_failure_info("p0 too low")
-        elif test.p0_result == "skip":
-            tc_p0.add_skipped_info("p0 not measured")
+        tc = TestCase(name=name, classname=test.module_name, elapsed_sec=test.p80)
 
-        if test.p80_result == "fail":
-            tc_p80.add_failure_info("p80 too high")
-        elif test.p80_result == "skip":
-            tc_p80.add_skipped_info("p80 not measured")
+        if test.result == "fail":
+            tc.add_failure_info("failed")
+        elif test.result == "skip":
+            tc.add_skipped_info("not measured")
 
-        if test.p100_result == "fail":
-            tc_p100.add_failure_info("p100 too high")
-        elif test.p100_result == "skip":
-            tc_p100.add_skipped_info("p100 not measured")
-
-        test_cases += [tc_p0, tc_p80, tc_p100]
+        test_cases.append(tc)
 
     return TestSuite(name="BenchmarkResults", test_cases=test_cases)
 
@@ -169,25 +167,19 @@ def generate_text_report(benchmark_path: str | Path) -> pd.DataFrame:
     tests = get_benchmark_tests(benchmark_path)
 
     # format times
-    def ft(time: float | None, status: Literal["pass", "fail", "skip"] | None = None):
+    def ft(time: float | None):
         if time is None:
-            return ""
-        elif status == "fail":
-            return f"❌️ {time:6.3f}s"
-        elif status == "pass":
-            return f"✓  {time:6.3f}s"
+            return " (none)"
         else:
             return f"{time:6.3f}s"
 
-    def marker(status: Literal["pass", "fail", "skip"]):
-        if status == "pass":
-            return "✓"
+    def marker(status: Literal["pass", "fail", "skip"], show_pass: bool = False):
+        if status == "pass" and show_pass:
+            return "✅️"
         elif status == "fail":
             return "❌️"
         else:
-            return ""
-
-    perf_factor = get_performance_factor()
+            return "  "
 
     data = []
     failed = False
@@ -198,30 +190,38 @@ def generate_text_report(benchmark_path: str | Path) -> pd.DataFrame:
         spec = test.spec
 
         data.append({
-            " ": marker(test.result),
-            "test": f"{test.module_name}\n  {test.fn_name}\n     {test.params}",
-            "min_p0": ft(spec.min_p0),
-            "p0": ft(test.p0, test.p0_result),
-            "p0_adj*": ft(test.p0_adjusted, test.p0_result),
-            "p80": ft(test.p80, test.p80_result),
-            "p80_adj*": ft(test.p80_adjusted, test.p80_result),
-            "max_p80": ft(spec.max_p80),
-            "p100": ft(test.p100, test.p100_result),
-            "p100_adj*": ft(test.p100_adjusted, test.p100_result),
-            "max_p100": ft(spec.max_p100),
+            "test": textwrap.dedent(f"""
+                {marker(test.result, show_pass=True)} {test.module_name}
+                     {test.fn_name}
+                       {test.params}
+            """).strip(),
+
+            "p0": textwrap.dedent(f"""
+                {marker(test.p0_result)} real: {ft(test.p0)}
+                   adj*: {ft(test.p0_adjusted)}
+                   min:  {ft(spec.min_p0)}
+            """).strip(),
+
+            "p80": textwrap.dedent(f"""
+                {marker(test.p80_result)} real: {ft(test.p80)}
+                   adj*: {ft(test.p80_adjusted)}
+                   max:  {ft(spec.max_p80)}
+            """).strip(),
+
+            "p100": textwrap.dedent(f"""
+                {marker(test.p100_result)} real: {ft(test.p100)}
+                   adj*: {ft(test.p100_adjusted)}
+                   max:  {ft(spec.max_p100)}
+            """).strip(),
+
             "rounds": test.num_rounds,
         })
 
     df = pd.DataFrame(data)
 
-    if perf_factor == 1.0:
-        df.drop(columns=["p0_adj*", "p80_adj*", "p100_adj*"], inplace=True)
-    else:
-        df.drop(columns=["p0", "p80", "p100"], inplace=True)
-
     out = df.to_markdown(tablefmt="grid", index=False)
 
-    if failed or perf_factor != 1.0:
+    if failed or get_performance_factor() != 1.0:
         out += """
 
 (*) Use the environment variable "BENCHMARK_PERFORMANCE_FACTOR" to adjust the thresholds.
@@ -229,4 +229,4 @@ def generate_text_report(benchmark_path: str | Path) -> pd.DataFrame:
 BENCHMARK_PERFORMANCE_FACTOR=1.0 (default) is meant to represent GitHub Actions performance.
 Decrease this factor if your local machine is faster than GitHub Actions."""
 
-    return out + "\n\n\n"
+    return out + "\n\n"
