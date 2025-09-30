@@ -354,7 +354,7 @@ def test_convert_experiment_table_to_dataframe_conflicting_types_without_suffix(
     assert "attr1/a:b:c" in str(exc_info.value)
 
 
-def test_convert_experiment_table_to_dataframe_flatten_aggregations_only_last():
+def test_convert_experiment_table_to_dataframe_flatten_aggregations_empty():
     # given
     experiment_data = {
         identifiers.SysName("exp1"): [
@@ -369,9 +369,7 @@ def test_convert_experiment_table_to_dataframe_flatten_aggregations_only_last():
     dataframe = convert_table_to_dataframe(
         experiment_data,
         "my-project",
-        selected_aggregations={
-            AttributeDefinition("attr1", "float_series"): {"last"},
-        },
+        selected_aggregations={},
         type_suffix_in_column_names=False,
         flatten_aggregations=True,
     )
@@ -1365,14 +1363,12 @@ def test_fetch_series_duplicate_values(duplicate_variant, include_time):
     with (
         patch("neptune_query.internal.composition.fetch_series.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
-        patch(
-            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
-        ) as fetch_attribute_definitions_single_filter,
+        patch("neptune_query.internal.retrieval.attribute_values.fetch_attribute_values") as fetch_attribute_values,
         patch("neptune_query.internal.retrieval.series.fetch_series_values") as fetch_series_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_attribute_values.side_effect = lambda **kwargs: iter([util.Page(run_attribute_definitions)])
         fetch_series_values.return_value = iter([util.Page(series_values)] * duped_pages)
 
         df = npt.fetch_series(
@@ -1407,16 +1403,14 @@ def test_fetch_metrics_duplicate_values(include_time):
     with (
         patch("neptune_query.internal.composition.fetch_metrics.get_client") as get_client,
         patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
-        patch(
-            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
-        ) as fetch_attribute_definitions_single_filter,
+        patch("neptune_query.internal.retrieval.attribute_values.fetch_attribute_values") as fetch_attribute_values,
         patch(
             "neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values"
         ) as fetch_multiple_series_values,
     ):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
-        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_attribute_values.side_effect = lambda **kwargs: iter([util.Page(run_attribute_definitions)])
         fetch_multiple_series_values.return_value = series_values
 
         df = npt.fetch_metrics(

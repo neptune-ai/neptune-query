@@ -67,10 +67,8 @@ def convert_table_to_dataframe(
     flatten_aggregations: bool = False,
 ) -> pd.DataFrame:
 
-    if flatten_aggregations:
-        has_non_last_aggregations = any(aggregations != {"last"} for aggregations in selected_aggregations.values())
-        if has_non_last_aggregations:
-            raise ValueError("Cannot flatten aggregations when selected aggregations include more than just 'last'. ")
+    if flatten_aggregations and selected_aggregations:
+        raise ValueError("flatten_aggregations expects the selected aggregations to be empty and only extracts 'last'.")
 
     if not table_data and not flatten_aggregations:
         return pd.DataFrame(
@@ -91,9 +89,12 @@ def convert_table_to_dataframe(
                 raise ConflictingAttributeTypes([value.attribute_definition.name])
             if value.attribute_definition.type in TYPE_AGGREGATIONS:
                 aggregation_value = value.value
-                selected_subset = selected_aggregations.get(value.attribute_definition, set())
-                aggregations_set = TYPE_AGGREGATIONS[value.attribute_definition.type]
 
+                if flatten_aggregations:
+                    selected_subset = {"last"}
+                else:
+                    selected_subset = selected_aggregations.get(value.attribute_definition, set())
+                aggregations_set = TYPE_AGGREGATIONS[value.attribute_definition.type]
                 agg_subset_values = get_aggregation_subset(aggregation_value, selected_subset, aggregations_set)
 
                 for agg_name, agg_value in agg_subset_values.items():
