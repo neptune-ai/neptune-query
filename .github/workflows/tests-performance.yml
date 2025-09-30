@@ -23,25 +23,16 @@ jobs:
   test-performance:
     runs-on: gcp-perf-test-dedicated
     container:
-      image: ubuntu:24.04
+      image: python:3.13-trixie
       options: --cpuset-cpus=0
     timeout-minutes: 30
     steps:
-      - name: Install Git
-        run: |
-          apt-get update && apt-get install -y git &&
-          git config --global --add safe.directory /__w/neptune-query/neptune-query
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
       - name: Install dependencies
         run: |
+          chown root:root . &&
           python -m pip install --upgrade pip &&
           pip install -r dev_requirements.txt
 
