@@ -22,6 +22,9 @@ def pytest_configure(config):
         config.option.benchmark_time_unit = "ms"
         config.option.benchmark_sort = "name"
         config.option.benchmark_json = BytesIO()
+        config.option.junit_prefix = "measurement"
+    else:
+        config.option.junit_prefix = "validation"
 
 
 def pytest_benchmark_update_json(config, benchmarks, output_json):

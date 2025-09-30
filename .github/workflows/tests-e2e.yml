@@ -1,5 +1,8 @@
 name: Run e2e tests - neptune-query
 
+permissions:
+  checks: write
+
 on:
   schedule:
     - cron: '0 8 * * *' # Run at 8:00 daily
