@@ -2,7 +2,7 @@ import importlib
 import json
 import os
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, cache
 from pathlib import Path
 from typing import (
     Generator,
@@ -32,6 +32,10 @@ def get_benchmark_spec(benchmark: dict) -> PerformanceTestCaseSpec:
             return spec
     raise ValueError(f"No matching spec found for benchmark {module_name}.{fn_name} with params {params}")
 
+@cache
+def get_performance_factor() -> float:
+    return float(os.getenv("BENCHMARK_PERFORMANCE_FACTOR", "1.0"))
+
 
 @dataclass
 class BenchmarkTest:
@@ -41,10 +45,6 @@ class BenchmarkTest:
 
     spec: PerformanceTestCaseSpec
     times: list[float]
-
-    @cached_property
-    def performance_factor(self) -> float:
-        return float(os.getenv("BENCHMARK_PERFORMANCE_FACTOR", "1.0"))
 
     @cached_property
     def __times_sorted(self) -> list[float]:
@@ -64,15 +64,15 @@ class BenchmarkTest:
 
     @property
     def p0_adjusted(self) -> float:
-        return self.p0 * self.performance_factor
+        return self.p0 * get_performance_factor()
 
     @property
     def p80_adjusted(self) -> float:
-        return self.p80 * self.performance_factor
+        return self.p80 * get_performance_factor()
 
     @property
     def p100_adjusted(self) -> float:
-        return self.p100 * self.performance_factor
+        return self.p100 * get_performance_factor()
 
     @property
     def p0_result(self) -> Literal["pass", "fail", "skip"]:
@@ -187,6 +187,8 @@ def generate_text_report(benchmark_path: str | Path) -> pd.DataFrame:
         else:
             return ""
 
+    perf_factor = get_performance_factor()
+
     data = []
     failed = False
     for test in tests:
@@ -194,41 +196,37 @@ def generate_text_report(benchmark_path: str | Path) -> pd.DataFrame:
             failed = True
 
         spec = test.spec
-        row = {
+
+        data.append({
             " ": marker(test.result),
-            "module": test.module_name,
-            "test": test.fn_name,
-            "params": test.params,
-            "p0": ft(test.p0, test.p0_result),
-            "p0_adj*": ft(test.p0_adjusted),
+            "test": f"{test.module_name}\n  {test.fn_name}\n     {test.params}",
             "min_p0": ft(spec.min_p0),
+            "p0": ft(test.p0, test.p0_result),
+            "p0_adj*": ft(test.p0_adjusted, test.p0_result),
             "p80": ft(test.p80, test.p80_result),
-            "p80_adj*": ft(test.p80_adjusted),
+            "p80_adj*": ft(test.p80_adjusted, test.p80_result),
             "max_p80": ft(spec.max_p80),
             "p100": ft(test.p100, test.p100_result),
-            "p100_adj*": ft(test.p100_adjusted),
+            "p100_adj*": ft(test.p100_adjusted, test.p100_result),
             "max_p100": ft(spec.max_p100),
             "rounds": test.num_rounds,
-        }
-
-        if test.performance_factor == 1.0:
-            del row["p0_adj*"]
-            del row["p80_adj*"]
-            del row["p100_adj*"]
-
-        data.append(row)
+        })
 
     df = pd.DataFrame(data)
+
+    if perf_factor == 1.0:
+        df.drop(columns=["p0_adj*", "p80_adj*", "p100_adj*"], inplace=True)
+    else:
+        df.drop(columns=["p0", "p80", "p100"], inplace=True)
+
     out = df.to_markdown(tablefmt="grid", index=False)
 
-    if failed:
+    if failed or perf_factor != 1.0:
         out += """
 
 (*) Use the environment variable "BENCHMARK_PERFORMANCE_FACTOR" to adjust the thresholds.
 
 BENCHMARK_PERFORMANCE_FACTOR=1.0 (default) is meant to represent GitHub Actions performance.
-Decrease this factor if your local machine is faster than GitHub Actions.
+Decrease this factor if your local machine is faster than GitHub Actions."""
 
-"""
-
-    return out
+    return out + "\n\n\n"
