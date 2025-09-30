@@ -17,7 +17,7 @@ on:
 #      - '.github/workflows/tests-performance.yml'
 
 jobs:
-  test:
+  test-performance:
     runs-on: gcp-perf-test-dedicated
     container:
       image: ubuntu:24.04
@@ -46,14 +46,24 @@ jobs:
         run: |
           pytest --junitxml="test-results/test-performance.xml" tests/performance
 
-      - name: Report
+      - name: Report measurements
         uses: mikepenz/action-junit-report@v5
         if: always()
         with:
-          check_name: 'Performance tests report'
+          check_name: 'Performance measurements'
           report_paths: "./test-results/test-performance.xml"
           detailed_summary: true
-          verbose_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
+
+      - name: Performance validation
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: 'Performance validation'
+          report_paths: "./test-results/test-performance__validation.xml"
+          detailed_summary: true
           include_passed: true
           include_time_in_summary: true
           resolve_ignore_classname: true
