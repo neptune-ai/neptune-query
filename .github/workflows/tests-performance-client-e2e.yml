@@ -1,0 +1,64 @@
+name: Client e2e performance tests
+
+permissions:
+  checks: write
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # Run at 7:00 daily
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: Test mode (use baseline_discovery to run without timeouts on test cases)
+        required: true
+        type: choice
+        options:
+            - normal
+            - baseline_discovery
+        default: normal
+      timeout_tolerance:
+        description: Timeout tolerance in as float; e.g. 1.2 means 20% tolerance
+        required: false
+        default: 1.1
+
+jobs:
+  test:
+    name: 'Performance tests'
+    runs-on: gcp-perf-test-dedicated-big
+    container:
+      image: python:3.13-trixie
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          chown root:root . &&
+          python -m pip install --upgrade pip &&
+          pip install -r dev_requirements.txt
+
+      - name: Run performance tests
+        env:
+          NEPTUNE_PERFORMANCE_LOG_FILE: "test-results/test-client-e2e-performance.log"
+          NEPTUNE_PERFORMANCE_TEST_MODE: ${{ inputs.test_mode || 'normal' }}
+          NEPTUNE_PERFORMANCE_TEST_TOLERANCE_FACTOR: 1.1
+        run: |
+          pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance_e2e
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-client-e2e-performance.log
+          path: test-results/test-client-e2e-performance.log
+
+      - name: Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          check_name: 'Performance tests report'
+          report_paths: "./test-results/test-client-e2e-performance.xml"
+          detailed_summary: true
+          verbose_summary: true
+          include_passed: true
+          include_time_in_summary: true
+          resolve_ignore_classname: true
