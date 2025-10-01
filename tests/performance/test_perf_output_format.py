@@ -12,9 +12,9 @@ from .decorator import expected_benchmark
 
 
 @expected_benchmark(
-    dict(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
-    dict(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
-    dict(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
+    dict(num_experiments=5, num_paths=500, num_buckets=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=50, num_paths=50, num_buckets=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=500, num_paths=5, num_buckets=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_paths, num_buckets):
     """Test the performance of create_metric_buckets_dataframe"""
@@ -30,9 +30,9 @@ def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_pa
 
 
 @expected_benchmark(
-    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.500, max_p80=0.600, max_p100=0.800),
-    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.500, max_p80=0.660, max_p100=0.900),
-    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.800, max_p100=1.000),
+    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, num_paths):
     """Test the performance of create_metrics_dataframe"""
@@ -58,9 +58,9 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
 
 
 @expected_benchmark(
-    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.700, max_p80=1.100, max_p100=1.600
+    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.700, max_p80=0.900, max_p100=1.200
 )
-def test_create_metrics_dataframe_with_random_data(
+def test_perf_create_metrics_dataframe_with_random_data(
     benchmark, num_experiments, num_attributes, num_points_per_attribute
 ):
     """Test the performance of create_metrics_dataframe with random data"""
@@ -87,8 +87,8 @@ def test_create_metrics_dataframe_with_random_data(
 
 
 @expected_benchmark(
-    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=1.000, max_p100=1.500),
-    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=1.000, max_p100=1.500),
+    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
     """Test the performance of create_series_dataframe"""
@@ -114,9 +114,9 @@ def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num
 
 
 @expected_benchmark(
-    dict(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=1.000, max_p100=1.500),
-    dict(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.800, max_p100=1.200),
-    dict(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.900, max_p100=1.300),
+    dict(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=0.800, max_p100=1.000),
+    dict(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.750, max_p100=1.000),
+    dict(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
     """Test the performance of convert_table_to_dataframe"""
