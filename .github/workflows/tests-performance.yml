@@ -8,16 +8,6 @@ on:
     - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - dev/.*
-#  pull_request:
-#    paths:
-#      - 'src/**'
-#      - 'tests/**'
-#      - 'dev_requirements.txt'
-#      - 'pyproject.toml'
-#      - '.github/workflows/tests-performance.yml'
 
 jobs:
   test-performance:
@@ -38,26 +28,16 @@ jobs:
 
       - name: Run performance tests
         run: |
-          pytest --junitxml="test-results/test-performance.xml" tests/performance
-
-      - name: Report measurements
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          check_name: 'Performance measurements'
-          report_paths: "./test-results/test-performance.xml"
-          detailed_summary: true
-          include_passed: true
-          include_time_in_summary: true
-          resolve_ignore_classname: true
+          pytest --junitxml=test-results/test-performance.xml tests/performance
 
       - name: Performance validation
         uses: mikepenz/action-junit-report@v5
         if: always()
         with:
-          check_name: 'Performance validation'
-          report_paths: "./test-results/test-performance__validation.xml"
+          check_name: Performance validation
+          report_paths: ./test-results/test-performance.xml
           detailed_summary: true
           include_passed: true
           include_time_in_summary: true
           resolve_ignore_classname: true
+          fail_on_failure: true
