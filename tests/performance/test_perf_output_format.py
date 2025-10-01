@@ -134,7 +134,6 @@ def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
         convert_table_to_dataframe,
         table_data=table_data,
         project_identifier="foo/bar",
-        selected_aggregations={},
         type_suffix_in_column_names=True,
         index_column_name="experiment",
     )
