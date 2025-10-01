@@ -114,9 +114,9 @@ def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num
 
 
 @expected_benchmark(
-    dict(num_experiments=100, num_paths=4000, min_p0=0.500, max_p80=0.800, max_p100=1.000),
-    dict(num_experiments=500, num_paths=1000, min_p0=0.500, max_p80=0.750, max_p100=1.000),
-    dict(num_experiments=5000, num_paths=100, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=100, num_paths=5000, min_p0=0.500, max_p80=0.750, max_p100=1.000),
+    dict(num_experiments=800, num_paths=1000, min_p0=0.500, max_p80=0.750, max_p100=1.000),
+    dict(num_experiments=5000, num_paths=150, min_p0=0.500, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
     """Test the performance of convert_table_to_dataframe"""
