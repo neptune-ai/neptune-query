@@ -14,6 +14,7 @@ from tests.performance_e2e.test_helpers import PerfRequestBuilder
 
 @dataclass
 class Scenario:
+    id: int
     # Total number of experiments matching user's filter
     experiments_count: int
     # Total number of attribute definitions in selected experiments matching user's filter
@@ -47,6 +48,7 @@ class Scenario:
         return "; ".join(
             f"{key}={value}"
             for key, value in {
+                "id": self.id,
                 "exp_count": metric(self.experiments_count, precision=0),
                 "attr_count": metric(self.attribute_definitions_count, precision=0),
                 "density": f"{density:.0%}" if density >= 0.01 else f"{density:.2%}",
@@ -67,6 +69,7 @@ class Scenario:
         ##########################
         ## 1M steps
         Scenario(
+            id=1,
             experiments_count=1,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -77,6 +80,7 @@ class Scenario:
         ).to_pytest_param(timeout=3.771),
         ## 10M steps
         Scenario(
+            id=2,
             experiments_count=1,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -90,6 +94,7 @@ class Scenario:
         ##############################
         ## 1 step
         Scenario(
+            id=3,
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -100,6 +105,7 @@ class Scenario:
         ).to_pytest_param(timeout=6.297),
         ## 10 steps
         Scenario(
+            id=4,
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -110,6 +116,7 @@ class Scenario:
         ).to_pytest_param(timeout=7.529),
         ## 100 steps
         Scenario(
+            id=5,
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -120,6 +127,7 @@ class Scenario:
         ).to_pytest_param(timeout=26.463),
         ## 1k steps
         Scenario(
+            id=6,
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -133,6 +141,7 @@ class Scenario:
         ############################
         ## 1 step
         Scenario(
+            id=7,
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -143,6 +152,7 @@ class Scenario:
         ).to_pytest_param(timeout=67.945),
         ## 10 steps
         Scenario(
+            id=8,
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -153,6 +163,7 @@ class Scenario:
         ).to_pytest_param(timeout=86.696),
         ## 100 steps
         Scenario(
+            id=9,
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -166,6 +177,7 @@ class Scenario:
         #################################################################
         ## 1 step
         Scenario(
+            id=10,
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -176,6 +188,7 @@ class Scenario:
         ).to_pytest_param(timeout=7.268),
         ## 10 steps
         Scenario(
+            id=11,
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -186,6 +199,7 @@ class Scenario:
         ).to_pytest_param(timeout=10.095),
         ## 100 steps
         Scenario(
+            id=12,
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -196,6 +210,7 @@ class Scenario:
         ).to_pytest_param(timeout=28.551),
         ## 500 steps
         Scenario(
+            id=13,
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -209,6 +224,7 @@ class Scenario:
         ##################################################################
         ## 1 step
         Scenario(
+            id=14,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -219,6 +235,7 @@ class Scenario:
         ).to_pytest_param(timeout=31.388),
         ## 10 steps
         Scenario(
+            id=15,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -229,6 +246,7 @@ class Scenario:
         ).to_pytest_param(timeout=33.331),
         ## 100 steps
         Scenario(
+            id=16,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -239,6 +257,7 @@ class Scenario:
         ).to_pytest_param(timeout=54.590),
         ## 1k steps
         Scenario(
+            id=17,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -252,6 +271,7 @@ class Scenario:
         ####################################################################
         ## 1 step
         Scenario(
+            id=18,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -262,6 +282,7 @@ class Scenario:
         ).to_pytest_param(timeout=35.459),
         ## 10 steps
         Scenario(
+            id=19,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -272,6 +293,7 @@ class Scenario:
         ).to_pytest_param(timeout=52.231),
         ## 100 steps
         Scenario(
+            id=20,
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -286,6 +308,7 @@ class Scenario:
         # ##################################################################
         # ## 1 step
         # Scenario(
+        #     id=21,
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -296,6 +319,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
+        #     id=22,
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -306,6 +330,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 100 steps
         # Scenario(
+        #     id=23,
         #     experiments_count=10,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -319,6 +344,7 @@ class Scenario:
         ################################################################
         ## 1 step
         Scenario(
+            id=24,
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -329,6 +355,7 @@ class Scenario:
         ).to_pytest_param(timeout=31.243),
         ## 10 steps
         Scenario(
+            id=25,
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -339,6 +366,7 @@ class Scenario:
         ).to_pytest_param(timeout=45.729),
         ## 100 steps
         Scenario(
+            id=26,
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -352,6 +380,7 @@ class Scenario:
         ##################################################################
         ## 1 step
         Scenario(
+            id=27,
             experiments_count=1_000,
             attribute_definitions_count=10_000,
             metric_existence_probability=1.0,
@@ -362,6 +391,7 @@ class Scenario:
         ).to_pytest_param(timeout=293.297),
         ## 10 steps
         Scenario(
+            id=28,
             experiments_count=1_000,
             attribute_definitions_count=10_000,
             metric_existence_probability=1.0,
@@ -376,6 +406,7 @@ class Scenario:
         # ###################################################################
         # ## 1 step
         # Scenario(
+        #     id=29,
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -386,6 +417,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
+        #     id=30,
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -400,6 +432,7 @@ class Scenario:
         # ####################################################################
         # ## 1 step
         # Scenario(
+        #     id=31,
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=1.0,
@@ -414,6 +447,7 @@ class Scenario:
         # ###################################################################
         # ## 1 step
         # Scenario(
+        #     id=32,
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -424,6 +458,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
+        #     id=33,
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -438,6 +473,7 @@ class Scenario:
         # ####################################################################
         # ## 1 step
         # Scenario(
+        #     id=34,
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -451,6 +487,7 @@ class Scenario:
         #################################################################
         ## 1 step
         Scenario(
+            id=35,
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -461,6 +498,7 @@ class Scenario:
         ).to_pytest_param(timeout=30.7131),
         ## 10 steps
         Scenario(
+            id=36,
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -471,6 +509,7 @@ class Scenario:
         ).to_pytest_param(timeout=46.860),
         ## 100 steps
         Scenario(
+            id=37,
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -485,6 +524,7 @@ class Scenario:
         # #################################################################
         # ## 1 step
         # Scenario(
+        #     id=38,
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -495,6 +535,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
+        #     id=39,
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -505,6 +546,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 100 steps
         # Scenario(
+        #     id=40,
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -518,6 +560,7 @@ class Scenario:
         ################################################################
         ## 1 step
         Scenario(
+            id=41,
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -528,6 +571,7 @@ class Scenario:
         ).to_pytest_param(timeout=39.247),
         ## 10 steps
         Scenario(
+            id=42,
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -538,6 +582,7 @@ class Scenario:
         ).to_pytest_param(timeout=61.948),
         ## 100 steps
         Scenario(
+            id=43,
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -552,6 +597,7 @@ class Scenario:
         # ################################################################
         # ## 1 step
         # Scenario(
+        #     id=44,
         #     experiments_count=1_000_000,
         #     attribute_definitions_count=100,
         #     metric_existence_probability=1.0,
