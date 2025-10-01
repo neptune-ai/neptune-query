@@ -74,9 +74,6 @@ def convert_table_to_dataframe(
         row: dict[str, Any] = {}
         for value in values:
             column_name = f"{value.attribute_definition.name}:{value.attribute_definition.type}"
-            if column_name in row:
-                raise ConflictingAttributeTypes([value.attribute_definition.name])
-
             attribute_type = value.attribute_definition.type
             if attribute_type in TYPE_AGGREGATIONS:
                 aggregation_value = value.value
