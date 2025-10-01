@@ -8,6 +8,16 @@ on:
     - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - dev/.*
+#  pull_request:
+#    paths:
+#      - 'src/**'
+#      - 'tests/**'
+#      - 'dev_requirements.txt'
+#      - 'pyproject.toml'
+#      - '.github/workflows/tests-performance.yml'
 
 jobs:
   test-performance:
