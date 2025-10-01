@@ -150,9 +150,9 @@ def generate_test_suite(benchmark_path: str) -> TestSuite:
                 f"p100_adj={test.p100_adjusted:.3f}s"
             )
 
-        name = f"{test.fn_name} ({test.spec.get_params_human()}) {times}"
+        name = f"({test.spec.get_params_human()}) {times}"
 
-        tc = TestCase(name=name, classname=test.module_path, elapsed_sec=test.p80)
+        tc = TestCase(name=name, classname=test.fn_name, elapsed_sec=test.p80)
 
         if test.result == "fail":
             tc.add_failure_info("failed")
