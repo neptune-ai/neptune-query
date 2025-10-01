@@ -35,7 +35,7 @@ on:
 jobs:
   test:
     name: 'Performance tests'
-    runs-on: gcp-perf-test-dedicated
+    runs-on: gcp-perf-test-dedicated-big
     container:
       image: ubuntu:24.04
     timeout-minutes: 120
