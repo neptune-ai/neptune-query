@@ -81,7 +81,7 @@ force_grid_wrap = 2
 
 [tool.flake8]
 max-line-length = 120
-extend-ignore = "E203,E266"
+extend-ignore = "E203"
 
 [tool.mypy]
 mypy_path = "src/"

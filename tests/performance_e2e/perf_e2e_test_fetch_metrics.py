@@ -64,10 +64,10 @@ class Scenario:
 @pytest.mark.parametrize(
     "scenario",
     [
-        ##########################
+        # ########################
         # 1 experiment, 1 metric #
-        ##########################
-        ## 1M steps
+        # ########################
+        # 1M steps
         Scenario(
             id=1,
             experiments_count=1,
@@ -78,7 +78,7 @@ class Scenario:
             expected_columns=1,
             expected_rows=1_000_000,
         ).to_pytest_param(timeout=3.771),
-        ## 10M steps
+        # 10M steps
         Scenario(
             id=2,
             experiments_count=1,
@@ -89,10 +89,10 @@ class Scenario:
             expected_columns=1,
             expected_rows=10_000_000,
         ).to_pytest_param(timeout=41.722),
-        ##############################
+        # ############################
         # 1 experiment, 100k metrics #
-        ##############################
-        ## 1 step
+        # ############################
+        # 1 step
         Scenario(
             id=3,
             experiments_count=1,
@@ -103,7 +103,7 @@ class Scenario:
             expected_columns=100_000,
             expected_rows=1,
         ).to_pytest_param(timeout=6.297),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=4,
             experiments_count=1,
@@ -114,7 +114,7 @@ class Scenario:
             expected_columns=100_000,
             expected_rows=10,
         ).to_pytest_param(timeout=7.529),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=5,
             experiments_count=1,
@@ -125,7 +125,7 @@ class Scenario:
             expected_columns=100_000,
             expected_rows=100,
         ).to_pytest_param(timeout=26.463),
-        ## 1k steps
+        # 1k steps
         Scenario(
             id=6,
             experiments_count=1,
@@ -136,10 +136,10 @@ class Scenario:
             expected_columns=100_000,
             expected_rows=1_000,
         ).to_pytest_param(timeout=223.119),
-        ############################
+        # ##########################
         # 1 experiment, 1M metrics #
-        ############################
-        ## 1 step
+        # ##########################
+        # 1 step
         Scenario(
             id=7,
             experiments_count=1,
@@ -150,7 +150,7 @@ class Scenario:
             expected_columns=1_000_000,
             expected_rows=1,
         ).to_pytest_param(timeout=67.945),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=8,
             experiments_count=1,
@@ -161,7 +161,7 @@ class Scenario:
             expected_columns=1_000_000,
             expected_rows=10,
         ).to_pytest_param(timeout=86.696),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=9,
             experiments_count=1,
@@ -172,10 +172,10 @@ class Scenario:
             expected_columns=1_000_000,
             expected_rows=100,
         ).to_pytest_param(timeout=283.399),
-        #################################################################
+        # ###############################################################
         # 2 experiments, 50k metrics per experiment (75k metrics total) #
-        #################################################################
-        ## 1 step
+        # ###############################################################
+        # 1 step
         Scenario(
             id=10,
             experiments_count=2,
@@ -186,7 +186,7 @@ class Scenario:
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=2,
         ).to_pytest_param(timeout=7.268),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=11,
             experiments_count=2,
@@ -197,7 +197,7 @@ class Scenario:
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=20,
         ).to_pytest_param(timeout=10.095),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=12,
             experiments_count=2,
@@ -208,7 +208,7 @@ class Scenario:
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=200,
         ).to_pytest_param(timeout=28.551),
-        ## 500 steps
+        # 500 steps
         Scenario(
             id=13,
             experiments_count=2,
@@ -219,10 +219,10 @@ class Scenario:
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=1_000,
         ).to_pytest_param(timeout=104.910),
-        ##################################################################
+        # ################################################################
         # 10 experiments, 10k metrics per experiment (65k metrics total) #
-        ##################################################################
-        ## 1 step
+        # ################################################################
+        # 1 step
         Scenario(
             id=14,
             experiments_count=10,
@@ -233,7 +233,7 @@ class Scenario:
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=10,
         ).to_pytest_param(timeout=31.388),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=15,
             experiments_count=10,
@@ -244,7 +244,7 @@ class Scenario:
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=100,
         ).to_pytest_param(timeout=33.331),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=16,
             experiments_count=10,
@@ -255,7 +255,7 @@ class Scenario:
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=1_000,
         ).to_pytest_param(timeout=54.590),
-        ## 1k steps
+        # 1k steps
         Scenario(
             id=17,
             experiments_count=10,
@@ -266,10 +266,10 @@ class Scenario:
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=10_000,
         ).to_pytest_param(timeout=235.017),
-        ####################################################################
+        # ##################################################################
         # 10 experiments, 100k metrics per experiment (100k metrics total) #
-        ####################################################################
-        ## 1 step
+        # ##################################################################
+        # 1 step
         Scenario(
             id=18,
             experiments_count=10,
@@ -280,7 +280,7 @@ class Scenario:
             expected_columns=pytest.approx(100_000, rel=0.05),
             expected_rows=10,
         ).to_pytest_param(timeout=35.459),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=19,
             experiments_count=10,
@@ -291,7 +291,7 @@ class Scenario:
             expected_columns=pytest.approx(100_000, rel=0.05),
             expected_rows=100,
         ).to_pytest_param(timeout=52.231),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=20,
             experiments_count=10,
@@ -339,10 +339,10 @@ class Scenario:
         #     expected_columns=pytest.approx(100_000, rel=0.05),
         #     expected_rows=100_000,
         # ).to_pytest_param(timeout=600),
-        ################################################################
+        # ##############################################################
         # 1k experiments, 1k metrics per experiment (1k metrics total) #
-        ################################################################
-        ## 1 step
+        # ##############################################################
+        # 1 step
         Scenario(
             id=24,
             experiments_count=1_000,
@@ -353,7 +353,7 @@ class Scenario:
             expected_columns=1_000,
             expected_rows=1_000,
         ).to_pytest_param(timeout=31.243),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=25,
             experiments_count=1_000,
@@ -364,7 +364,7 @@ class Scenario:
             expected_columns=1_000,
             expected_rows=10_000,
         ).to_pytest_param(timeout=45.729),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=26,
             experiments_count=1_000,
@@ -375,10 +375,10 @@ class Scenario:
             expected_columns=1_000,
             expected_rows=100_000,
         ).to_pytest_param(timeout=228.996),
-        ##################################################################
+        # ################################################################
         # 1k experiments, 10k metrics per experiment (10k metrics total) #
-        ##################################################################
-        ## 1 step
+        # ################################################################
+        # 1 step
         Scenario(
             id=27,
             experiments_count=1_000,
@@ -389,7 +389,7 @@ class Scenario:
             expected_columns=10_000,
             expected_rows=1_000,
         ).to_pytest_param(timeout=293.297),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=28,
             experiments_count=1_000,
@@ -482,10 +482,10 @@ class Scenario:
         #     expected_columns=pytest.approx(100_000, rel=0.05),
         #     expected_rows=10_000,
         # ).to_pytest_param(timeout=600),
-        #################################################################
+        # ###############################################################
         # 100k experiments, 10 metrics per experiment (10 metric total) #
-        #################################################################
-        ## 1 step
+        # ###############################################################
+        # 1 step
         Scenario(
             id=35,
             experiments_count=100_000,
@@ -496,7 +496,7 @@ class Scenario:
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=100_000,
         ).to_pytest_param(timeout=30.7131),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=36,
             experiments_count=100_000,
@@ -507,7 +507,7 @@ class Scenario:
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=1_000_000,
         ).to_pytest_param(timeout=46.860),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=37,
             experiments_count=100_000,
@@ -555,10 +555,10 @@ class Scenario:
         #     expected_columns=pytest.approx(63_000, rel=0.05),
         #     expected_rows=pytest.approx(74_000, rel=0.05),
         # ).to_pytest_param(timeout=600),
-        ################################################################
+        # ##############################################################
         # 1M experiments, 1 metric per experiment (1 metric total) #
-        ################################################################
-        ## 1 step
+        # ##############################################################
+        # 1 step
         Scenario(
             id=41,
             experiments_count=1_000_000,
@@ -569,7 +569,7 @@ class Scenario:
             expected_columns=1,
             expected_rows=1_000_000,
         ).to_pytest_param(timeout=39.247),
-        ## 10 steps
+        # 10 steps
         Scenario(
             id=42,
             experiments_count=1_000_000,
@@ -580,7 +580,7 @@ class Scenario:
             expected_columns=1,
             expected_rows=10_000_000,
         ).to_pytest_param(timeout=61.948),
-        ## 100 steps
+        # 100 steps
         Scenario(
             id=43,
             experiments_count=1_000_000,

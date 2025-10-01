@@ -97,8 +97,7 @@ def _build_page_result(endpoint_config: SearchLeaderboardEntriesConfig, limit: i
             elif attr_type == "bool":
                 proto_attr.bool_properties.value = random.random() < 0.5
             elif attr_type == "float_series":
-                min_val = random.uniform(MIN_NUMERIC_VALUE, MAX_NUMERIC_VALUE)
-                max_val = random.uniform(min_val, MAX_NUMERIC_VALUE)
+                min_val, max_val = sorted(random.uniform(MIN_NUMERIC_VALUE, MAX_NUMERIC_VALUE) for _ in (1, 2))
 
                 proto_attr.float_series_properties.min = min_val
                 proto_attr.float_series_properties.max = max_val
