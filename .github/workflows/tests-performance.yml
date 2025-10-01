@@ -8,9 +8,9 @@ on:
     - cron: '0 8 * * *' # Run at 8:00 daily
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - dev/.*
+#    branches:
+#      - main
+#      - dev/.*
 #  pull_request:
 #    paths:
 #      - 'src/**'
