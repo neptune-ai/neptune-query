@@ -99,12 +99,12 @@ def _generate_series_values(
     """
 
     initial_step = 1 if after_step is None else (after_step + 1)
+    initial_timestamp = 1600000000  # some time in the year 2020
     total_remaining_steps = series_cardinality - (initial_step - 1)
     steps_in_current_request = min(total_remaining_steps, max_values)
     max_step = initial_step + steps_in_current_request - 1
     step_range = range(int(initial_step), int(max_step) + 1)
-
-    return [(1600000000 + step, step, random.uniform(-1e6, 1e6)) for step in step_range]
+    return [(initial_timestamp + step, step, random.uniform(-1e6, 1e6)) for step in step_range]
 
 
 def _build_float_series_response(

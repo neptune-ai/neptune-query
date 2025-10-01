@@ -20,17 +20,6 @@ on:
         description: Timeout tolerance in as float; e.g. 1.2 means 20% tolerance
         required: false
         default: 1.1
-  push:
-    branches:
-      - main
-      - dev/.*
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/performance/**'
-      - 'dev_requirements.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/tests-performance-client-e2e.yml'
 
 jobs:
   test:
