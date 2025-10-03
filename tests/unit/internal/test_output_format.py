@@ -947,6 +947,106 @@ def test_create_metrics_dataframe_random_order():
     pd.testing.assert_frame_equal(df, expected_df)
 
 
+def test_create_metrics_dataframe_sorts_rows_and_columns():
+    # Given metrics arrive out of order for both runs and paths
+    project = ProjectIdentifier("foo/bar")
+    run_a_identifier = RunIdentifier(project, SysId("sysid_a"))
+    run_b_identifier = RunIdentifier(project, SysId("sysid_b"))
+
+    metric_a = AttributeDefinition("metric_a", "float_series")
+    metric_z = AttributeDefinition("metric_z", "float_series")
+
+    def ts(day: int) -> float:
+        return _make_timestamp(2023, 1, day)
+
+    metrics_data = {
+        RunAttributeDefinition(run_b_identifier, metric_z): [
+            (ts(6), 2.0, 220.0, False, 0.6),
+            (ts(5), 1.0, 110.0, False, 0.5),
+        ],
+        RunAttributeDefinition(run_a_identifier, metric_a): [
+            (ts(2), 2.0, 200.0, False, 0.2),
+            (ts(1), 1.0, 100.0, False, 0.1),
+        ],
+        RunAttributeDefinition(run_b_identifier, metric_a): [
+            (ts(8), 3.0, 330.0, False, 0.8),
+            (ts(7), 2.0, 210.0, False, 0.7),
+        ],
+        RunAttributeDefinition(run_a_identifier, metric_z): [
+            (ts(4), 4.0, 400.0, False, 0.4),
+            (ts(3), 3.0, 300.0, False, 0.3),
+        ],
+    }
+
+    sys_id_label_mapping = {
+        SysId("sysid_b"): "run_b",
+        SysId("sysid_a"): "run_a",
+    }
+
+    df = create_metrics_dataframe(
+        metrics_data=metrics_data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=False,
+        include_point_previews=True,
+        index_column_name="experiment",
+        timestamp_column_name="absolute_time",
+    )
+
+    # Then the index should be sorted by experiment label then step, and columns by path then sub-column
+    expected_index = pd.MultiIndex.from_tuples(
+        [
+            ("run_a", 1.0),
+            ("run_a", 2.0),
+            ("run_a", 3.0),
+            ("run_a", 4.0),
+            ("run_b", 1.0),
+            ("run_b", 2.0),
+            ("run_b", 3.0),
+        ],
+        names=["experiment", "step"],
+    )
+
+    def ts_as_timestamp(day: int) -> pd.Timestamp:
+        return pd.Timestamp(datetime(2023, 1, day, tzinfo=timezone.utc))
+
+    paths = ["metric_a", "metric_z"]
+    sub_columns = ["value", "absolute_time", "is_preview", "preview_completion"]
+    expected_columns = pd.MultiIndex.from_product([paths, sub_columns], names=[None, None])
+
+    expected_data = {
+        ("metric_a", "value"): [100.0, 200.0, np.nan, np.nan, np.nan, 210.0, 330.0],
+        ("metric_a", "absolute_time"): [
+            ts_as_timestamp(1),
+            ts_as_timestamp(2),
+            pd.NaT,
+            pd.NaT,
+            pd.NaT,
+            ts_as_timestamp(7),
+            ts_as_timestamp(8),
+        ],
+        ("metric_a", "is_preview"): [False, False, np.nan, np.nan, np.nan, False, False],
+        ("metric_a", "preview_completion"): [0.1, 0.2, np.nan, np.nan, np.nan, 0.7, 0.8],
+        ("metric_z", "value"): [np.nan, np.nan, 300.0, 400.0, 110.0, 220.0, np.nan],
+        ("metric_z", "absolute_time"): [
+            pd.NaT,
+            pd.NaT,
+            ts_as_timestamp(3),
+            ts_as_timestamp(4),
+            ts_as_timestamp(5),
+            ts_as_timestamp(6),
+            pd.NaT,
+        ],
+        ("metric_z", "is_preview"): [np.nan, np.nan, False, False, False, False, np.nan],
+        ("metric_z", "preview_completion"): [np.nan, np.nan, 0.3, 0.4, 0.5, 0.6, np.nan],
+    }
+
+    expected_df = pd.DataFrame(expected_data, index=expected_index)
+    expected_df = expected_df[expected_columns]
+    expected_df.columns = expected_columns
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_preview", [True, False])
 @pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
@@ -1301,9 +1401,7 @@ def test_fetch_metrics_duplicate_values(include_time):
             attribute_definition=attributes[0],
         )
     ]
-    series_values = {
-        run_attribute_definitions[0]: [SeriesValue(step=i, value=float(i), timestamp_millis=i) for i in range(100)] * 2
-    }
+    series_values = {run_attribute_definitions[0]: [(float(i), float(i), float(i), False, 1.0) for i in range(100)] * 2}
 
     # when
     with (
@@ -1627,7 +1725,7 @@ def test_create_metric_buckets_dataframe_completely_nan():
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [False, True])
 @pytest.mark.parametrize("include_point_previews", [False, True])
-@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
 def test_create_metrics_dataframe_all_nan_values(
     type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
 ):
@@ -1769,7 +1867,7 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_point_previews", [False, True])
-@pytest.mark.parametrize("timestamp_column_name", [None, "absolute"])
+@pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
 def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
     type_suffix_in_column_names: bool, include_point_previews: bool, timestamp_column_name: str
 ):
