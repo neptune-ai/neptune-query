@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
+from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Generator,
+    Iterable,
     Optional,
     Tuple,
 )
@@ -146,101 +149,120 @@ def create_metrics_dataframe(
     index_column_name: str,
     timestamp_column_name: Optional[str] = None,
 ) -> pd.DataFrame:
-    """
-    Creates a memory-efficient DataFrame directly from FloatPointValue tuples.
+    """Create a wide metrics DataFrame while keeping peak allocations low.
 
-    Note that `data_points` must be sorted by (experiment name, path) to ensure correct
-    categorical codes.
+    Data is materialized directly into columnar numpy arrays keyed by integer
+    codes (both for experiments and metric paths). This avoids the
+    pivot_table-based reshaping that used to fan out the intermediate
+    DataFrame and spike memory usage.
 
-    There is an intermediate processing step where we represent paths as categorical codes
-    Example:
-
-    Assuming there are 2 user columns called "foo" and "bar", 2 steps each. The intermediate
-    DF will have this shape:
-
-            experiment  path   step  value
-        0     exp-name     0    1.0    0.0
-        1     exp-name     0    2.0    0.5
-        1     exp-name     1    1.0    1.5
-        1     exp-name     1    2.0    2.5
-
-    `path_mapping` would contain {"foo": 0, "bar": 1}. The column names will be restored before returning the
-    DF, which then can be sorted based on its columns.
-
-    The reason for the intermediate representation is that logging a metric called eg. "step" would conflict
-    with our "step" column during df.reset_index(), and we would crash.
-    Operating on integer codes is safe, as they can never appear as valid metric names.
-
-    If `timestamp_column_name` is provided, timestamp will be included in the DataFrame under the
-    specified column.
+    If `timestamp_column_name` is provided, absolute timestamps will be added
+    under the requested column name (converted to UTC aware datetimes). When
+    `include_point_previews` is enabled the preview flags are added alongside
+    the metric values.
     """
 
-    path_mapping: dict[str, int] = {}
-    sys_id_mapping: dict[str, int] = {}
-    label_mapping: list[str] = []
-
-    for run_attr_definition in metrics_data:
-        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
-            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
-
-        if run_attr_definition.attribute_definition.name not in path_mapping:
-            path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
-
-    def generate_categorized_rows() -> Generator[Tuple, None, None]:
-        for attribute, points in metrics_data.items():
-            exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
-            path_category = path_mapping[attribute.attribute_definition.name]
-
-            for point in points:
-                # Only include columns that we know we need. Note that the list of columns must match the
-                # the list of `types` below.
-                head = (
-                    exp_category,
-                    path_category,
-                    point[StepIndex],
-                    point[ValueIndex],
-                )
-                if include_point_previews and timestamp_column_name:
-                    tail: Tuple[Any, ...] = (
-                        point[TimestampIndex],
-                        point[IsPreviewIndex],
-                        point[PreviewCompletionIndex],
-                    )
-                elif timestamp_column_name:
-                    tail = (point[TimestampIndex],)
-                elif include_point_previews:
-                    tail = (point[IsPreviewIndex], point[PreviewCompletionIndex])
-                else:
-                    tail = ()
-
-                yield head + tail
-
-    types = [
-        (index_column_name, "uint32"),
-        ("path", "uint32"),
-        ("step", "float64"),
-        ("value", "float64"),
-    ]
-
-    if timestamp_column_name:
-        types.append((timestamp_column_name, "int64"))
-
-    if include_point_previews:
-        types.append(("is_preview", "bool"))
-        types.append(("preview_completion", "float64"))
-
-    df = pd.DataFrame(
-        np.fromiter(generate_categorized_rows(), dtype=types),
+    mappings = _build_run_and_path_mappings(metrics_data.keys(), sys_id_label_mapping)
+    display_names = _resolve_path_display_names(
+        mappings.path_to_index, type_suffix="float_series" if type_suffix_in_column_names else None
     )
 
-    if timestamp_column_name:
-        df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
+    run_steps: dict[int, set[float]] = {}
+    paths_with_data: set[int] = set()
 
-    df = _pivot_df(df, index_column_name, timestamp_column_name, extra_value_columns=types[4:])
-    df = _restore_labels_in_index(df, index_column_name, label_mapping)
-    df = _restore_path_column_names(df, path_mapping, "float_series" if type_suffix_in_column_names else None)
-    df = _sort_index_and_columns(df, index_column_name)
+    for attribute, points in metrics_data.items():
+        if not points:
+            continue
+
+        exp_index = mappings.sys_id_to_index[attribute.run_identifier.sys_id]
+        path_index = mappings.path_to_index[attribute.attribute_definition.name]
+        paths_with_data.add(path_index)
+
+        step_set = run_steps.setdefault(exp_index, set())
+        for point in points:
+            step_set.add(point[StepIndex])
+
+    row_lookup = _build_row_lookup(run_steps, mappings.labels)
+
+    num_rows = len(row_lookup.experiment_codes)
+    path_order = sorted(paths_with_data, key=display_names.__getitem__)
+    use_multi_columns = include_point_previews or timestamp_column_name is not None
+
+    value_initializers: dict[str, Callable[[int], np.ndarray]] = {
+        "value": _create_nan_float_array,
+    }
+    if timestamp_column_name:
+        value_initializers[timestamp_column_name] = _create_nan_float_array
+    if include_point_previews:
+        value_initializers["is_preview"] = _create_nan_object_array
+        value_initializers["preview_completion"] = _create_nan_float_array
+
+    path_buffers = _initialize_path_buffers(num_rows, path_order, value_initializers)
+
+    for attribute, points in metrics_data.items():
+        if not points:
+            continue
+
+        exp_index = mappings.sys_id_to_index[attribute.run_identifier.sys_id]
+        step_to_row_index = row_lookup.by_experiment.get(exp_index, {})
+        if not step_to_row_index:
+            continue
+
+        path_index = mappings.path_to_index[attribute.attribute_definition.name]
+        buffer = path_buffers.get(path_index)
+        if buffer is None:
+            continue
+
+        columns = buffer.columns
+        for point in points:
+            row_idx = step_to_row_index.get(point[StepIndex])
+            if row_idx is None:
+                continue
+
+            columns["value"][row_idx] = point[ValueIndex]
+
+            if timestamp_column_name:
+                timestamp_val = point[TimestampIndex]
+                columns[timestamp_column_name][row_idx] = np.nan if timestamp_val is None else float(timestamp_val)
+
+            if include_point_previews:
+                columns["is_preview"][row_idx] = point[IsPreviewIndex]
+                columns["preview_completion"][row_idx] = point[PreviewCompletionIndex]
+
+    index = pd.MultiIndex.from_arrays(
+        [row_lookup.experiment_codes, row_lookup.step_values], names=[index_column_name, "step"]
+    )
+
+    value_order = ["value"]
+    if timestamp_column_name:
+        value_order.append(timestamp_column_name)
+    if include_point_previews:
+        value_order.extend(["is_preview", "preview_completion"])
+
+    df = _assemble_wide_dataframe(
+        index=index,
+        path_buffers=path_buffers,
+        path_order=path_order,
+        value_order=value_order,
+        multiindex_columns=use_multi_columns,
+    )
+
+    if use_multi_columns and timestamp_column_name is not None:
+        for column in df.columns:
+            if column[1] == timestamp_column_name:
+                df[column] = pd.to_datetime(df[column], unit="ms", origin="unix", utc=True)
+
+    if use_multi_columns and include_point_previews:
+        for column in df.columns:
+            if column[1] != "is_preview":
+                continue
+            series = df[column]
+            if series.isna().any():
+                continue
+            df[column] = series.astype(bool)
+
+    df = _label_dataframe_index(df, index_column_name, mappings.labels)
+    df = _label_dataframe_columns(df, display_names)
 
     return df
 
@@ -252,17 +274,8 @@ def create_series_dataframe(
     index_column_name: str,
     timestamp_column_name: Optional[str],
 ) -> pd.DataFrame:
-    experiment_mapping: dict[identifiers.SysId, int] = {}
-    path_mapping: dict[str, int] = {}
-    label_mapping: list[str] = []
-
-    for run_attr_definition in series_data.keys():
-        if run_attr_definition.run_identifier.sys_id not in experiment_mapping:
-            experiment_mapping[run_attr_definition.run_identifier.sys_id] = len(experiment_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
-
-        if run_attr_definition.attribute_definition.name not in path_mapping:
-            path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
+    mappings = _build_run_and_path_mappings(series_data.keys(), sys_id_label_mapping)
+    display_names = _resolve_path_display_names(mappings.path_to_index, None)
 
     def convert_values(
         run_attribute_definition: identifiers.RunAttributeDefinition, values: list[series.SeriesValue]
@@ -284,7 +297,7 @@ def create_series_dataframe(
                 )
                 for point in values
             ]
-        elif run_attribute_definition.attribute_definition.type == "histogram_series":
+        if run_attribute_definition.attribute_definition.type == "histogram_series":
             return [
                 series.SeriesValue(
                     step=point.step,
@@ -293,42 +306,88 @@ def create_series_dataframe(
                 )
                 for point in values
             ]
-        else:
-            return values
+        return values
 
-    def generate_categorized_rows() -> Generator[Tuple, None, None]:
-        for attribute, values in series_data.items():
-            exp_category = experiment_mapping[attribute.run_identifier.sys_id]
-            path_category = path_mapping[attribute.attribute_definition.name]
-            converted_values = convert_values(attribute, values)
+    converted_series: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
+    run_steps: dict[int, set[float]] = {}
+    paths_with_data: set[int] = set()
+
+    for attribute, values in series_data.items():
+        converted_values = convert_values(attribute, values)
+        converted_series[attribute] = converted_values
+
+        if not converted_values:
+            continue
+
+        exp_index = mappings.sys_id_to_index[attribute.run_identifier.sys_id]
+        path_index = mappings.path_to_index[attribute.attribute_definition.name]
+        paths_with_data.add(path_index)
+
+        step_set = run_steps.setdefault(exp_index, set())
+        for point in converted_values:
+            step_set.add(point.step)
+
+    lookup = _build_row_lookup(run_steps, mappings.labels)
+
+    num_rows = len(lookup.experiment_codes)
+    path_order = sorted(paths_with_data, key=display_names.__getitem__)
+    use_multi_columns = timestamp_column_name is not None
+
+    value_initializers: dict[str, Callable[[int], np.ndarray]] = {
+        "value": _create_nan_object_array,
+    }
+    if timestamp_column_name:
+        value_initializers[timestamp_column_name] = _create_nan_float_array
+
+    path_buffers = _initialize_path_buffers(num_rows, path_order, value_initializers)
+
+    for attribute, converted_values in converted_series.items():
+        if not converted_values:
+            continue
+
+        exp_index = mappings.sys_id_to_index[attribute.run_identifier.sys_id]
+        row_map = lookup.by_experiment.get(exp_index, {})
+        if not row_map:
+            continue
+
+        path_index = mappings.path_to_index[attribute.attribute_definition.name]
+        buffer = path_buffers.get(path_index)
+        if buffer is None:
+            continue
+
+        columns = buffer.columns
+        for point in converted_values:
+            row_idx = row_map.get(point.step)
+            if row_idx is None:
+                continue
+
+            columns["value"][row_idx] = point.value
 
             if timestamp_column_name:
-                for point in converted_values:
-                    yield exp_category, path_category, point.step, point.value, point.timestamp_millis
-            else:
-                for point in converted_values:
-                    yield exp_category, path_category, point.step, point.value
+                timestamp_val = point.timestamp_millis
+                columns[timestamp_column_name][row_idx] = np.nan if timestamp_val is None else float(timestamp_val)
 
-    types = [
-        (index_column_name, "uint32"),
-        ("path", "uint32"),
-        ("step", "float64"),
-        ("value", "object"),
-    ]
+    index = pd.MultiIndex.from_arrays([lookup.experiment_codes, lookup.step_values], names=[index_column_name, "step"])
+
+    value_order = ["value"]
     if timestamp_column_name:
-        types.append((timestamp_column_name, "int64"))
+        value_order.append(timestamp_column_name)
 
-    df = pd.DataFrame(
-        np.fromiter(generate_categorized_rows(), dtype=types),
+    df = _assemble_wide_dataframe(
+        index=index,
+        path_buffers=path_buffers,
+        path_order=path_order,
+        value_order=value_order,
+        multiindex_columns=use_multi_columns,
     )
 
-    if timestamp_column_name:
-        df[timestamp_column_name] = pd.to_datetime(df[timestamp_column_name], unit="ms", origin="unix", utc=True)
+    if use_multi_columns and timestamp_column_name:
+        for column in df.columns:
+            if column[1] == timestamp_column_name:
+                df[column] = pd.to_datetime(df[column], unit="ms", origin="unix", utc=True)
 
-    df = _pivot_df(df, index_column_name, timestamp_column_name, extra_value_columns=types[4:])
-    df = _restore_labels_in_index(df, index_column_name, label_mapping)
-    df = _restore_path_column_names(df, path_mapping, None)
-    df = _sort_index_and_columns(df, index_column_name)
+    df = _label_dataframe_index(df, index_column_name, mappings.labels)
+    df = _label_dataframe_columns(df, display_names)
 
     return df
 
@@ -406,7 +465,7 @@ def create_metric_buckets_dataframe(
     )
 
     df = _restore_labels_in_columns(df, container_column_name, label_mapping)
-    df = _restore_path_column_names(df, path_mapping, None)
+    df = _restore_path_column_names(df, display_names=_resolve_path_display_names(path_mapping, None))
 
     # Add back any columns that were removed because they were all NaN
     if buckets_data:
@@ -436,6 +495,274 @@ def create_metric_buckets_dataframe(
     df = _collapse_open_buckets(df)
 
     return df
+
+
+@dataclass(slots=True)
+class RunPathMappings:
+    """Precomputed indices for experiment identifiers and metric paths.
+
+    The DataFrame assembly logic works with integer codes for both runs and
+    attribute paths to minimise repeated dictionary lookups. This structure
+    bundles those mappings together with the ordered list of human-readable
+    labels that will be used when restoring the index.
+    """
+
+    sys_id_to_index: dict[identifiers.SysId, int]
+    path_to_index: dict[str, int]
+    labels: list[str]
+
+
+@dataclass(slots=True)
+class RowLookup:
+    """Dense and sparse views of the target row positions.
+
+    When converting point values into columnar buffers we must repeatedly ask
+    "where should this (experiment, step) pair be written?"  The ``by_experiment``
+    mapping provides O(1) access for that question, while ``experiment_codes`` and
+    ``step_values`` retain the deterministic ordering needed to instantiate the
+    final MultiIndex.
+    """
+
+    by_experiment: dict[int, dict[float, int]]
+    experiment_codes: np.ndarray
+    step_values: np.ndarray
+
+
+@dataclass(slots=True)
+class PathBuffer:
+    """Container for all column arrays associated with a single path.
+
+    Each metric path may expose several logical columns (value, timestamp,
+    preview flags, ...). ``PathBuffer`` ensures the arrays for those columns are
+    created exactly once and then shared when the DataFrame is materialized.
+    """
+
+    columns: dict[str, np.ndarray]
+
+
+def _build_run_and_path_mappings(
+    definitions: Iterable[identifiers.RunAttributeDefinition],
+    sys_id_label_mapping: dict[identifiers.SysId, str],
+) -> RunPathMappings:
+    """Assign dense integer identifiers to experiments and metric paths.
+
+    Parameters
+    ----------
+    definitions
+        Iterable of attribute definitions that will appear in the final
+        DataFrame. Duplicates are ignored while preserving deterministic index
+        assignments.
+    sys_id_label_mapping
+        Resolver from ``SysId`` to the label requested by the caller. The order
+        in which definitions are processed determines the order of ``labels``.
+
+    Returns
+    -------
+    RunPathMappings
+        Dataclass bundling compact indices for experiments and paths together
+        with the ordered label list referenced later during index restoration.
+    """
+    path_mapping: dict[str, int] = {}
+
+    for definition in definitions:
+        path_name = definition.attribute_definition.name
+        path_mapping.setdefault(path_name, len(path_mapping))
+
+    sys_ids_sorted_by_label = sorted(sys_id_label_mapping.items(), key=lambda item: item[1])
+    sys_id_mapping = {sys_id: index for index, (sys_id, _) in enumerate(sys_ids_sorted_by_label)}
+    label_mapping = [label for _, label in sys_ids_sorted_by_label]
+
+    return RunPathMappings(sys_id_mapping, path_mapping, label_mapping)
+
+
+def _build_row_lookup(
+    run_steps: dict[int, set[float]],
+    label_mapping: list[str],
+) -> RowLookup:
+    """Translate the collected step sets into row-position lookups.
+
+    Parameters
+    ----------
+    run_steps
+        Mapping from experiment index to the set of steps observed for that
+        experiment while traversing the raw points.
+    label_mapping
+        Ordered list of labels for each experiment. Only the length is required
+        to size the outer lookup, but the reference clarifies intent.
+
+    Returns
+    -------
+    RowLookup
+        Dataclass exposing both a nested dictionary for fast writes and NumPy
+        arrays that define the MultiIndex ordering.
+    """
+    row_lookup: dict[int, dict[float, int]] = {idx: {} for idx in range(len(label_mapping))}
+    experiment_codes: list[int] = []
+    step_values: list[float] = []
+
+    for exp_index in range(len(label_mapping)):
+        for step in sorted(run_steps.get(exp_index, ())):
+            row_lookup[exp_index][step] = len(experiment_codes)
+            experiment_codes.append(exp_index)
+            step_values.append(step)
+
+    experiment_codes_array = np.array(experiment_codes, dtype=np.uint32)
+    step_values_array = np.array(step_values, dtype=np.float64)
+
+    return RowLookup(row_lookup, experiment_codes_array, step_values_array)
+
+
+def _resolve_path_display_names(path_mapping: dict[str, int], type_suffix: Optional[str]) -> dict[int, str]:
+    """Map internal path indices to their human-readable column names."""
+
+    if type_suffix:
+        return {idx: f"{path}:{type_suffix}" for path, idx in path_mapping.items()}
+    return {idx: path for path, idx in path_mapping.items()}
+
+
+def _initialize_path_buffers(
+    num_rows: int,
+    path_order: list[int],
+    value_initializers: dict[str, Callable[[int], np.ndarray]],
+) -> dict[int, PathBuffer]:
+    """Allocate column buffers for each metric path in advance.
+
+    Parameters
+    ----------
+    num_rows
+        Number of rows expected in the final DataFrame. Zero short-circuits the
+        allocation and yields an empty dict.
+    path_order
+        Ordered list of path indices that should produce columns.
+    value_initializers
+        Mapping from column label to a callable returning an appropriately
+        initialized NumPy array for ``num_rows`` entries.
+
+    Returns
+    -------
+    dict[int, PathBuffer]
+        Mapping from path index to ``PathBuffer`` cells containing the allocated
+        arrays ready for in-place writes.
+    """
+    if num_rows == 0:
+        return {}
+
+    return {
+        path_index: PathBuffer({key: initialize(num_rows) for key, initialize in value_initializers.items()})
+        for path_index in path_order
+    }
+
+
+def _assemble_wide_dataframe(
+    *,
+    index: pd.MultiIndex,
+    path_buffers: dict[int, PathBuffer],
+    path_order: list[int],
+    value_order: list[str],
+    multiindex_columns: bool,
+) -> pd.DataFrame:
+    """Materialize the final DataFrame from the pre-allocated column buffers.
+
+    Parameters
+    ----------
+    index
+        MultiIndex representing the desired row structure; reused directly.
+    path_buffers
+        Mapping from path index to the ``PathBuffer`` containing column arrays.
+    path_order
+        Sequence dictating column ordering across metric paths.
+    value_order
+        Ordered list of value labels (e.g. ``"value"``, ``"absolute_time"``)
+        that should appear for each path.
+    multiindex_columns
+        When ``True`` the resulting columns form a MultiIndex of ``(value, path)``;
+        otherwise only the path dimension is used and the values remain flat.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame whose columns share references with the provided buffers,
+        ensuring no additional copies are made during construction.
+    """
+    data: dict[Any, np.ndarray] = {}
+    column_keys: list[Any] = []
+
+    if multiindex_columns:
+        for path_index in path_order:
+            buffer = path_buffers.get(path_index)
+            if buffer is None:
+                continue
+            columns = buffer.columns
+            for value_key in value_order:
+                if value_key not in columns:
+                    continue
+                column_key = (path_index, value_key)
+                column_keys.append(column_key)
+                data[column_key] = columns[value_key]
+
+        df = pd.DataFrame(data, index=index)
+        if column_keys:
+            df = df[column_keys]
+            df.columns = pd.MultiIndex.from_tuples(column_keys, names=["path", None])
+        else:
+            df = pd.DataFrame(index=index)
+            df.columns = pd.MultiIndex(
+                levels=[pd.Index([], dtype=object), pd.Index(value_order, dtype=object)],
+                codes=[[], []],
+                names=["path", None],
+            )
+    else:
+        for path_index in path_order:
+            buffer = path_buffers.get(path_index)
+            if buffer is None:
+                continue
+            column_keys.append(path_index)
+            data[path_index] = buffer.columns["value"]
+
+        df = pd.DataFrame(data, index=index)
+        if column_keys:
+            df = df[column_keys]
+        else:
+            df.columns = pd.Index([], dtype=str)
+
+    return df
+
+
+def _create_nan_float_array(rows: int) -> np.ndarray:
+    """Return a float64 vector prefilled with ``np.nan`` values.
+
+    Parameters
+    ----------
+    rows
+        Desired length of the array.
+
+    Returns
+    -------
+    numpy.ndarray
+        One-dimensional float array initialized to NaN, suitable for in-place
+        assignment of numeric values.
+    """
+    return np.full(rows, np.nan, dtype=np.float64)
+
+
+def _create_nan_object_array(rows: int) -> np.ndarray:
+    """Return an object vector prefilled with ``np.nan`` values.
+
+    Parameters
+    ----------
+    rows
+        Desired length of the array.
+
+    Returns
+    -------
+    numpy.ndarray
+        One-dimensional object array initialized to NaN. This is primarily used
+        for columns storing Python objects (files, histograms, booleans with
+        nullable semantics).
+    """
+    array = np.empty(rows, dtype=object)
+    array[:] = np.nan
+    return array
 
 
 def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
@@ -480,86 +807,19 @@ def _collapse_open_buckets(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _pivot_df(
-    df: pd.DataFrame,
-    index_column_name: str,
-    timestamp_column_name: Optional[str],
-    extra_value_columns: list[tuple[str, str]],
-) -> pd.DataFrame:
-    # Holds all existing (experiment, step) pairs
-    # This is needed because pivot_table will remove rows if they are all NaN
-    observed_idx = pd.MultiIndex.from_frame(
-        df[[index_column_name, "step"]]
-        .astype(
-            {
-                index_column_name: "uint32",
-                "step": "float64",
-            }
-        )
-        .drop_duplicates()
-    )
-
-    if df.empty and timestamp_column_name:
-        # Handle empty DataFrame case to avoid pandas dtype errors
-        df[timestamp_column_name] = pd.Series(dtype="datetime64[ns]")
-
-    if extra_value_columns:
-        # Holds all existing columns
-        # This is needed because pivot_table will remove columns if they are all NaN
-        value_columns = ["value"] + [col[0] for col in extra_value_columns]
-        observed_columns = pd.MultiIndex.from_tuples(
-            [(value, path) for path in df["path"].unique() for value in value_columns], names=[None, "path"]
-        )
-
-        # if there are multiple value columns, don't specify them and rely on pandas to create the column multi-index
-        df = df.pivot_table(
-            index=[index_column_name, "step"], columns="path", aggfunc="first", observed=True, dropna=True, sort=False
-        )
-    else:
-        observed_columns = df["path"].unique()
-
-        # when there's only "value", define values explicitly, to make pandas generate a flat index
-        df = df.pivot_table(
-            index=[index_column_name, "step"],
-            columns="path",
-            values="value",
-            aggfunc="first",
-            observed=True,
-            dropna=True,
-            sort=False,
-        )
-
-    # Add back any columns that were removed because they were all NaN
-    return df.reindex(index=observed_idx, columns=observed_columns)
-
-
-def _restore_labels_in_index(
-    df: pd.DataFrame,
-    column_name: str,
-    label_mapping: list[str],
-) -> pd.DataFrame:
-    if df.index.empty:
-        df.index = df.index.set_levels(df.index.get_level_values(column_name).astype(str), level=column_name)
-        return df
-
-    return df.rename(index={i: label for i, label in enumerate(label_mapping)}, level=column_name)
-
-
 def _restore_labels_in_columns(
     df: pd.DataFrame,
     column_name: str,
     label_mapping: list[str],
 ) -> pd.DataFrame:
-    if df.index.empty:
+    if df.columns.empty:
         df.columns = df.columns.set_levels(df.columns.get_level_values(column_name).astype(str), level=column_name)
         return df
 
     return df.rename(columns={i: label for i, label in enumerate(label_mapping)}, level=column_name)
 
 
-def _restore_path_column_names(
-    df: pd.DataFrame, path_mapping: dict[str, int], type_suffix: Optional[str]
-) -> pd.DataFrame:
+def _restore_path_column_names(df: pd.DataFrame, display_names: dict[int, str]) -> pd.DataFrame:
     """
     Accepts an DF in an intermediate format in _create_dataframe, and the mapping of column names.
     Restores colum names in the DF based on the mapping.
@@ -572,26 +832,32 @@ def _restore_path_column_names(
             df.columns = df.columns.astype(str)
         return df
 
-    # We need to reverse the mapping to index -> column name
-    if type_suffix:
-        reverse_mapping = {index: f"{path}:{type_suffix}" for path, index in path_mapping.items()}
-    else:
-        reverse_mapping = {index: path for path, index in path_mapping.items()}
-    return df.rename(columns=reverse_mapping)
+    level = "path" if isinstance(df.columns, pd.MultiIndex) else None
+    return df.rename(columns=display_names, level=level)
 
 
-def _sort_index_and_columns(df: pd.DataFrame, index_column_name: str) -> pd.DataFrame:
-    # MultiIndex DFs need to have column index order swapped: value/metric_name -> metric_name/value.
-    # We also sort columns, but only after the original names have been restored.
+def _label_dataframe_index(df: pd.DataFrame, index_name: str, labels: list[str]) -> pd.DataFrame:
+    if df.index.empty:
+        df.index = df.index.set_levels(df.index.levels[0].astype(str), level=0)
+        return df
+    return df.rename(index={i: label for i, label in enumerate(labels)}, level=index_name)
+
+
+def _label_dataframe_columns(df: pd.DataFrame, display_names: dict[int, str]) -> pd.DataFrame:
+    if df.columns.empty:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns.names = (None, None)
+        else:
+            df.columns.name = None
+        return df
+
+    level = "path" if isinstance(df.columns, pd.MultiIndex) else None
+    df = df.rename(columns=display_names, level=level)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns.names = (None, None)
-        df = df.swaplevel(axis="columns")
-        df = df.sort_index(axis="columns", level=0, kind="stable", sort_remaining=False)
     else:
         df.columns.name = None
-        df = df.sort_index(axis="columns")
-
-    return df.sort_index(axis="index", level=[index_column_name, "step"])
+    return df
 
 
 def create_files_dataframe(
