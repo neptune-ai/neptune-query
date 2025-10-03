@@ -5,26 +5,57 @@ inputs:
   slack-webhook:
     description: "A Slack Webhook to post a notification"
     required: true
+  failure-message:
+    description: "Message to send on failure"
+    required: true
+    default: "Workflow failed"
 
 runs:
   using: "composite"
   steps:
-    - uses: technote-space/workflow-conclusion-action@v3
+    - name: Install dependencies for Slack notification
+      shell: sh
+      run: |
+        apt-get update && apt-get install -y nodejs
 
-    - name: Notify about failure
-      uses: 8398a7/action-slack@v3
-      if: env.WORKFLOW_CONCLUSION != 'success'
+    - name: Notify Slack on failure
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`
+          const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const commitUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
+          const shortSha = context.sha.substring(0, 7);
+
+          const payload = {
+            username: "GitHub Actions",
+            text: [
+              `❌ *${{ inputs.failure-message }}*`,
+              `*Repo:* <${repoUrl}|${context.repo.owner}/${context.repo.repo}>`,
+              `*Workflow:* ${context.workflow}`,
+              `*Commit:* <${commitUrl}|${shortSha}>`,
+              `*Triggered by:* ${context.actor}`,
+              `*Run:* <${runUrl}|#${context.runNumber}>`
+            ].join("\n")
+          };
+
+          let res;
+          try {
+            res = await fetch(process.env.SLACK_WEBHOOK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          } catch (e) {
+            core.setFailed(`Slack fetch threw: ${e?.message || e}`);
+            return;
+          }
+
+          const bodyText = await res.text();
+          core.info(`Slack HTTP ${res.status} ${res.statusText} — response body: ${bodyText}`);
+
+          if (!res.ok || (bodyText && bodyText.trim().toLowerCase() !== "ok")) {
+            core.setFailed(`Slack webhook returned non-ok result: ${res.status} ${bodyText}`);
+          }
       env:
         SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook }}
-      with:
-        status: failure
-        fields: repo,message,author,job,eventName,took
-
-    - name: Notify about success
-      uses: 8398a7/action-slack@v3
-      if: env.WORKFLOW_CONCLUSION == 'success'
-      env:
-        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook }}
-      with:
-        status: success
-        fields: repo,message,author,job,eventName,took

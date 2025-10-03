@@ -46,6 +46,13 @@ jobs:
         run: |
           pytest --junitxml="test-results/test-client-e2e-performance.xml" --log-cli-level=INFO --durations=0 tests/performance_e2e
 
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/workflow-notify
+        with:
+          slack-webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          failure-message: "Performance tests (client-e2e) failed"
+
       - uses: actions/upload-artifact@v4
         with:
           name: test-client-e2e-performance.log
