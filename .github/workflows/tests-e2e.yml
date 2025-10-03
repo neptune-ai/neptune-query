@@ -64,6 +64,14 @@ jobs:
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
           pytest --retries=3 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
+
+      - name: Notify on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: ./.github/actions/workflow-notify
+        with:
+          slack-webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          failure-message: "E2E tests failed"
+
       - name: Report
         uses: mikepenz/action-junit-report@v5
         if: always()
@@ -75,23 +83,3 @@ jobs:
           include_passed: true
           include_time_in_summary: true
           resolve_ignore_classname: true
-
-      - name: Notify Slack on failure
-        if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-            const payload = {
-              username: "GitHub Actions",
-              text: `E2E tests failed in the repository: <https://github.com/${context.repo.owner}/${context.repo.repo}|${context.repo.owner}/${context.repo.repo}>. Please check the details.`
-            };
-            await fetch(webhookUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            });
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
