@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from collections import OrderedDict
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -289,7 +288,7 @@ def create_series_dataframe(
         return values
 
     converted_series: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
-    run_to_observed_steps: OrderedDict[str, set[float]] = OrderedDict()
+    run_to_observed_steps: dict[str, set[float]] = dict()
     paths_with_data: set[str] = set()
 
     # Normalize raw payloads (files, histograms) while tracking observed dimensions.
@@ -305,10 +304,8 @@ def create_series_dataframe(
         for point in converted_values:
             step_set.add(point.step)
 
-    sorted_run_steps = OrderedDict(sorted(run_to_observed_steps.items(), key=lambda item: item[0]))
-
     index_data = IndexData.from_observed_steps(
-        observed_steps=sorted_run_steps,
+        observed_steps=run_to_observed_steps,
         display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
         names=(index_column_name, "step"),
     )
