@@ -1,3 +1,4 @@
+import threading
 from typing import (
     Iterable,
     Literal,
@@ -21,6 +22,7 @@ from neptune_query.internal.identifiers import (
     SysId,
 )
 from neptune_query.internal.output_format import create_metric_buckets_dataframe
+from neptune_query.internal.retrieval import metric_buckets
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
 from tests.e2e.data import (
     NUMBER_OF_STEPS,
@@ -297,6 +299,85 @@ def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
 
 
 @pytest.mark.parametrize(
+    "attribute_filter, expected_attributes",
+    [
+        (
+            AttributeFilter(name=r"series-.*", type=["float_series"]),
+            [
+                "series-containing-inf",
+                "series-containing-nan",
+                "series-ending-with-inf",
+                "series-ending-with-nan",
+            ],
+        ),
+        (
+            r"series-ending-.*",
+            ["series-ending-with-inf", "series-ending-with-nan"],
+        ),
+    ],
+)
+def test__fetch_metric_buckets__over_1k_series(
+    new_project_id,
+    monkeypatch,
+    attribute_filter,
+    expected_attributes,
+):
+    """
+    This test verifies that when fetching metric buckets for a run with over 1000 series,
+    the function correctly splits the requests into multiple chunks to avoid exceeding the limit.
+
+    It does so by monkeypatching the actual limit to 1 and capturing the calls made to fetch_time_series_buckets.
+    """
+    original_fetch = metric_buckets.fetch_time_series_buckets
+    call_chunks: list[list[RunAttributeDefinition]] = []
+    lock = threading.Lock()
+
+    def capture_fetch(*args, **kwargs):
+        with lock:
+            call_chunks.append(kwargs["run_attribute_definitions"])
+        return original_fetch(*args, **kwargs)
+
+    monkeypatch.setattr(metric_buckets, "fetch_time_series_buckets", capture_fetch)
+
+    forced_limit = 1
+    monkeypatch.setattr("neptune_query.internal.retrieval.metric_buckets.MAX_SERIES_PER_REQUEST", forced_limit)
+    monkeypatch.setattr("neptune_query.internal.composition.fetch_metric_buckets.MAX_SERIES_PER_REQUEST", forced_limit)
+
+    experiment_name = EXP_NAME_INF_NAN_RUN
+    run_id = RUN_ID_INF_NAN_RUN
+
+    result_df = fetch_metric_buckets(
+        project=new_project_id,
+        experiments=[experiment_name],
+        x="step",
+        y=attribute_filter,
+        limit=5,
+        include_point_previews=False,
+        lineage_to_the_root=True,
+    )
+
+    expected_data = {
+        experiment_name: {
+            attribute_name: RUN_BY_ID[run_id].metrics_values(attribute_name) for attribute_name in expected_attributes
+        }
+    }
+    expected_df = _create_expected_data_metric_buckets_dataframe(
+        data=expected_data,
+        project_identifier=new_project_id,
+        x="step",
+        limit=5,
+        include_point_previews=False,
+    )
+
+    pd.testing.assert_frame_equal(result_df, expected_df)
+
+    assert len(call_chunks) > 1
+    total_series = sum(len(chunk) for chunk in call_chunks)
+    assert total_series > forced_limit
+    assert all(len(chunk) <= forced_limit for chunk in call_chunks)
+
+
+@pytest.mark.parametrize(
     "arg_experiments,run_id,y",
     [
         (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-containing-inf"),
@@ -317,7 +398,6 @@ def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
     "include_point_previews",
     [True],
 )
-@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
 def test__fetch_metric_buckets__inf_nan(
     new_project_id,
     arg_experiments,
