@@ -11,7 +11,7 @@ With the Query API, you can:
 ## Installation
 
 ```bash
-pip install "neptune-query>=1.4.1,<2.0.0"
+pip install "neptune-query>=1.5.1,<2.0.0"
 ```
 
 Set your Neptune API token and project name as environment variables:
@@ -36,6 +36,7 @@ import neptune_query as nq
 
 Available functions:
 
+- `download_files()` &ndash; download files from the specified experiments.
 - `fetch_experiments_table()` &ndash; runs as rows and attributes as columns.
 - `fetch_metrics()` &ndash; series of float or int values, with steps as rows.
 - `fetch_series()` &ndash; for series of strings or histograms.
