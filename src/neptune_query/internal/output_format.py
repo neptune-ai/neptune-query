@@ -185,7 +185,11 @@ def create_metrics_dataframe(
         for point in points:
             step_set.add(point[StepIndex])
 
-    index_data = IndexData.from_observed_steps(run_to_observed_steps, names=(index_column_name, "step"))
+    index_data = IndexData.from_observed_steps(
+        observed_steps=run_to_observed_steps,
+        display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
+        names=(index_column_name, "step"),
+    )
 
     # Preallocate column vectors for every logical value we might emit.
     path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
@@ -204,9 +208,7 @@ def create_metrics_dataframe(
         if not points:
             continue
 
-        step_to_row_index: dict[float, int] = index_data.lookup_rows(
-            display_name=sys_id_label_mapping[definition.run_identifier.sys_id]
-        )
+        step_to_row_index: dict[float, int] = index_data.lookup_rows(sys_id=definition.run_identifier.sys_id)
         buffer: PathBuffer = path_buffers[path_display_name(definition)]
         for point in points:
             row_idx: int = step_to_row_index[point[StepIndex]]
@@ -305,7 +307,11 @@ def create_series_dataframe(
 
     sorted_run_steps = OrderedDict(sorted(run_to_observed_steps.items(), key=lambda item: item[0]))
 
-    index_data = IndexData.from_observed_steps(sorted_run_steps, names=(index_column_name, "step"))
+    index_data = IndexData.from_observed_steps(
+        observed_steps=sorted_run_steps,
+        display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
+        names=(index_column_name, "step"),
+    )
 
     # Allocate column storage ahead of time for each path/value pair.
     path_buffers = _initialize_path_buffers(
@@ -322,9 +328,7 @@ def create_series_dataframe(
         if not converted_values:
             continue
 
-        step_to_row_index: dict[float, int] = index_data.lookup_rows(
-            display_name=sys_id_label_mapping[definition.run_identifier.sys_id]
-        )
+        step_to_row_index: dict[float, int] = index_data.lookup_rows(sys_id=definition.run_identifier.sys_id)
         buffer = path_buffers[definition.attribute_definition.name]
         for point in converted_values:
             row_idx: int = step_to_row_index[point.step]
@@ -459,16 +463,24 @@ class IndexData:
     ``display_names`` and ``step_values`` hold the ordered coordinates, while
     ``names`` stores the index level labels that should be applied to the
     finished DataFrame.
+
+    The ``row_lookup`` mapping allows to quickly find the row index for a
+    given (run, step) pair.
     """
 
     display_names: list[str]
     step_values: np.ndarray
     names: tuple[str, str]
 
-    row_lookup: dict[str, dict[float, int]]  # (run, step) -> row index
+    row_lookup: dict[identifiers.SysId, dict[float, int]]  # (run, step) -> row index
 
     @classmethod
-    def from_observed_steps(cls, observed_steps: dict[str, set[float]], names: tuple[str, str]) -> "IndexData":
+    def from_observed_steps(
+        cls,
+        observed_steps: dict[str, set[float]],
+        display_name_to_sys_id: dict[str, identifiers.SysId],
+        names: tuple[str, str],
+    ) -> "IndexData":
         """
         1. Flatten observed step sets into arrays suited for ``pd.MultiIndex``.
         2. Build a lookup mapping (display_name, step) pairs to row indices in the flattened arrays.
@@ -478,14 +490,15 @@ class IndexData:
 
         display_names: list[str] = []
         step_values: list[float] = []
-        row_lookup: dict[str, dict[float, int]] = {}
+        row_lookup: dict[identifiers.SysId, dict[float, int]] = {}
 
         row_count: int = 0
         for display_name, steps in sorted(observed_steps.items()):
             for step in sorted(steps):
                 display_names.append(display_name)
                 step_values.append(step)
-                row_lookup.setdefault(display_name, {}).setdefault(step, row_count)
+                sys_id = display_name_to_sys_id[display_name]
+                row_lookup.setdefault(sys_id, {}).setdefault(step, row_count)
                 row_count += 1
 
         return cls(
@@ -500,8 +513,8 @@ class IndexData:
 
         return len(self.display_names)
 
-    def lookup_rows(self, display_name: str) -> dict[float, int]:
-        return self.row_lookup.get(display_name, {})
+    def lookup_rows(self, sys_id: identifiers.SysId) -> dict[float, int]:
+        return self.row_lookup.get(sys_id, {})
 
 
 @dataclass(slots=True)

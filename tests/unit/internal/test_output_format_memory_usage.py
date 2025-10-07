@@ -1,6 +1,11 @@
+import time
 import tracemalloc
+from datetime import timedelta
 
-from humanize import naturalsize
+from humanize import (
+    naturaldelta,
+    naturalsize,
+)
 
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
@@ -78,3 +83,26 @@ def test_create_metrics_dataframe_peak_memory_usage():
     assert (
         peak_to_df_ratio <= max_allowed_ratio
     ), f"Peak/DataFrame memory ratio too high: {peak_to_df_ratio:.2f} (peak={peak}, df={dataframe_memory})"
+
+
+# This test doesn't test any regressions, but it's very useful when iterating on performance improvements
+def test_create_metrics_dataframe_timing():
+    metrics_data, sys_id_label_mapping = _generate_metrics_dataset(
+        num_experiments=30,
+        num_metrics=60,
+        num_steps=400,
+    )
+
+    start = time.perf_counter_ns()
+    _ = create_metrics_dataframe(
+        metrics_data=metrics_data,
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=True,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+    end = time.perf_counter_ns()
+    delta = timedelta(microseconds=(end - start) / 1e3)
+
+    print()
+    print("Duration:", naturaldelta(value=delta, minimum_unit="microseconds"))
