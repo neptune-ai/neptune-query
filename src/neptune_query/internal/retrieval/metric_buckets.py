@@ -44,6 +44,9 @@ from .util import ProtobufPayload
 logger = get_logger()
 
 
+MAX_SERIES_PER_REQUEST = 1000
+
+
 @dataclass(frozen=True)
 class TimeseriesBucket:
     index: int
@@ -55,13 +58,13 @@ class TimeseriesBucket:
     last_y: Optional[float]
 
     # statistics:
-    y_min: Optional[float]
-    y_max: Optional[float]
-    finite_point_count: int
-    nan_count: int
-    positive_inf_count: int
-    negative_inf_count: int
-    finite_points_sum: Optional[float]
+    # y_min: Optional[float]
+    # y_max: Optional[float]
+    # finite_point_count: int
+    # nan_count: int
+    # positive_inf_count: int
+    # negative_inf_count: int
+    # finite_points_sum: Optional[float]
 
 
 # Build once at module import
@@ -112,8 +115,8 @@ def fetch_time_series_buckets(
     expressions = {}
     request_id_to_request_mapping = {}
     for num, run_attribute_definition in enumerate(run_attribute_definitions):
-        if num >= 1000:
-            raise ValueError("Cannot fetch more than 1000 time series at once")
+        if num >= MAX_SERIES_PER_REQUEST:
+            raise ValueError(f"Cannot fetch more than {MAX_SERIES_PER_REQUEST} time series at once")
 
         request_id = int_to_uuid(num)
         request_id_to_request_mapping[request_id] = run_attribute_definition
@@ -163,10 +166,10 @@ def fetch_time_series_buckets(
     for entry in result_object.entries:
         request = request_id_to_request_mapping.get(entry.requestId, None)
         if request is None:
-            raise RuntimeError(f"Received unknown requestId from the server: {request_id}")
+            raise RuntimeError(f"Received unknown requestId from the server: {entry.requestId}")
 
         if request in out:
-            raise RuntimeError(f"Received duplicate requestId from the server: {request_id}")
+            raise RuntimeError(f"Received duplicate requestId from the server: {entry.requestId}")
 
         out[request] = [
             TimeseriesBucket(
@@ -177,19 +180,19 @@ def fetch_time_series_buckets(
                 first_y=bucket.first.y if bucket.HasField("first") else None,
                 last_x=bucket.last.x if bucket.HasField("last") else None,
                 last_y=bucket.last.y if bucket.HasField("last") else None,
-                y_min=bucket.localMin if bucket.HasField("localMin") else None,
-                y_max=bucket.localMax if bucket.HasField("localMax") else None,
-                finite_point_count=bucket.finitePointCount,
-                nan_count=bucket.nanCount,
-                positive_inf_count=bucket.positiveInfCount,
-                negative_inf_count=bucket.negativeInfCount,
-                finite_points_sum=bucket.localSum if bucket.HasField("localSum") else None,
+                # y_min=bucket.localMin if bucket.HasField("localMin") else None,
+                # y_max=bucket.localMax if bucket.HasField("localMax") else None,
+                # finite_point_count=bucket.finitePointCount,
+                # nan_count=bucket.nanCount,
+                # positive_inf_count=bucket.positiveInfCount,
+                # negative_inf_count=bucket.negativeInfCount,
+                # finite_points_sum=bucket.localSum if bucket.HasField("localSum") else None,
             )
             for bucket in entry.bucket
         ]
 
     for request in run_attribute_definitions:
         if request not in out:
-            raise RuntimeError("Didn't get data for all the requests from the server. " f"Missing request {request_id}")
+            raise RuntimeError("Didn't get data for all the requests from the server. " f"Missing request {request}")
 
     return out

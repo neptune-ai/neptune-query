@@ -405,7 +405,6 @@ def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_v
         ("series-containing-nan", RUN_BY_ID[RUN_ID_INF_NAN_RUN].metrics_values("series-containing-nan")),
     ],
 )
-@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
 def test__fetch_metrics_nan_inf(new_project_id, series_name, expected_values):
     df = fetch_metrics(
         project=new_project_id,

@@ -71,13 +71,13 @@ def aggregate_metric_buckets(
             first_y=ys[0] if ys else float("nan"),
             last_x=xs[-1] if xs else float("nan"),
             last_y=ys[-1] if ys else float("nan"),
-            y_min=float(np.min(ys)) if ys else float("nan"),
-            y_max=float(np.max(ys)) if ys else float("nan"),
-            finite_point_count=len(ys),
-            nan_count=nan_count,
-            positive_inf_count=positive_inf_count,
-            negative_inf_count=negative_inf_count,
-            finite_points_sum=float(np.sum(ys)) if ys else 0.0,
+            # y_min=float(np.min(ys)) if ys else float("nan"),
+            # y_max=float(np.max(ys)) if ys else float("nan"),
+            # finite_point_count=len(ys),
+            # nan_count=nan_count,
+            # positive_inf_count=positive_inf_count,
+            # negative_inf_count=negative_inf_count,
+            # finite_points_sum=float(np.sum(ys)) if ys else 0.0,
         )
         buckets.append(bucket)
     return buckets

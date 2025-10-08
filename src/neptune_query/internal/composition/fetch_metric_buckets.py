@@ -18,9 +18,11 @@ from typing import (
     Generator,
     Literal,
     Optional,
+    Protocol,
     Union,
 )
 
+import numpy as np
 import pandas as pd
 from neptune_api.client import AuthenticatedClient
 
@@ -48,11 +50,21 @@ from ..retrieval import (
     util,
 )
 from ..retrieval.attribute_values import AttributeValue
-from ..retrieval.metric_buckets import TimeseriesBucket
+from ..retrieval.metric_buckets import (
+    MAX_SERIES_PER_REQUEST,
+    TimeseriesBucket,
+)
 from ..retrieval.search import ContainerType
 from .attribute_components import fetch_attribute_values_by_filter_split
 
 __all__ = ("fetch_metric_buckets",)
+
+
+class _FetchInChunksProtocol(Protocol):
+    def __call__(
+        self, x_range: Optional[tuple[float, float]], bucket_limit: int
+    ) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
+        ...
 
 
 def fetch_metric_buckets(
@@ -152,25 +164,102 @@ def _fetch_metric_buckets(
         ),
     )
 
-    results: Generator[util.Page[AttributeValue], None, None] = concurrency.gather_results(output)
+    attribute_value_pages: Generator[util.Page[AttributeValue], None, None] = concurrency.gather_results(output)
 
     run_attribute_definitions = []
-    for page in results:
+    for page in attribute_value_pages:
         for value in page.items:
             run_attribute_definition = RunAttributeDefinition(
                 run_identifier=value.run_identifier, attribute_definition=value.attribute_definition
             )
             run_attribute_definitions.append(run_attribute_definition)
 
-    buckets_data = metric_buckets.fetch_time_series_buckets(
+    if not run_attribute_definitions:
+        return {}, sys_id_label_mapping
+
+    fetch_in_chunks: _FetchInChunksProtocol = lambda x_range, bucket_limit: _fetch_in_chunks(
         client=client,
-        x=x,
         run_attribute_definitions=run_attribute_definitions,
-        lineage_to_the_root=lineage_to_the_root,
+        x=x,
         include_point_previews=include_point_previews,
-        limit=limit,
         container_type=container_type,
-        x_range=None,
+        x_range=x_range,
+        lineage_to_the_root=lineage_to_the_root,
+        limit=bucket_limit,
+        executor=executor,
     )
 
-    return buckets_data, sys_id_label_mapping
+    # if len(run_attribute_definitions) <= MAX_SERIES_PER_REQUEST:
+    #     return fetch_in_chunks(x_range=None, bucket_limit=limit), sys_id_label_mapping
+
+    global_x_range = _compute_global_x_range(fetch_in_chunks=fetch_in_chunks)
+    if global_x_range is None:
+        # No finite points / bucket bounds found
+        return {}, sys_id_label_mapping
+
+    return fetch_in_chunks(x_range=global_x_range, bucket_limit=limit), sys_id_label_mapping
+
+
+def _fetch_in_chunks(
+    client: AuthenticatedClient,
+    run_attribute_definitions: list[RunAttributeDefinition],
+    x: Literal["step"],
+    include_point_previews: bool,
+    container_type: ContainerType,
+    x_range: Optional[tuple[float, float]],
+    lineage_to_the_root: bool,
+    limit: int,
+    executor: Executor,
+) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
+    chunks = (
+        run_attribute_definitions[offset : offset + MAX_SERIES_PER_REQUEST]
+        for offset in range(0, len(run_attribute_definitions), MAX_SERIES_PER_REQUEST)
+    )
+
+    output = concurrency.generate_concurrently(
+        items=chunks,
+        executor=executor,
+        downstream=lambda chunk: concurrency.return_value(
+            metric_buckets.fetch_time_series_buckets(
+                client=client,
+                x=x,
+                run_attribute_definitions=chunk,
+                lineage_to_the_root=lineage_to_the_root,
+                include_point_previews=include_point_previews,
+                limit=limit,
+                container_type=container_type,
+                x_range=x_range,
+            )
+        ),
+    )
+
+    merged: dict[RunAttributeDefinition, list[TimeseriesBucket]] = {}
+    for chunk_data in concurrency.gather_results(output):  # type: dict[RunAttributeDefinition, list[TimeseriesBucket]]
+        merged.update(chunk_data)
+    return merged
+
+
+def _compute_global_x_range(fetch_in_chunks: _FetchInChunksProtocol) -> Optional[tuple[float, float]]:
+    x_range: tuple[Optional[float], Optional[float]] = (None, None)
+    # We only need the minimal number of buckets to determine min/max x
+    for buckets in fetch_in_chunks(x_range=None, bucket_limit=2).values():
+        for bucket in buckets:
+            x_range = _update_range(x_range, bucket)
+
+    if x_range[0] is None or x_range[1] is None:
+        return None
+    return x_range[0], x_range[1]
+
+
+def _update_range(
+    current_range: tuple[Optional[float], Optional[float]], bucket: TimeseriesBucket
+) -> tuple[Optional[float], Optional[float],]:
+    # We're including from_x and to_x because some buckets might hold only non-finite points,
+    # in which case first_x and last_x are None.
+    candidates = [bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x] + list(current_range)
+    finite_candidates = [x for x in candidates if x is not None and np.isfinite(x)]
+
+    if len(finite_candidates):
+        return min(finite_candidates), max(finite_candidates)
+    else:
+        return None, None

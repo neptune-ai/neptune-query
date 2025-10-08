@@ -321,7 +321,6 @@ def test__fetch_experiments_table_with_attributes_regex_filter_for_metrics(
     assert df[expected.columns].columns.equals(expected.columns)
 
 
-@pytest.mark.skip(reason="Skipped until inf/nan handling is enabled in the backend")
 def test__fetch_experiments_table_nan_inf(new_project_id):
     df = fetch_experiments_table(
         project=new_project_id,
