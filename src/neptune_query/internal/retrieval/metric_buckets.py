@@ -58,13 +58,13 @@ class TimeseriesBucket:
     last_y: Optional[float]
 
     # statistics:
-    y_min: Optional[float]
-    y_max: Optional[float]
-    finite_point_count: int
-    nan_count: int
-    positive_inf_count: int
-    negative_inf_count: int
-    finite_points_sum: Optional[float]
+    # y_min: Optional[float]
+    # y_max: Optional[float]
+    # finite_point_count: int
+    # nan_count: int
+    # positive_inf_count: int
+    # negative_inf_count: int
+    # finite_points_sum: Optional[float]
 
 
 # Build once at module import
@@ -180,13 +180,13 @@ def fetch_time_series_buckets(
                 first_y=bucket.first.y if bucket.HasField("first") else None,
                 last_x=bucket.last.x if bucket.HasField("last") else None,
                 last_y=bucket.last.y if bucket.HasField("last") else None,
-                y_min=bucket.localMin if bucket.HasField("localMin") else None,
-                y_max=bucket.localMax if bucket.HasField("localMax") else None,
-                finite_point_count=bucket.finitePointCount,
-                nan_count=bucket.nanCount,
-                positive_inf_count=bucket.positiveInfCount,
-                negative_inf_count=bucket.negativeInfCount,
-                finite_points_sum=bucket.localSum if bucket.HasField("localSum") else None,
+                # y_min=bucket.localMin if bucket.HasField("localMin") else None,
+                # y_max=bucket.localMax if bucket.HasField("localMax") else None,
+                # finite_point_count=bucket.finitePointCount,
+                # nan_count=bucket.nanCount,
+                # positive_inf_count=bucket.positiveInfCount,
+                # negative_inf_count=bucket.negativeInfCount,
+                # finite_points_sum=bucket.localSum if bucket.HasField("localSum") else None,
             )
             for bucket in entry.bucket
         ]

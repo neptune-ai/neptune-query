@@ -224,22 +224,22 @@ def timeseries_bucket(draw, *, index: int, from_x: float, to_x: float) -> Timese
         finite_points.sort()
         first_x, first_y = finite_points[0]
         last_x, last_y = finite_points[-1]
-        y_min = min(finite_point_ys)
-        y_max = max(finite_point_ys)
-        finite_points_sum = sum(finite_point_ys)
+        # y_min = min(finite_point_ys)
+        # y_max = max(finite_point_ys)
+        # finite_points_sum = sum(finite_point_ys)
     else:
         finite_point_count = 0
         first_x = float("nan")
         first_y = float("nan")
         last_x = float("nan")
         last_y = float("nan")
-        y_min = float("nan")
-        y_max = float("nan")
-        finite_points_sum = 0
+        # y_min = float("nan")
+        # y_max = float("nan")
+        # finite_points_sum = 0
 
-    nan_count = draw(st.integers(min_value=0))
-    positive_inf_count = draw(st.integers(min_value=0))
-    negative_inf_count = draw(st.integers(min_value=0))
+    # nan_count = draw(st.integers(min_value=0))
+    # positive_inf_count = draw(st.integers(min_value=0))
+    # negative_inf_count = draw(st.integers(min_value=0))
 
     return TimeseriesBucket(
         index=index,
@@ -249,13 +249,13 @@ def timeseries_bucket(draw, *, index: int, from_x: float, to_x: float) -> Timese
         first_y=first_y,
         last_x=last_x,
         last_y=last_y,
-        y_min=y_min,
-        y_max=y_max,
-        finite_point_count=finite_point_count,
-        nan_count=nan_count,
-        positive_inf_count=positive_inf_count,
-        negative_inf_count=negative_inf_count,
-        finite_points_sum=finite_points_sum,
+        # y_min=y_min,
+        # y_max=y_max,
+        # finite_point_count=finite_point_count,
+        # nan_count=nan_count,
+        # positive_inf_count=positive_inf_count,
+        # negative_inf_count=negative_inf_count,
+        # finite_points_sum=finite_points_sum,
     )
 
 
