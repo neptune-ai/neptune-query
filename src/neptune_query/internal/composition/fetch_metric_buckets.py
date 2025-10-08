@@ -260,6 +260,6 @@ def _update_range(
     finite_candidates = [x for x in candidates if x is not None and np.isfinite(x)]
 
     if len(finite_candidates):
-        return min(*finite_candidates), max(*finite_candidates)
+        return min(finite_candidates), max(finite_candidates)
     else:
         return None, None
