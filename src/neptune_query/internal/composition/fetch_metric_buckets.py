@@ -198,7 +198,6 @@ def _fetch_metric_buckets(
     global_x_range = _compute_global_x_range(fetch_in_chunks=fetch_in_chunks)
     if global_x_range is None:
         # No finite points / bucket bounds found
-        # TODO: is this possible?
         return {}, sys_id_label_mapping
 
     return fetch_in_chunks(x_range=global_x_range, bucket_limit=limit), sys_id_label_mapping
