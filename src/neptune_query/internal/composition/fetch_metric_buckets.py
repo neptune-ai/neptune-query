@@ -60,9 +60,6 @@ from .attribute_components import fetch_attribute_values_by_filter_split
 __all__ = ("fetch_metric_buckets",)
 
 
-_GLOBAL_RANGE_BUCKET_LIMIT = 2
-
-
 class _FetchInChunksProtocol(Protocol):
     def __call__(
         self, x_range: Optional[tuple[float, float]], bucket_limit: int
@@ -244,7 +241,8 @@ def _fetch_in_chunks(
 
 def _compute_global_x_range(fetch_in_chunks: _FetchInChunksProtocol) -> Optional[tuple[float, float]]:
     x_range: tuple[Optional[float], Optional[float]] = (None, None)
-    for buckets in fetch_in_chunks(x_range=None, bucket_limit=_GLOBAL_RANGE_BUCKET_LIMIT).values():
+    # We only need the minimal number of buckets to determine min/max x
+    for buckets in fetch_in_chunks(x_range=None, bucket_limit=2).values():
         for bucket in buckets:
             x_range = _update_range(x_range, bucket)
 
@@ -258,10 +256,9 @@ def _update_range(
 ) -> tuple[Optional[float], Optional[float],]:
     # We're including from_x and to_x because some buckets might hold only non-finite points,
     # in which case first_x and last_x are None.
-    
-    candidates = current_range + (bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x))
-    finite_candidates = (x for x in candidates if x is not None and np.isfinite(x))
-    
+    candidates = [bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x] + list(current_range)
+    finite_candidates = [x for x in candidates if x is not None and np.isfinite(x)]
+
     if len(finite_candidates):
         return min(*finite_candidates), max(*finite_candidates)
     else:
