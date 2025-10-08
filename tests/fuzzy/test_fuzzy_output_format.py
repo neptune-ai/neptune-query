@@ -122,7 +122,8 @@ def test_create_metric_buckets_dataframe(buckets_dataset, container_column_name)
     # validate index (buckets)
     all_buckets = set()
     for buckets in buckets_data.values():
-        all_buckets.update((bucket.from_x, bucket.to_x) for bucket in buckets if bucket.finite_point_count > 0)
+        # Consider only buckets that have at least one finite data point
+        all_buckets.update((bucket.from_x, bucket.to_x) for bucket in buckets if bucket.first_x is not None)
     expected_buckets = [pd.Interval(left=bucket[0], right=bucket[1], closed="right") for bucket in sorted(all_buckets)]
 
     # _collapse_open_buckets merges 1st and 2nd bucket
