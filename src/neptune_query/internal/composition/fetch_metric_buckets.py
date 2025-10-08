@@ -189,8 +189,8 @@ def _fetch_metric_buckets(
         executor=executor,
     )
 
-    # if len(run_attribute_definitions) <= MAX_SERIES_PER_REQUEST:
-    #     return fetch_in_chunks(x_range=None, bucket_limit=limit), sys_id_label_mapping
+    if len(run_attribute_definitions) <= MAX_SERIES_PER_REQUEST:
+        return fetch_in_chunks(x_range=None, bucket_limit=limit), sys_id_label_mapping
 
     global_x_range = _compute_global_x_range(fetch_in_chunks=fetch_in_chunks)
     if global_x_range is None:
