@@ -256,15 +256,13 @@ def _compute_global_x_range(fetch_in_chunks: _FetchInChunksProtocol) -> Optional
 def _update_range(
     current_range: tuple[Optional[float], Optional[float]], bucket: TimeseriesBucket
 ) -> tuple[Optional[float], Optional[float],]:
-    current_min, current_max = current_range
-
     # We're including from_x and to_x because some buckets might hold only non-finite points,
     # in which case first_x and last_x are None.
-    for candidate in (bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x):
-        if candidate is None or not np.isfinite(candidate):
-            continue
-
-        current_min = candidate if current_min is None else min(current_min, candidate)
-        current_max = candidate if current_max is None else max(current_max, candidate)
-
-    return current_min, current_max
+    
+    candidates = current_range + (bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x))
+    finite_candidates = (x for x in candidates if x is not None and np.isfinite(x))
+    
+    if len(finite_candidates):
+        return min(*finite_candidates), max(*finite_candidates)
+    else:
+        return None, None
