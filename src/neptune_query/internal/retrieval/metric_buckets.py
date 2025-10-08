@@ -44,7 +44,7 @@ from .util import ProtobufPayload
 logger = get_logger()
 
 
-MAX_SERIES_PER_REQUEST = 1
+MAX_SERIES_PER_REQUEST = 1000
 
 
 @dataclass(frozen=True)
