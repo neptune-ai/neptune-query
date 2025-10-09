@@ -11,13 +11,13 @@ on:
     branches:
       - main
       - dev/.*
-#  pull_request:
-#    paths:
-#      - 'src/**'
-#      - 'tests/**'
-#      - 'dev_requirements.txt'
-#      - 'pyproject.toml'
-#      - '.github/workflows/tests-performance.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'dev_requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/tests-performance.yml'
 
 jobs:
   test-performance:
