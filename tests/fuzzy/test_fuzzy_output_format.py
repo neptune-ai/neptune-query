@@ -83,16 +83,14 @@ def test_create_metrics_dataframe(
     assert df.columns.tolist() == expected_columns
 
     # validate actual values using mean comparison (finite values only)
-    expected_values = [
-        point[ValueIndex] for points in metrics_data.values() for point in points if np.isfinite(point[ValueIndex])
-    ]
+    expected_values = [point[ValueIndex] for points in metrics_data.values() for point in points]
     value_columns = [
         col for col in df.columns if (isinstance(col, tuple) and col[1] == "value") or (not isinstance(col, tuple))
     ]
 
     if expected_values and value_columns:
         # sorting is actually important to ensure that we get consistent results for large floats
-        expected_mean = np.mean(sorted(expected_values))
+        expected_mean = np.mean(sorted(n for n in expected_values if np.isfinite(n)))
         actual_mean = np.mean(sorted(n for n in df[value_columns].values.flatten() if np.isfinite(n)))
         assert np.isclose(
             expected_mean, actual_mean, equal_nan=True
