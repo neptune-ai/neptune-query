@@ -49,6 +49,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}-latest
 
+      - name: Set hypothesis profile
+        id: set-profile
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "profile=ci-nightly" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.hypothesis_profile }}" ]; then
+            echo "profile=${{ inputs.hypothesis_profile }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=ci-quick" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run tests
         uses: ./.github/actions/run-tests
         with:
@@ -57,7 +68,7 @@ jobs:
           report-suffix: 'fuzzy-${{ matrix.python-version }}-${{ matrix.os }}'
           timeout: "900"
         env:
-          NEPTUNE_E2E_HYPOTHESIS_PROFILE: ${{ inputs.hypothesis_profile || 'ci-quick' }}
+          NEPTUNE_E2E_HYPOTHESIS_PROFILE: ${{ steps.set-profile.outputs.profile }}
 
       - name: Notify on failure
         if: failure() && github.event_name == 'schedule'
