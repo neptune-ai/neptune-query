@@ -60,7 +60,7 @@ jobs:
           NEPTUNE_E2E_HYPOTHESIS_PROFILE: ${{ inputs.hypothesis_profile || 'ci-quick' }}
 
       - name: Notify on failure
-        if: failure()  # && github.event_name == 'schedule'
+        if: failure() && github.event_name == 'schedule'
         uses: ./.github/actions/workflow-notify
         with:
           slack-webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
