@@ -229,12 +229,12 @@ def timeseries_bucket(draw, *, index: int, from_x: float, to_x: float) -> Timese
         # finite_points_sum = sum(finite_point_ys)
     else:
         finite_point_count = 0
-        first_x = float("nan")
-        first_y = float("nan")
-        last_x = float("nan")
-        last_y = float("nan")
-        # y_min = float("nan")
-        # y_max = float("nan")
+        first_x = None
+        first_y = None
+        last_x = None
+        last_y = None
+        # y_min = None
+        # y_max = None
         # finite_points_sum = 0
 
     # nan_count = draw(st.integers(min_value=0))
