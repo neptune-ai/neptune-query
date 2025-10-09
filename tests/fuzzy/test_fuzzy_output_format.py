@@ -68,37 +68,39 @@ def test_create_metrics_dataframe(
             if points
         }
     )
-    expected_subcolumns = ["value"]
-    if timestamp_column_name:
-        expected_subcolumns.append(timestamp_column_name)
-    if include_point_previews:
-        expected_subcolumns.extend(["is_preview", "preview_completion"])
+
+    expected_subcolumns = (
+        ["value"]
+        + (["absolute_time"] if timestamp_column_name else [])
+        + (["is_preview", "preview_completion"] if include_point_previews else [])
+    )
+
     if len(expected_subcolumns) > 1:
-        expected_columns = sorted(
-            [(attr, subcol) for attr in expected_attributes for subcol in expected_subcolumns],
-            key=lambda x: (x[0], EXPECTED_COLUMN_ORDER.index(x[1])),
-        )
+        expected_columns = [(attr, subcolumn) for attr in expected_attributes for subcolumn in expected_subcolumns]
     else:
         expected_columns = expected_attributes
     assert df.columns.tolist() == expected_columns
 
-    # validate actual values using mean comparison (finite values only)
-    expected_values = [point[ValueIndex] for points in metrics_data.values() for point in points]
-    value_columns = [
-        col for col in df.columns if (isinstance(col, tuple) and col[1] == "value") or (not isinstance(col, tuple))
-    ]
+    expected_values = np.array([point[ValueIndex] for points in metrics_data.values() for point in points])
+    if len(expected_values) > 0:
+        actual_values = (
+            df.loc[:, (slice(None), "value")].values if isinstance(df.columns, pd.MultiIndex) else df.values
+        ).flatten()
 
-    if expected_values and value_columns:
-        # sorting is actually important to ensure that we get consistent results for large floats
-        expected_mean = np.mean(sorted(n for n in expected_values if np.isfinite(n)))
-        actual_mean = np.mean(sorted(n for n in df[value_columns].values.flatten() if np.isfinite(n)))
-        assert np.isclose(
-            expected_mean, actual_mean, equal_nan=True
-        ), f"Mean mismatch: expected {expected_mean}, got {actual_mean}"
-    elif not expected_values and not value_columns:
-        pass  # Both empty, which is correct
+        # comparison skipping nans, as we can't differentiate between missing values and actual nans
+        np.testing.assert_allclose(
+            sorted(expected_values[~np.isnan(expected_values)]),
+            sorted(actual_values[~np.isnan(actual_values)]),
+            equal_nan=True,
+            err_msg="Value arrays mismatch",
+        )
+
+        assert (
+            np.isnan(actual_values).sum() >= np.isnan(expected_values).sum()
+        ), "Actual dataframe has fewer NaNs than expected"
+
     else:
-        assert False, f"Mismatch: expected_values={len(expected_values)}, value_columns={len(value_columns)}"
+        assert len(df.columns) == 0, f"Mismatch: columns={len(df.columns)}"
 
 
 @given(
