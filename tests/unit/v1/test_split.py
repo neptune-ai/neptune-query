@@ -324,6 +324,7 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
                 run_attribute_definitions=exp_attributes[start:end],
                 include_inherited=ANY,
                 container_type=ANY,
+                include_timestamp=ANY,
                 include_preview=ANY,
                 step_range=ANY,
                 tail_limit=ANY,

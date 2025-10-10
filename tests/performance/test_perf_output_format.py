@@ -6,6 +6,10 @@ from neptune_query.internal.output_format import (
     create_series_dataframe,
 )
 from neptune_query.internal.retrieval.series import SeriesValue
+from tests.helpers.metrics import (
+    FloatPointValue,
+    normalize_metrics_data,
+)
 
 from . import generate
 from .decorator import expected_benchmark
@@ -41,15 +45,21 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
         for path in range(num_paths):
             run_attr_def = generate.run_attribute_definition(exp, path)
             metrics_data[run_attr_def] = [
-                (None, float(step), float(step * exp), False, 1.0)
-                for step in range(num_steps)  # FloatPointValue as tuple
+                FloatPointValue.create(
+                    step=float(step),
+                    value=float(step * exp),
+                    timestamp_ms=None,
+                    is_preview=False,
+                    completion_ratio=1.0,
+                )
+                for step in range(num_steps)
             ]
 
     sys_id_label_mapping = {SysId(f"sysid{exp}"): f"exp{exp}" for exp in range(num_experiments)}
 
     benchmark(
         create_metrics_dataframe,
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=True,
         include_point_previews=False,
@@ -79,7 +89,7 @@ def test_perf_create_metrics_dataframe_with_random_data(
     sys_id_label_mapping = {r.run_identifier.sys_id: r.run_identifier.sys_id for r in metrics_data.keys()}
     benchmark(
         create_metrics_dataframe,
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
         include_point_previews=False,

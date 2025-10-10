@@ -48,7 +48,6 @@ from neptune_query.internal.retrieval.attribute_types import (
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
-from neptune_query.internal.retrieval.metrics import FloatPointValue
 from neptune_query.internal.retrieval.search import (
     ContainerType,
     ExperimentSysAttrs,
@@ -56,6 +55,10 @@ from neptune_query.internal.retrieval.search import (
 from neptune_query.internal.retrieval.series import SeriesValue
 from neptune_query.types import File as OFile
 from neptune_query.types import Histogram as OHistogram
+from tests.helpers.metrics import (
+    FloatPointValue,
+    normalize_metrics_data,
+)
 
 EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(
     identifiers.ProjectIdentifier("project/abc"), identifiers.SysId("XXX-1")
@@ -409,12 +412,12 @@ def _a_timestamp(seconds_delta) -> datetime:
 
 
 def _generate_float_point_value(step: int, preview: bool) -> FloatPointValue:
-    return (
-        _a_timestamp(seconds_delta=step).timestamp(),
-        float(step),
-        float(step) * 100,
-        preview,
-        1.0 - (float(step) / 1000.0),
+    return FloatPointValue.create(
+        step=float(step),
+        value=float(step) * 100,
+        timestamp_ms=_a_timestamp(seconds_delta=step).timestamp(),
+        is_preview=preview,
+        completion_ratio=1.0 - (float(step) / 1000.0),
     )
 
 
@@ -479,7 +482,7 @@ def test_create_metrics_dataframe_shape(include_preview):
 
     """Test the creation of a flat DataFrame from float point values."""
     df = create_metrics_dataframe(
-        metrics_data=float_point_values,
+        metrics_data=normalize_metrics_data(float_point_values),
         sys_id_label_mapping=sys_id_label_mapping,
         include_point_previews=include_preview,
         type_suffix_in_column_names=False,
@@ -515,11 +518,13 @@ def test_create_metrics_dataframe_shape(include_preview):
 def test_create_metrics_dataframe_from_exp_with_no_points():
     df = create_metrics_dataframe(
         # This input data produces a "hole" in our categorical mapping of experiment names to integers
-        metrics_data={
-            _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, False)],
-            _generate_run_attribute_definition(2, 2): [],
-            _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, False)],
-        },
+        metrics_data=normalize_metrics_data(
+            {
+                _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, False)],
+                _generate_run_attribute_definition(2, 2): [],
+                _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, False)],
+            }
+        ),
         sys_id_label_mapping={
             SysId("sysid1"): "exp1",
             SysId("sysid2"): "exp2",
@@ -551,11 +556,13 @@ def test_create_metrics_dataframe_from_exp_with_no_points():
 def test_create_metrics_dataframe_from_exp_with_no_points_preview():
     df = create_metrics_dataframe(
         # This input data produces a "hole" in our categorical mapping of experiment names to integers
-        metrics_data={
-            _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, True)],
-            _generate_run_attribute_definition(2, 2): [],
-            _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, True)],
-        },
+        metrics_data=normalize_metrics_data(
+            {
+                _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, True)],
+                _generate_run_attribute_definition(2, 2): [],
+                _generate_run_attribute_definition(3, 1): [_generate_float_point_value(2, True)],
+            }
+        ),
         sys_id_label_mapping={
             SysId("sysid1"): "exp1",
             SysId("sysid2"): "exp2",
@@ -598,17 +605,35 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
+            FloatPointValue.create(
+                step=1,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 3), 2, 20.0, False, 1.0),
+            FloatPointValue.create(
+                step=2,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 3),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid2")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 2), 1, 30.0, True, 0.5),
+            FloatPointValue.create(
+                step=1,
+                value=30.0,
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=True,
+                completion_ratio=0.5,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -617,7 +642,7 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
     }
 
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         timestamp_column_name="absolute_time",
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -855,17 +880,35 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
+            FloatPointValue.create(
+                step=1,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 3), 2, 20.0, False, 1.0),
+            FloatPointValue.create(
+                step=2,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 3),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid2")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 2), 1, 30.0, True, 0.5),
+            FloatPointValue.create(
+                step=1,
+                value=30.0,
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=True,
+                completion_ratio=0.5,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -874,7 +917,7 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
     }
 
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=include_preview,
@@ -916,11 +959,41 @@ def test_create_metrics_dataframe_random_order():
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 3, 30.0, False, 1.0),
-            (_make_timestamp(2023, 1, 1), 2, 20.0, False, 1.0),
-            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
-            (_make_timestamp(2023, 1, 1), 5, 50.0, False, 1.0),
-            (_make_timestamp(2023, 1, 1), 4, 40.0, False, 1.0),
+            FloatPointValue.create(
+                step=3,
+                value=30.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
+            FloatPointValue.create(
+                step=2,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
+            FloatPointValue.create(
+                step=1,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
+            FloatPointValue.create(
+                step=5,
+                value=50.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
+            FloatPointValue.create(
+                step=4,
+                value=40.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -928,7 +1001,7 @@ def test_create_metrics_dataframe_random_order():
     }
 
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
         include_point_previews=False,
@@ -964,20 +1037,20 @@ def test_create_metrics_dataframe_sorts_rows_and_columns():
 
     metrics_data = {
         RunAttributeDefinition(run_b_identifier, metric_z): [
-            (ts(6), 2.0, 220.0, False, 0.6),
-            (ts(5), 1.0, 110.0, False, 0.5),
+            FloatPointValue.create(2.0, 220.0, timestamp_ms=ts(6), is_preview=False, completion_ratio=0.6),
+            FloatPointValue.create(1.0, 110.0, timestamp_ms=ts(5), is_preview=False, completion_ratio=0.5),
         ],
         RunAttributeDefinition(run_a_identifier, metric_a): [
-            (ts(2), 2.0, 200.0, False, 0.2),
-            (ts(1), 1.0, 100.0, False, 0.1),
+            FloatPointValue.create(2.0, 200.0, timestamp_ms=ts(2), is_preview=False, completion_ratio=0.2),
+            FloatPointValue.create(1.0, 100.0, timestamp_ms=ts(1), is_preview=False, completion_ratio=0.1),
         ],
         RunAttributeDefinition(run_b_identifier, metric_a): [
-            (ts(8), 3.0, 330.0, False, 0.8),
-            (ts(7), 2.0, 210.0, False, 0.7),
+            FloatPointValue.create(3.0, 330.0, timestamp_ms=ts(8), is_preview=False, completion_ratio=0.8),
+            FloatPointValue.create(2.0, 210.0, timestamp_ms=ts(7), is_preview=False, completion_ratio=0.7),
         ],
         RunAttributeDefinition(run_a_identifier, metric_z): [
-            (ts(4), 4.0, 400.0, False, 0.4),
-            (ts(3), 3.0, 300.0, False, 0.3),
+            FloatPointValue.create(4.0, 400.0, timestamp_ms=ts(4), is_preview=False, completion_ratio=0.4),
+            FloatPointValue.create(3.0, 300.0, timestamp_ms=ts(3), is_preview=False, completion_ratio=0.3),
         ],
     }
 
@@ -987,7 +1060,7 @@ def test_create_metrics_dataframe_sorts_rows_and_columns():
     }
 
     df = create_metrics_dataframe(
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
         include_point_previews=True,
@@ -1059,7 +1132,7 @@ def test_create_empty_metrics_dataframe(
 ):
     # When
     df = create_metrics_dataframe(
-        metrics_data={},
+        metrics_data=normalize_metrics_data({}),
         sys_id_label_mapping={},
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=include_preview,
@@ -1122,18 +1195,36 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition(path, "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
+            FloatPointValue.create(
+                step=1,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid2")), AttributeDefinition(path, "float_series")
         ): [
-            (_make_timestamp(2023, 1, 2), 1, 30.0, True, 0.5),
+            FloatPointValue.create(
+                step=1,
+                value=30.0,
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=True,
+                completion_ratio=0.5,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")),
             AttributeDefinition("other_path", "float_series"),
         ): [
-            (_make_timestamp(2023, 1, 3), 2, 20.0, False, 1.0),
+            FloatPointValue.create(
+                step=2,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 3),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -1142,7 +1233,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
     }
 
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         timestamp_column_name=timestamp_column_name,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -1198,18 +1289,36 @@ def test_create_metrics_dataframe_with_reserved_paths_with_flat_index(path: str,
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition(path, "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
+            FloatPointValue.create(
+                step=1,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid2")), AttributeDefinition(path, "float_series")
         ): [
-            (_make_timestamp(2023, 1, 2), 1, 30.0, True, 0.5),
+            FloatPointValue.create(
+                step=1,
+                value=30.0,
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=True,
+                completion_ratio=0.5,
+            ),
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")),
             AttributeDefinition("other_path", "float_series"),
         ): [
-            (_make_timestamp(2023, 1, 3), 2, 20.0, False, 1.0),
+            FloatPointValue.create(
+                step=2,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 3),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -1218,7 +1327,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_flat_index(path: str,
     }
 
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=False,
@@ -1406,7 +1515,21 @@ def test_fetch_metrics_duplicate_values(include_time):
             attribute_definition=attributes[0],
         )
     ]
-    series_values = {run_attribute_definitions[0]: [(float(i), float(i), float(i), False, 1.0) for i in range(100)] * 2}
+    series_values = normalize_metrics_data(
+        {
+            run_attribute_definitions[0]: [
+                FloatPointValue.create(
+                    step=float(i),
+                    value=float(i),
+                    timestamp_ms=float(i),
+                    is_preview=False,
+                    completion_ratio=1.0,
+                )
+                for i in range(100)
+            ]
+            * 2
+        }
+    )
 
     # when
     with (
@@ -1740,7 +1863,13 @@ def test_create_metrics_dataframe_all_nan_values(
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),
+            FloatPointValue.create(
+                step=1.0,
+                value=float("nan"),
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),
         ],
     }
     sys_id_label_mapping = {
@@ -1749,7 +1878,7 @@ def test_create_metrics_dataframe_all_nan_values(
 
     # When
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=include_point_previews,
@@ -1799,14 +1928,38 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # step 1: valid value
-            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
+            FloatPointValue.create(
+                step=1.0,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 1: valid value
+            FloatPointValue.create(
+                step=2.0,
+                value=float("nan"),
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 2: NaN value
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, 20.0, False, 1.0),  # step 1: valid value
-            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
+            FloatPointValue.create(
+                step=1.0,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 1: valid value
+            FloatPointValue.create(
+                step=2.0,
+                value=float("nan"),
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 2: NaN value
         ],
     }
     sys_id_label_mapping = {
@@ -1815,7 +1968,7 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
 
     # When
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=include_point_previews,
@@ -1884,14 +2037,38 @@ def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path1", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, 10.0, False, 1.0),  # step 1: valid value
-            (_make_timestamp(2023, 1, 2), 2.0, 20.0, False, 1.0),  # step 2: valid value
+            FloatPointValue.create(
+                step=1.0,
+                value=10.0,
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 1: valid value
+            FloatPointValue.create(
+                step=2.0,
+                value=20.0,
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 2: valid value
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path2", "float_series")
         ): [
-            (_make_timestamp(2023, 1, 1), 1.0, float("nan"), False, 1.0),  # step 1: NaN value
-            (_make_timestamp(2023, 1, 2), 2.0, float("nan"), False, 1.0),  # step 2: NaN value
+            FloatPointValue.create(
+                step=1.0,
+                value=float("nan"),
+                timestamp_ms=_make_timestamp(2023, 1, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 1: NaN value
+            FloatPointValue.create(
+                step=2.0,
+                value=float("nan"),
+                timestamp_ms=_make_timestamp(2023, 1, 2),
+                is_preview=False,
+                completion_ratio=1.0,
+            ),  # step 2: NaN value
         ],
         RunAttributeDefinition(
             RunIdentifier(ProjectIdentifier("foo/bar"), SysId("sysid1")), AttributeDefinition("path3", "float_series")
@@ -1903,7 +2080,7 @@ def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
 
     # When
     df = create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=include_point_previews,

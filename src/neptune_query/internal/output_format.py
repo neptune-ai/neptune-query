@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -31,7 +32,6 @@ from ..exceptions import ConflictingAttributeTypes
 from . import identifiers
 from .retrieval import (
     metric_buckets,
-    metrics,
     series,
 )
 from .retrieval.attribute_types import (
@@ -40,13 +40,7 @@ from .retrieval.attribute_types import (
     Histogram,
 )
 from .retrieval.attribute_values import AttributeValue
-from .retrieval.metrics import (
-    IsPreviewIndex,
-    PreviewCompletionIndex,
-    StepIndex,
-    TimestampIndex,
-    ValueIndex,
-)
+from .retrieval.metrics import MetricValues
 from .retrieval.search import ContainerType
 from .util import _validate_allowed_value
 
@@ -142,7 +136,7 @@ def convert_table_to_dataframe(
 
 
 def create_metrics_dataframe(
-    metrics_data: dict[identifiers.RunAttributeDefinition, list[metrics.FloatPointValue]],
+    metrics_data: dict[identifiers.RunAttributeDefinition, MetricValues],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     type_suffix_in_column_names: bool,
@@ -172,19 +166,18 @@ def create_metrics_dataframe(
             else attr_def.attribute_definition.name
         )
 
-    run_to_observed_steps: dict[str, set[float]] = {}
-    paths_with_data: set[str] = set()
-
     # Collect which (experiment, path) pairs have data and the set of observed steps per run.
-    for definition, points in metrics_data.items():
-        if not points:
-            continue
+    paths_with_data: set[str] = {
+        path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
+    }
 
-        paths_with_data.add(path_display_name(definition))
+    sys_id_to_steps = defaultdict(list)
+    for definition, metric_values in metrics_data.items():
+        sys_id_to_steps[definition.run_identifier.sys_id].append(metric_values.steps)
 
-        step_set = run_to_observed_steps.setdefault(sys_id_label_mapping[definition.run_identifier.sys_id], set())
-        for point in points:
-            step_set.add(point[StepIndex])
+    run_to_observed_steps: dict[str, np.ndarray] = {}
+    for sys_id, step_arrays in sys_id_to_steps.items():
+        run_to_observed_steps[sys_id_label_mapping[sys_id]] = np.unique(np.concatenate(step_arrays))
 
     index_data = IndexData.from_observed_steps(
         observed_steps=run_to_observed_steps,
@@ -205,21 +198,20 @@ def create_metrics_dataframe(
     )
 
     # Write every metric point directly into the pre-allocated buffers.
-    for definition, points in metrics_data.items():
-        if not points:
+    for definition, metric_values in metrics_data.items():
+        if metric_values.length == 0:
             continue
 
-        step_to_row_index: dict[float, int] = index_data.lookup_rows(sys_id=definition.run_identifier.sys_id)
+        rows = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
+
         buffer: PathBuffer = path_buffers[path_display_name(definition)]
-        for point in points:
-            row_idx: int = step_to_row_index[point[StepIndex]]
-            buffer.value[row_idx] = point[ValueIndex]
-            if buffer.absolute_time is not None:
-                buffer.absolute_time[row_idx] = point[TimestampIndex]
-            if buffer.is_preview is not None:
-                buffer.is_preview[row_idx] = point[IsPreviewIndex]
-            if buffer.preview_completion is not None:
-                buffer.preview_completion[row_idx] = point[PreviewCompletionIndex]
+        buffer.value[rows] = metric_values.values
+        if buffer.absolute_time is not None:
+            buffer.absolute_time[rows] = metric_values.timestamps
+        if buffer.is_preview is not None:
+            buffer.is_preview[rows] = metric_values.is_preview
+        if buffer.preview_completion is not None:
+            buffer.preview_completion[rows] = metric_values.completion_ratio
 
     return _assemble_wide_dataframe(
         index_data=index_data,
@@ -291,7 +283,7 @@ def create_series_dataframe(
             step_set.add(point.step)
 
     index_data = IndexData.from_observed_steps(
-        observed_steps=run_to_observed_steps,
+        observed_steps={run: np.fromiter(steps, dtype=np.float64) for run, steps in run_to_observed_steps.items()},
         display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
         names=(index_column_name, "step"),
     )
@@ -311,7 +303,7 @@ def create_series_dataframe(
         if not converted_values:
             continue
 
-        step_to_row_index: dict[float, int] = index_data.lookup_rows(sys_id=definition.run_identifier.sys_id)
+        step_to_row_index: dict[float, int] = index_data.lookup_row_dict(sys_id=definition.run_identifier.sys_id)
         buffer = path_buffers[definition.attribute_definition.name]
         for point in converted_values:
             row_idx: int = step_to_row_index[point.step]
@@ -441,18 +433,22 @@ class IndexData:
 
     The ``row_lookup`` mapping allows to quickly find the row index for a
     given (run, step) pair.
+    The ``row_vector_lookup`` mapping stores the same information in a form
+    that allows to quickly find multiple row indices for a given run and
+    a vector of steps.
     """
 
     display_names: list[str]
     step_values: np.ndarray
     names: tuple[str, str]
 
-    row_lookup: dict[identifiers.SysId, dict[float, int]]  # (run, step) -> row index
+    row_dict_lookup: dict[identifiers.SysId, dict[float, int]]
+    row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]]
 
     @classmethod
     def from_observed_steps(
         cls,
-        observed_steps: dict[str, set[float]],
+        observed_steps: dict[str, np.ndarray],
         display_name_to_sys_id: dict[str, identifiers.SysId],
         names: tuple[str, str],
     ) -> "IndexData":
@@ -465,22 +461,28 @@ class IndexData:
 
         display_names: list[str] = []
         step_values: list[float] = []
-        row_lookup: dict[identifiers.SysId, dict[float, int]] = {}
+        row_dict_lookup: dict[identifiers.SysId, dict[float, int]] = {}
+        row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]] = {}
 
         row_count: int = 0
         for display_name, steps in sorted(observed_steps.items()):
+            sys_id = display_name_to_sys_id[display_name]
+            step_to_row = row_dict_lookup.setdefault(sys_id, {})
             for step in sorted(steps):
                 display_names.append(display_name)
                 step_values.append(step)
-                sys_id = display_name_to_sys_id[display_name]
-                row_lookup.setdefault(sys_id, {}).setdefault(step, row_count)
+                step_to_row.setdefault(step, row_count)
                 row_count += 1
+            steps_array = np.fromiter(step_to_row.keys(), dtype=np.float64)
+            rows_array = np.fromiter(step_to_row.values(), dtype=np.uintp)
+            row_vector_lookup[sys_id] = (steps_array, rows_array)
 
         return cls(
             display_names=display_names,
             step_values=np.array(step_values, dtype=np.float64),
             names=names,
-            row_lookup=row_lookup,
+            row_dict_lookup=row_dict_lookup,
+            row_vector_lookup=row_vector_lookup,
         )
 
     def row_count(self) -> int:
@@ -488,8 +490,12 @@ class IndexData:
 
         return len(self.display_names)
 
-    def lookup_rows(self, sys_id: identifiers.SysId) -> dict[float, int]:
-        return self.row_lookup.get(sys_id, {})
+    def lookup_row_vector(self, sys_id: identifiers.SysId, steps: np.ndarray) -> np.ndarray:
+        run_steps, rows = self.row_vector_lookup[sys_id]
+        return rows[np.searchsorted(run_steps, steps)]
+
+    def lookup_row_dict(self, sys_id: identifiers.SysId) -> dict[float, int]:
+        return self.row_dict_lookup[sys_id]
 
 
 @dataclass(slots=True)
