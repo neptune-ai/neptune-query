@@ -5,6 +5,10 @@ from datetime import (
     timedelta,
     timezone,
 )
+from typing import (
+    Sequence,
+    Tuple,
+)
 from unittest.mock import patch
 
 import numpy as np
@@ -48,7 +52,7 @@ from neptune_query.internal.retrieval.attribute_types import (
 )
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
-from neptune_query.internal.retrieval.metrics import FloatPointValue
+from neptune_query.internal.retrieval.metrics import MetricValues
 from neptune_query.internal.retrieval.search import (
     ContainerType,
     ExperimentSysAttrs,
@@ -62,6 +66,48 @@ EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(
 )
 
 EXPECTED_COLUMN_ORDER = ["value", "absolute_time", "is_preview", "preview_completion"]
+
+FloatPointValue = Tuple[float, float, float, bool, float]
+
+
+def _points_to_metric_values(points: Sequence[Tuple]) -> MetricValues:
+    """Convert test-friendly float point tuples into MetricValues expected by production code."""
+    size = len(points)
+    include_timestamp = any(len(point) > 0 and point[0] is not None for point in points)
+    include_preview = any(len(point) >= 4 for point in points)
+
+    metric_values = MetricValues.allocate(
+        size=size, include_timestamp=include_timestamp, include_preview=include_preview
+    )
+
+    for idx, point in enumerate(points):
+        timestamp = point[0] if len(point) > 0 else None
+        step = point[1] if len(point) > 1 else np.nan
+        value = point[2] if len(point) > 2 else np.nan
+        preview = point[3] if len(point) > 3 else False
+        completion_ratio = point[4] if len(point) > 4 else 1.0
+
+        metric_values.steps[idx] = float(step) if step is not None else np.nan
+        metric_values.values[idx] = float(value) if value is not None else np.nan
+
+        if metric_values.timestamps is not None:
+            metric_values.timestamps[idx] = float(timestamp) if timestamp is not None else np.nan
+
+        if metric_values.is_preview is not None:
+            metric_values.is_preview[idx] = bool(preview)
+
+        if metric_values.completion_ratio is not None:
+            metric_values.completion_ratio[idx] = float(completion_ratio) if completion_ratio is not None else np.nan
+
+    return metric_values
+
+
+def call_create_metrics_dataframe(*, metrics_data, **kwargs):
+    converted_metrics = {
+        definition: value if isinstance(value, MetricValues) else _points_to_metric_values(value)
+        for definition, value in metrics_data.items()
+    }
+    return create_metrics_dataframe(metrics_data=converted_metrics, **kwargs)
 
 
 def test_convert_experiment_table_to_dataframe_empty():
@@ -478,7 +524,7 @@ def test_create_metrics_dataframe_shape(include_preview):
     sys_id_label_mapping = {SysId(f"sysid{experiment}"): f"exp{experiment}" for experiment in range(EXPERIMENTS)}
 
     """Test the creation of a flat DataFrame from float point values."""
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=float_point_values,
         sys_id_label_mapping=sys_id_label_mapping,
         include_point_previews=include_preview,
@@ -513,7 +559,7 @@ def test_create_metrics_dataframe_shape(include_preview):
 
 
 def test_create_metrics_dataframe_from_exp_with_no_points():
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         # This input data produces a "hole" in our categorical mapping of experiment names to integers
         metrics_data={
             _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, False)],
@@ -549,7 +595,7 @@ def test_create_metrics_dataframe_from_exp_with_no_points():
 
 
 def test_create_metrics_dataframe_from_exp_with_no_points_preview():
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         # This input data produces a "hole" in our categorical mapping of experiment names to integers
         metrics_data={
             _generate_run_attribute_definition(1, 1): [_generate_float_point_value(1, True)],
@@ -616,7 +662,7 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
         SysId("sysid2"): "exp2",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         timestamp_column_name="absolute_time",
@@ -873,7 +919,7 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
         SysId("sysid2"): "exp2",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -927,7 +973,7 @@ def test_create_metrics_dataframe_random_order():
         SysId("sysid1"): "exp1",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
@@ -986,7 +1032,7 @@ def test_create_metrics_dataframe_sorts_rows_and_columns():
         SysId("sysid_a"): "run_a",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=metrics_data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
@@ -1058,7 +1104,7 @@ def test_create_empty_metrics_dataframe(
     type_suffix_in_column_names: bool, include_preview: bool, timestamp_column_name: str
 ):
     # When
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data={},
         sys_id_label_mapping={},
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -1141,7 +1187,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
         SysId("sysid2"): "exp2",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         timestamp_column_name=timestamp_column_name,
@@ -1217,7 +1263,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_flat_index(path: str,
         SysId("sysid2"): "exp2",
     }
 
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -1406,7 +1452,11 @@ def test_fetch_metrics_duplicate_values(include_time):
             attribute_definition=attributes[0],
         )
     ]
-    series_values = {run_attribute_definitions[0]: [(float(i), float(i), float(i), False, 1.0) for i in range(100)] * 2}
+    series_values = {
+        run_attribute_definitions[0]: _points_to_metric_values(
+            [(float(i), float(i), float(i), False, 1.0) for i in range(100)] * 2
+        )
+    }
 
     # when
     with (
@@ -1748,7 +1798,7 @@ def test_create_metrics_dataframe_all_nan_values(
     }
 
     # When
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -1814,7 +1864,7 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
     }
 
     # When
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -1902,7 +1952,7 @@ def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
     }
 
     # When
-    df = create_metrics_dataframe(
+    df = call_create_metrics_dataframe(
         metrics_data=data,
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,

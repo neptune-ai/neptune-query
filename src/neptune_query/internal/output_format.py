@@ -31,7 +31,6 @@ from ..exceptions import ConflictingAttributeTypes
 from . import identifiers
 from .retrieval import (
     metric_buckets,
-    metrics,
     series,
 )
 from .retrieval.attribute_types import (
@@ -40,13 +39,7 @@ from .retrieval.attribute_types import (
     Histogram,
 )
 from .retrieval.attribute_values import AttributeValue
-from .retrieval.metrics import (
-    IsPreviewIndex,
-    PreviewCompletionIndex,
-    StepIndex,
-    TimestampIndex,
-    ValueIndex,
-)
+from .retrieval.metrics import MetricValues
 from .retrieval.search import ContainerType
 from .util import _validate_allowed_value
 
@@ -142,7 +135,7 @@ def convert_table_to_dataframe(
 
 
 def create_metrics_dataframe(
-    metrics_data: dict[identifiers.RunAttributeDefinition, list[metrics.FloatPointValue]],
+    metrics_data: dict[identifiers.RunAttributeDefinition, MetricValues],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     type_suffix_in_column_names: bool,
@@ -176,15 +169,13 @@ def create_metrics_dataframe(
     paths_with_data: set[str] = set()
 
     # Collect which (experiment, path) pairs have data and the set of observed steps per run.
-    for definition, points in metrics_data.items():
-        if not points:
+    for definition, metric_values in metrics_data.items():
+        if metric_values.length == 0:
             continue
 
         paths_with_data.add(path_display_name(definition))
-
         step_set = run_to_observed_steps.setdefault(sys_id_label_mapping[definition.run_identifier.sys_id], set())
-        for point in points:
-            step_set.add(point[StepIndex])
+        step_set.update(metric_values.steps)
 
     index_data = IndexData.from_observed_steps(
         observed_steps=run_to_observed_steps,
@@ -205,21 +196,21 @@ def create_metrics_dataframe(
     )
 
     # Write every metric point directly into the pre-allocated buffers.
-    for definition, points in metrics_data.items():
-        if not points:
+    for definition, metric_values in metrics_data.items():
+        if metric_values.length == 0:
             continue
 
         step_to_row_index: dict[float, int] = index_data.lookup_rows(sys_id=definition.run_identifier.sys_id)
+        rows = np.array([step_to_row_index[step] for step in metric_values.steps], dtype=np.uint)
+
         buffer: PathBuffer = path_buffers[path_display_name(definition)]
-        for point in points:
-            row_idx: int = step_to_row_index[point[StepIndex]]
-            buffer.value[row_idx] = point[ValueIndex]
-            if buffer.absolute_time is not None:
-                buffer.absolute_time[row_idx] = point[TimestampIndex]
-            if buffer.is_preview is not None:
-                buffer.is_preview[row_idx] = point[IsPreviewIndex]
-            if buffer.preview_completion is not None:
-                buffer.preview_completion[row_idx] = point[PreviewCompletionIndex]
+        buffer.value[rows] = metric_values.values
+        if buffer.absolute_time is not None:
+            buffer.absolute_time[rows] = metric_values.timestamps
+        if buffer.is_preview is not None:
+            buffer.is_preview[rows] = metric_values.is_preview
+        if buffer.preview_completion is not None:
+            buffer.preview_completion[rows] = metric_values.completion_ratio
 
     return _assemble_wide_dataframe(
         index_data=index_data,
