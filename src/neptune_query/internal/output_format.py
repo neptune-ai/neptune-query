@@ -558,10 +558,8 @@ def _assemble_wide_dataframe(
         for path in sorted(path_buffers.keys()):
             buffer: PathBuffer = path_buffers[path]
             for sub_column in sub_columns:
-                column_data = buffer.get_data(sub_column)
                 multi_column_key: tuple[str, str] = (path, sub_column)
-                data[multi_column_key] = column_data
-
+                data[multi_column_key] = buffer.get_data(sub_column)
                 multi_column_keys.append(multi_column_key)
 
         columns = (
