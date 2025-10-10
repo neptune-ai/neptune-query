@@ -18,6 +18,7 @@ from typing import (
     Any,
     Callable,
     Generator,
+    Literal,
     Optional,
     Tuple,
 )
@@ -47,6 +48,7 @@ from .retrieval.metrics import (
     ValueIndex,
 )
 from .retrieval.search import ContainerType
+from .util import _validate_allowed_value
 
 __all__ = (
     "convert_table_to_dataframe",
@@ -146,7 +148,7 @@ def create_metrics_dataframe(
     type_suffix_in_column_names: bool,
     include_point_previews: bool,
     index_column_name: str,
-    timestamp_column_name: Optional[str] = None,
+    timestamp_column_name: Optional[Literal["absolute_time"]] = None,
 ) -> pd.DataFrame:
     """Create a wide metrics DataFrame while keeping peak allocations low.
 
@@ -161,7 +163,7 @@ def create_metrics_dataframe(
     the metric values.
     """
 
-    assert timestamp_column_name in (None, "absolute_time"), "Unexpected timestamp column"
+    _validate_allowed_value(timestamp_column_name, ["absolute_time"], "timestamp_column_name")
 
     def path_display_name(attr_def: identifiers.RunAttributeDefinition) -> str:
         return (
@@ -219,7 +221,7 @@ def create_metrics_dataframe(
             if buffer.preview_completion is not None:
                 buffer.preview_completion[row_idx] = point[PreviewCompletionIndex]
 
-    df = _assemble_wide_dataframe(
+    return _assemble_wide_dataframe(
         index_data=index_data,
         path_buffers=path_buffers,
         sub_columns=(
@@ -229,32 +231,16 @@ def create_metrics_dataframe(
         ),
     )
 
-    # Fix up dtypes for special columns.
-    if timestamp_column_name is not None:
-        for column in df.columns:
-            if column[1] == timestamp_column_name:
-                df[column] = pd.to_datetime(df[column], unit="ms", origin="unix", utc=True)
-
-    if include_point_previews:
-        for column in df.columns:
-            if column[1] != "is_preview":
-                continue
-            series = df[column]
-            if series.isna().any():
-                continue
-            df[column] = series.astype(bool)
-
-    return df
-
 
 def create_series_dataframe(
     series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]],
     project_identifier: str,
     sys_id_label_mapping: dict[identifiers.SysId, str],
     index_column_name: str,
-    timestamp_column_name: Optional[str],
+    timestamp_column_name: Optional[Literal["absolute_time"]] = None,
 ) -> pd.DataFrame:
-    assert timestamp_column_name in (None, "absolute_time"), "Unexpected timestamp column"
+
+    _validate_allowed_value(timestamp_column_name, ["absolute_time"], "timestamp_column_name")
 
     def convert_values(
         run_attribute_definition: identifiers.RunAttributeDefinition, values: list[series.SeriesValue]
@@ -263,27 +249,27 @@ def create_series_dataframe(
             label = sys_id_label_mapping[run_attribute_definition.run_identifier.sys_id]
             return [
                 series.SeriesValue(
-                    step=point.step,
+                    step=v.step,
                     value=_create_output_file(
                         project_identifier=project_identifier,
-                        file=point.value,
+                        file=v.value,
                         label=label,
                         index_column_name=index_column_name,
                         attribute_path=run_attribute_definition.attribute_definition.name,
-                        step=point.step,
+                        step=v.step,
                     ),
-                    timestamp_millis=point.timestamp_millis,
+                    timestamp_millis=v.timestamp_millis,
                 )
-                for point in values
+                for v in values
             ]
         if run_attribute_definition.attribute_definition.type == "histogram_series":
             return [
                 series.SeriesValue(
-                    step=point.step,
-                    value=_create_output_histogram(point.value),
-                    timestamp_millis=point.timestamp_millis,
+                    step=v.step,
+                    value=_create_output_histogram(v.value),
+                    timestamp_millis=v.timestamp_millis,
                 )
-                for point in values
+                for v in values
             ]
         return values
 
@@ -333,19 +319,11 @@ def create_series_dataframe(
             if buffer.absolute_time is not None:
                 buffer.absolute_time[row_idx] = point.timestamp_millis
 
-    df = _assemble_wide_dataframe(
+    return _assemble_wide_dataframe(
         index_data=index_data,
         path_buffers=path_buffers,
         sub_columns=["value"] + ([timestamp_column_name] if timestamp_column_name else []),
     )
-
-    # Fix up dtypes for special columns.
-    if timestamp_column_name:
-        for column in df.columns:
-            if column[1] == timestamp_column_name:
-                df[column] = pd.to_datetime(df[column], unit="ms", origin="unix", utc=True)
-
-    return df
 
 
 def create_metric_buckets_dataframe(
@@ -533,6 +511,14 @@ class PathBuffer:
     is_preview: Optional[np.ndarray] = None
     preview_completion: Optional[np.ndarray] = None
 
+    def get_data(self, subcolumn: str) -> Optional[np.ndarray | pd.Series | pd.api.extensions.ExtensionArray]:
+        if subcolumn == "absolute_time":
+            return pd.to_datetime(self.absolute_time, unit="ms", utc=True) if self.absolute_time is not None else None
+        if subcolumn == "is_preview":
+            return pd.array(self.is_preview, dtype="boolean") if self.is_preview is not None else None
+
+        return getattr(self, subcolumn, None)
+
 
 def _initialize_path_buffers(
     num_rows: int,
@@ -572,7 +558,7 @@ def _assemble_wide_dataframe(
         for path in sorted(path_buffers.keys()):
             buffer: PathBuffer = path_buffers[path]
             for sub_column in sub_columns:
-                column_data = getattr(buffer, sub_column, None)
+                column_data = buffer.get_data(sub_column)
                 multi_column_key: tuple[str, str] = (path, sub_column)
                 data[multi_column_key] = column_data
 

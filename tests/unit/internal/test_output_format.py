@@ -586,6 +586,7 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
             names=["experiment", "step"],
         ),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
     pd.testing.assert_frame_equal(df, expected_df)
 
 
@@ -653,6 +654,7 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
         dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -903,6 +905,7 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
         expected,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1043,6 +1046,7 @@ def test_create_metrics_dataframe_sorts_rows_and_columns():
     expected_df = pd.DataFrame(expected_data, index=expected_index)
     expected_df = expected_df[expected_columns]
     expected_df.columns = expected_columns
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1179,6 +1183,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
         dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1777,6 +1782,7 @@ def test_create_metrics_dataframe_all_nan_values(
         data=expected_data,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1861,6 +1867,7 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
         data=expected_data,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
 
@@ -1944,5 +1951,16 @@ def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
         data=expected_data,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
+    ensure_boolean_datatype_for_is_preview_column(expected_df)
 
     pd.testing.assert_frame_equal(df, expected_df)
+
+
+def ensure_boolean_datatype_for_is_preview_column(df: pd.DataFrame) -> None:
+    """
+    By default, pandas may infer is_preview column as `bool` if no NaN values are present.
+    This function ensures that the is_preview column is always of type `boolean` (nullable boolean).
+    """
+    for col in df.columns:
+        if isinstance(col, tuple) and col[1] == "is_preview":
+            df[col] = df[col].astype("boolean")
