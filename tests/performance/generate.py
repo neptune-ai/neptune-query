@@ -1,7 +1,6 @@
 import random
 import string
 
-import neptune_query.internal.retrieval.metrics as metrics
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
@@ -12,6 +11,7 @@ from neptune_query.internal.identifiers import (
 from neptune_query.internal.retrieval.attribute_types import FloatSeriesAggregations
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
+from tests.helpers.metrics import FloatPointValue
 
 # Set the random seed for reproducibility
 random.seed(20250925)
@@ -25,8 +25,14 @@ def random_alnum_strings(count: int, length: int) -> list[str]:
     return [random_alnum(length) for _ in range(count)]
 
 
-def float_point_value(i: int, exp: int) -> metrics.FloatPointValue:
-    return (1234567890 + i * 1000.0, float(i) + exp, float(i) * 10, False, 1.0)
+def float_point_value(i: int, exp: int) -> FloatPointValue:
+    return FloatPointValue.create(
+        step=float(i) + exp,
+        value=float(i) * 10,
+        timestamp_ms=1234567890 + i * 1000.0,
+        is_preview=False,
+        completion_ratio=1.0,
+    )
 
 
 EXPERIMENT_IDENTIFIER = RunIdentifier(ProjectIdentifier("project/abc"), SysId("XXX-1"))

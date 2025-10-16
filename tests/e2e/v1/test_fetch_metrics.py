@@ -26,7 +26,6 @@ from neptune_query.internal.identifiers import (
     SysId,
 )
 from neptune_query.internal.output_format import create_metrics_dataframe
-from neptune_query.internal.retrieval.metrics import FloatPointValue
 from tests.e2e.conftest import Project
 from tests.e2e.data import (
     NOW,
@@ -41,6 +40,10 @@ from tests.e2e.v1.generator import (
     RUN_ID_INF_NAN_RUN,
     timestamp_for_step,
 )
+from tests.helpers.metrics import (
+    FloatPointValue,
+    normalize_metrics_data,
+)
 
 
 def _to_run_attribute_definition(project, run, metric_name):
@@ -51,7 +54,13 @@ def _to_run_attribute_definition(project, run, metric_name):
 
 
 def _to_float_point_value(step, value):
-    return int(timestamp_for_step(step).timestamp() * 1000), step, value, False, 1.0
+    return FloatPointValue.create(
+        step=step,
+        value=value,
+        timestamp_ms=int(timestamp_for_step(step).timestamp() * 1000),
+        is_preview=False,
+        completion_ratio=1.0,
+    )
 
 
 def _sys_id_label_mapping(experiments: list[ExperimentData]) -> dict[SysId, str]:
@@ -70,12 +79,12 @@ def _run_attribute_definition(
 
 
 def _float_point_value(step, value) -> FloatPointValue:
-    return (
-        int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
-        step,
-        value,
-        False,
-        1.0,
+    return FloatPointValue.create(
+        step=step,
+        value=value,
+        timestamp_ms=int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
+        is_preview=False,
+        completion_ratio=1.0,
     )
 
 
@@ -129,12 +138,12 @@ def create_expected_data(
                     columns.add(f"{path}:float_series" if type_suffix_in_column_names else path)
                     filtered_experiments.add(experiment.name)
                     filtered.append(
-                        (
-                            int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
-                            step,
-                            series[int(step)],
-                            False,
-                            1.0,
+                        FloatPointValue.create(
+                            step=step,
+                            value=series[int(step)],
+                            timestamp_ms=int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000,
+                            is_preview=False,
+                            completion_ratio=1.0,
                         )
                     )
             limited = filtered[-tail_limit:] if tail_limit is not None else filtered
@@ -146,7 +155,7 @@ def create_expected_data(
             metrics_data.setdefault(attribute_run, []).extend(limited)
 
     df = create_metrics_dataframe(
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=_sys_id_label_mapping(experiments),
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=False,
@@ -383,11 +392,13 @@ def test__fetch_metrics__lineage(new_project_id, lineage_to_the_root, expected_v
     )
 
     expected = create_metrics_dataframe(
-        metrics_data={
-            _to_run_attribute_definition(new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "metrics/m1"): [
-                _to_float_point_value(step, value) for step, value in expected_values
-            ]
-        },
+        metrics_data=normalize_metrics_data(
+            {
+                _to_run_attribute_definition(new_project_id, MULT_EXPERIMENT_HISTORY_EXP_2, "metrics/m1"): [
+                    _to_float_point_value(step, value) for step, value in expected_values
+                ]
+            }
+        ),
         sys_id_label_mapping={SysId(MULT_EXPERIMENT_HISTORY_EXP_2): MULT_EXPERIMENT_HISTORY_EXP_2},
         type_suffix_in_column_names=False,
         include_point_previews=False,
@@ -414,11 +425,13 @@ def test__fetch_metrics_nan_inf(new_project_id, series_name, expected_values):
     )
 
     expected = create_metrics_dataframe(
-        metrics_data={
-            _to_run_attribute_definition(new_project_id, EXP_NAME_INF_NAN_RUN, series_name): [
-                _to_float_point_value(step, value) for step, value in expected_values
-            ]
-        },
+        metrics_data=normalize_metrics_data(
+            {
+                _to_run_attribute_definition(new_project_id, EXP_NAME_INF_NAN_RUN, series_name): [
+                    _to_float_point_value(step, value) for step, value in expected_values
+                ]
+            }
+        ),
         sys_id_label_mapping={SysId(EXP_NAME_INF_NAN_RUN): EXP_NAME_INF_NAN_RUN},
         type_suffix_in_column_names=False,
         include_point_previews=False,

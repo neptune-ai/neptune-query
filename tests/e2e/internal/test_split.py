@@ -28,6 +28,11 @@ from tests.e2e.data import (
     PATH,
     TEST_DATA,
 )
+from tests.helpers.metrics import (
+    FloatPointValue,
+    assert_metric_mappings_equal,
+    normalize_metrics_data,
+)
 
 LONG_PATH_CONFIGS = TEST_DATA.experiments[0].long_path_configs
 LONG_PATH_SERIES = TEST_DATA.experiments[0].long_path_series
@@ -272,6 +277,7 @@ def test_fetch_float_series_values_retrieval(client, project, experiment_identif
             attribute_definitions,
             include_inherited=True,
             container_type=ContainerType.EXPERIMENT,
+            include_timestamp=False,
             include_preview=False,
             step_range=(None, None),
             tail_limit=None,
@@ -281,16 +287,23 @@ def test_fetch_float_series_values_retrieval(client, project, experiment_identif
 
     # then
     if success:
-        expected_values = {
-            RunAttributeDefinition(
-                run_identifier=identifiers.RunIdentifier(project.project_identifier, exp.sys_id),
-                attribute_definition=identifiers.AttributeDefinition(key, "float_series"),
-            ): [(int(NOW.timestamp() * 1000), 1.0, value, False, 1.0)]
-            for exp in exp_identifiers
-            for key, value in attribute_data.items()
-        }
+        expected_values = normalize_metrics_data(
+            {
+                RunAttributeDefinition(
+                    run_identifier=identifiers.RunIdentifier(project.project_identifier, exp.sys_id),
+                    attribute_definition=identifiers.AttributeDefinition(key, "float_series"),
+                ): [
+                    FloatPointValue.create(
+                        step=1.0,
+                        value=value,
+                    )
+                ]
+                for exp in exp_identifiers
+                for key, value in attribute_data.items()
+            }
+        )
         assert thrown_e is None
-        assert result == expected_values
+        assert_metric_mappings_equal(result, expected_values)
     else:
         assert result is None
         assert thrown_e is not None

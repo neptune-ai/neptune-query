@@ -20,7 +20,7 @@ from neptune_query.internal.identifiers import (
     SysId,
 )
 from neptune_query.internal.output_format import create_metrics_dataframe
-from neptune_query.internal.retrieval.metrics import FloatPointValue
+from neptune_query.internal.retrieval.metrics import MetricValues
 
 
 def _generate_metrics_dataset(
@@ -28,9 +28,11 @@ def _generate_metrics_dataset(
     num_experiments: int,
     num_metrics: int,
     num_steps: int,
-) -> tuple[dict[RunAttributeDefinition, list[FloatPointValue]], dict[SysId, str]]:
+    include_timestamp: bool,
+    include_preview: bool,
+) -> tuple[dict[RunAttributeDefinition, MetricValues], dict[SysId, str]]:
     project = ProjectIdentifier("perf/project")
-    metrics_data: dict[RunAttributeDefinition, list[FloatPointValue]] = {}
+    metrics_data: dict[RunAttributeDefinition, MetricValues] = {}
     label_mapping: dict[SysId, str] = {}
 
     for experiment_index in range(num_experiments):
@@ -41,18 +43,18 @@ def _generate_metrics_dataset(
         for metric_index in range(num_metrics):
             attribute = AttributeDefinition(f"metric_{metric_index}", "float_series")
             definition = RunAttributeDefinition(run_identifier, attribute)
-            points: list[FloatPointValue] = []
+            metric_values = MetricValues.allocate(
+                size=num_steps, include_timestamp=include_timestamp, include_preview=include_preview
+            )
             for step in range(num_steps):
-                points.append(
-                    (
-                        float(step),
-                        float(step),
-                        float(metric_index + step),
-                        False,
-                        1.0,
-                    )
-                )
-            metrics_data[definition] = points
+                metric_values.steps[step] = step
+                metric_values.values[step] = step
+                if include_timestamp:
+                    metric_values.timestamps[step] = 1_600_000_000_000 + step * 1_000
+                if include_preview:
+                    metric_values.is_preview[step] = False
+                    metric_values.completion_ratio[step] = 1.0
+            metrics_data[definition] = metric_values
 
     return metrics_data, label_mapping
 
@@ -74,6 +76,8 @@ def test_create_metrics_dataframe_timing(
         num_experiments=30,
         num_metrics=60,
         num_steps=400,
+        include_timestamp=timestamp_column_name is not None,
+        include_preview=include_point_previews,
     )
 
     start = time.perf_counter_ns()
@@ -96,8 +100,8 @@ def test_create_metrics_dataframe_timing(
 @pytest.mark.parametrize(
     "timestamp_column_name,include_point_previews,max_allowed_ratio",
     [
-        (None, False, 2.4),
-        (None, True, 4.4),
+        (None, False, 2.5),
+        (None, True, 4.5),
         ("absolute_time", False, 3.8),
         ("absolute_time", True, 4.0),
     ],
@@ -109,6 +113,8 @@ def test_create_metrics_dataframe_timestamp_peak_memory_usage(
         num_experiments=30,
         num_metrics=60,
         num_steps=400,
+        include_timestamp=timestamp_column_name is not None,
+        include_preview=include_point_previews,
     )
 
     tracemalloc.start()

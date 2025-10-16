@@ -10,6 +10,10 @@ from tests.e2e.v1.generator import (
     RUN_BY_ID,
     timestamp_for_step,
 )
+from tests.helpers.metrics import (
+    FloatPointValue,
+    normalize_metrics_data,
+)
 
 NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 
@@ -234,12 +238,20 @@ def create_expected_data(project, expected_metrics, include_time: str, type_suff
         rows = data.setdefault(attribute_run, [])
 
         for step, value in values:
-            rows.append((int(timestamp_for_step(step).timestamp() * 1000), step, value, False, 1.0))
+            rows.append(
+                FloatPointValue.create(
+                    step=step,
+                    value=value,
+                    timestamp_ms=int(timestamp_for_step(step).timestamp() * 1000),
+                    is_preview=False,
+                    completion_ratio=1.0,
+                )
+            )
 
     sys_id_label_mapping = {identifiers.SysId(run): run for run, _ in expected_metrics.keys()}
 
     return create_metrics_dataframe(
-        metrics_data=data,
+        metrics_data=normalize_metrics_data(data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=False,
