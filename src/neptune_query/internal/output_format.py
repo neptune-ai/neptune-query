@@ -15,6 +15,7 @@
 import pathlib
 from collections import defaultdict
 from dataclasses import dataclass
+from itertools import repeat
 from typing import (
     Any,
     Callable,
@@ -166,7 +167,6 @@ def create_metrics_dataframe(
             else attr_def.attribute_definition.name
         )
 
-    # Collect which (experiment, path) pairs have data and the set of observed steps per run.
     paths_with_data: set[str] = {
         path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
     }
@@ -179,11 +179,16 @@ def create_metrics_dataframe(
     for sys_id, step_arrays in sys_id_to_steps.items():
         run_to_observed_steps[sys_id_label_mapping[sys_id]] = np.unique(np.concatenate(step_arrays))
 
+    del sys_id_to_steps
+
     index_data = IndexData.from_observed_steps(
         observed_steps=run_to_observed_steps,
         display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
-        names=(index_column_name, "step"),
+        index_level_labels=(index_column_name, "step"),
+        access="vector",
     )
+
+    del run_to_observed_steps
 
     # Preallocate column vectors for every logical value we might emit.
     path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
@@ -285,7 +290,8 @@ def create_series_dataframe(
     index_data = IndexData.from_observed_steps(
         observed_steps={run: np.fromiter(steps, dtype=np.float64) for run, steps in run_to_observed_steps.items()},
         display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
-        names=(index_column_name, "step"),
+        index_level_labels=(index_column_name, "step"),
+        access="dict",
     )
 
     # Allocate column storage ahead of time for each path/value pair.
@@ -431,58 +437,60 @@ class IndexData:
     ``names`` stores the index level labels that should be applied to the
     finished DataFrame.
 
-    The ``row_lookup`` mapping allows to quickly find the row index for a
-    given (run, step) pair.
-    The ``row_vector_lookup`` mapping stores the same information in a form
-    that allows to quickly find multiple row indices for a given run and
-    a vector of steps.
+    The ``sys_id_offsets`` mapping stores, for every run, the contiguous slice
+    of ``display_names``/``step_values`` that corresponds to that run. This
+    allows efficient lookup of multiple row indices for a given run and a
+    vector of steps without maintaining a secondary array of per-run vectors.
     """
 
     display_names: list[str]
     step_values: np.ndarray
-    names: tuple[str, str]
-
-    row_dict_lookup: dict[identifiers.SysId, dict[float, int]]
-    row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]]
+    index_level_labels: tuple[str, str]
+    sys_id_ranges: Optional[dict[identifiers.SysId, tuple[int, int]]]
+    row_dict_lookup: Optional[dict[identifiers.SysId, dict[float, int]]]
 
     @classmethod
     def from_observed_steps(
         cls,
         observed_steps: dict[str, np.ndarray],
         display_name_to_sys_id: dict[str, identifiers.SysId],
-        names: tuple[str, str],
+        index_level_labels: tuple[str, str],
+        access: Literal["vector", "dict"],
     ) -> "IndexData":
         """
-        1. Flatten observed step sets into arrays suited for ``pd.MultiIndex``.
-        2. Build a lookup mapping (display_name, step) pairs to row indices in the flattened arrays.
-
         Importantly, this is where the sorting order of the index is defined.
         """
 
         display_names: list[str] = []
         step_values: list[float] = []
-        row_dict_lookup: dict[identifiers.SysId, dict[float, int]] = {}
-        row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]] = {}
+        sys_id_ranges: Optional[dict[identifiers.SysId, tuple[int, int]]] = {} if access == "vector" else None
+        row_dict_lookup: Optional[dict[identifiers.SysId, dict[float, int]]] = {} if access == "dict" else None
 
         row_count: int = 0
-        for display_name, steps in sorted(observed_steps.items()):
+        for display_name in sorted(observed_steps.keys()):
+            steps = observed_steps[display_name]
             sys_id = display_name_to_sys_id[display_name]
-            step_to_row = row_dict_lookup.setdefault(sys_id, {})
-            for step in sorted(steps):
-                display_names.append(display_name)
-                step_values.append(step)
-                step_to_row.setdefault(step, row_count)
-                row_count += 1
-            steps_array = np.fromiter(step_to_row.keys(), dtype=np.float64)
-            rows_array = np.fromiter(step_to_row.values(), dtype=np.uintp)
-            row_vector_lookup[sys_id] = (steps_array, rows_array)
+
+            sorted_steps = np.sort(steps, kind="stable")
+            start_index = row_count
+            step_count = int(sorted_steps.size)
+
+            if step_count:
+                display_names.extend(repeat(display_name, step_count))
+                step_values.extend(sorted_steps)
+                row_count += step_count
+
+            if sys_id_ranges is not None:
+                sys_id_ranges[sys_id] = (start_index, start_index + step_count)
+            if row_dict_lookup is not None:
+                row_dict_lookup[sys_id] = {float(step): idx for idx, step in enumerate(sorted_steps, start=start_index)}
 
         return cls(
             display_names=display_names,
             step_values=np.array(step_values, dtype=np.float64),
-            names=names,
+            index_level_labels=index_level_labels,
+            sys_id_ranges=sys_id_ranges,
             row_dict_lookup=row_dict_lookup,
-            row_vector_lookup=row_vector_lookup,
         )
 
     def row_count(self) -> int:
@@ -491,10 +499,16 @@ class IndexData:
         return len(self.display_names)
 
     def lookup_row_vector(self, sys_id: identifiers.SysId, steps: np.ndarray) -> np.ndarray:
-        run_steps, rows = self.row_vector_lookup[sys_id]
-        return rows[np.searchsorted(run_steps, steps)]
+        if self.sys_id_ranges is None:
+            raise RuntimeError("IndexData was not initialized with vector lookup support.")
+        start, end = self.sys_id_ranges[sys_id]
+        run_steps = self.step_values[start:end]
+        relative_rows = run_steps.searchsorted(steps)
+        return relative_rows + start
 
     def lookup_row_dict(self, sys_id: identifiers.SysId) -> dict[float, int]:
+        if self.row_dict_lookup is None:
+            raise RuntimeError("IndexData was not initialized with dict lookup support.")
         return self.row_dict_lookup[sys_id]
 
 
@@ -586,7 +600,7 @@ def _assemble_wide_dataframe(
 
     index = pd.MultiIndex.from_arrays(
         arrays=[index_data.display_names, index_data.step_values],
-        names=index_data.names,
+        names=index_data.index_level_labels,
     )
     return pd.DataFrame(data=data, index=index, columns=columns)
 
