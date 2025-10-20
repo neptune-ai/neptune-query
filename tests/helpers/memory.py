@@ -1,12 +1,16 @@
+import dataclasses
 import os
+import sys
 import threading
 import time
+from collections.abc import Mapping
 
+import numpy as np
 import psutil
 
 
 class MemoryMonitor:
-    def __init__(self, interval: float = 0.5):
+    def __init__(self, interval: float = 0.1):
         self.interval = interval
         self._thread = None
         self._running = False
@@ -38,3 +42,38 @@ class MemoryMonitor:
         if self._thread:
             self._thread.join(timeout=self.interval * 2)
         return self._peak
+
+
+def get_size(obj, seen=None) -> int:
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+
+    if isinstance(obj, np.ndarray):
+        return size + obj.nbytes
+
+    if dataclasses.is_dataclass(obj):
+        for field in dataclasses.fields(obj):
+            value = getattr(obj, field.name)
+            size += get_size(value, seen)
+        return size
+
+    if isinstance(obj, Mapping):
+        for k, v in obj.items():
+            size += get_size(k, seen)
+            size += get_size(v, seen)
+        return size
+
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        for item in obj:
+            size += get_size(item, seen)
+        return size
+
+    if hasattr(obj, "__dict__"):
+        size += get_size(vars(obj), seen)
+
+    return size

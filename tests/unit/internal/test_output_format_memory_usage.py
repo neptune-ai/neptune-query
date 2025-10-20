@@ -120,6 +120,8 @@ def test_create_metrics_dataframe_timestamp_peak_memory_usage(
     monitor = MemoryMonitor()
     monitor.start()
     try:
+        print()
+        print("---------------")
         df = create_metrics_dataframe(
             metrics_data=metrics_data,
             sys_id_label_mapping=sys_id_label_mapping,
@@ -128,6 +130,7 @@ def test_create_metrics_dataframe_timestamp_peak_memory_usage(
             include_point_previews=include_point_previews,
             index_column_name="experiment",
         )
+        print("---------------")
     finally:
         peak = monitor.stop()
 

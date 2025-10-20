@@ -26,6 +26,9 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+from humanize import naturalsize
+
+from tests.helpers.memory import get_size
 
 from .. import types
 from ..exceptions import ConflictingAttributeTypes
@@ -166,24 +169,68 @@ def create_metrics_dataframe(
             else attr_def.attribute_definition.name
         )
 
+    import os
+    import time
+    from datetime import datetime
+
+    import psutil
+
+    process = psutil.Process(os.getpid())
+
+    print(
+        f"{datetime.now()} starting create_metrics_dataframe, process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    print(
+        f"{datetime.now()} metrics_data: {naturalsize(get_size(metrics_data))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
+
     # Collect which (experiment, path) pairs have data and the set of observed steps per run.
     paths_with_data: set[str] = {
         path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
     }
+    print(
+        f"{datetime.now()} paths_with_data: {naturalsize(get_size(paths_with_data))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
 
     sys_id_to_steps = defaultdict(list)
     for definition, metric_values in metrics_data.items():
         sys_id_to_steps[definition.run_identifier.sys_id].append(metric_values.steps)
 
+    print(
+        f"{datetime.now()} sys_id_to_steps: {naturalsize(get_size(sys_id_to_steps))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
+
     run_to_observed_steps: dict[str, np.ndarray] = {}
     for sys_id, step_arrays in sys_id_to_steps.items():
         run_to_observed_steps[sys_id_label_mapping[sys_id]] = np.unique(np.concatenate(step_arrays))
+
+    del sys_id_to_steps
+
+    print(
+        f"{datetime.now()} run_to_observed_steps: {naturalsize(get_size(run_to_observed_steps))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
 
     index_data = IndexData.from_observed_steps(
         observed_steps=run_to_observed_steps,
         display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
         names=(index_column_name, "step"),
     )
+
+    print(
+        f"{datetime.now()} index_data: {naturalsize(get_size(index_data))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
+
+    del run_to_observed_steps
 
     # Preallocate column vectors for every logical value we might emit.
     path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
@@ -196,6 +243,12 @@ def create_metrics_dataframe(
             preview_completion=_create_nan_float_array if include_point_previews else None,
         ),
     )
+
+    print(
+        f"{datetime.now()} path_buffers: {naturalsize(get_size(path_buffers))}, "
+        f"process memory: {naturalsize(process.memory_info().rss)}"
+    )
+    time.sleep(3)
 
     # Write every metric point directly into the pre-allocated buffers.
     for definition, metric_values in metrics_data.items():
@@ -213,7 +266,7 @@ def create_metrics_dataframe(
         if buffer.preview_completion is not None:
             buffer.preview_completion[rows] = metric_values.completion_ratio
 
-    return _assemble_wide_dataframe(
+    df = _assemble_wide_dataframe(
         index_data=index_data,
         path_buffers=path_buffers,
         sub_columns=(
@@ -222,6 +275,11 @@ def create_metrics_dataframe(
             + (["is_preview", "preview_completion"] if include_point_previews else [])
         ),
     )
+    print(f"{datetime.now()} df: {naturalsize(get_size(df))}, process memory: {naturalsize(process.memory_info().rss)}")
+    time.sleep(3)
+
+    print(f"{datetime.now()} returning df, process memory: {naturalsize(process.memory_info().rss)}")
+    return df
 
 
 def create_series_dataframe(
@@ -442,7 +500,7 @@ class IndexData:
     step_values: np.ndarray
     names: tuple[str, str]
 
-    row_dict_lookup: dict[identifiers.SysId, dict[float, int]]
+    # row_dict_lookup: dict[identifiers.SysId, dict[float, int]]
     row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]]
 
     @classmethod
@@ -461,27 +519,29 @@ class IndexData:
 
         display_names: list[str] = []
         step_values: list[float] = []
-        row_dict_lookup: dict[identifiers.SysId, dict[float, int]] = {}
+        # row_dict_lookup: dict[identifiers.SysId, dict[float, int]] = {}
         row_vector_lookup: dict[identifiers.SysId, tuple[np.ndarray, np.ndarray]] = {}
 
         row_count: int = 0
-        for display_name, steps in sorted(observed_steps.items()):
+        for display_name in sorted(observed_steps.keys()):
+            steps = observed_steps[display_name]
             sys_id = display_name_to_sys_id[display_name]
-            step_to_row = row_dict_lookup.setdefault(sys_id, {})
-            for step in sorted(steps):
+            # step_to_row = row_dict_lookup.setdefault(sys_id, {})
+            steps_array = np.empty(len(steps), dtype=np.float64)
+            rows_array = np.empty(len(steps), dtype=np.uintp)
+            for i, step in enumerate(sorted(steps)):
                 display_names.append(display_name)
                 step_values.append(step)
-                step_to_row.setdefault(step, row_count)
+                steps_array[i] = step
+                rows_array[i] = row_count
                 row_count += 1
-            steps_array = np.fromiter(step_to_row.keys(), dtype=np.float64)
-            rows_array = np.fromiter(step_to_row.values(), dtype=np.uintp)
             row_vector_lookup[sys_id] = (steps_array, rows_array)
 
         return cls(
             display_names=display_names,
             step_values=np.array(step_values, dtype=np.float64),
             names=names,
-            row_dict_lookup=row_dict_lookup,
+            # row_dict_lookup=row_dict_lookup,
             row_vector_lookup=row_vector_lookup,
         )
 
@@ -495,6 +555,7 @@ class IndexData:
         return rows[np.searchsorted(run_steps, steps)]
 
     def lookup_row_dict(self, sys_id: identifiers.SysId) -> dict[float, int]:
+        raise NotImplementedError("lookup_row_dict is no longer supported")
         return self.row_dict_lookup[sys_id]
 
 
