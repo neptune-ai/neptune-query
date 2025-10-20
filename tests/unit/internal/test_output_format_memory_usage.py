@@ -134,7 +134,11 @@ def test_create_metrics_dataframe_timestamp_peak_memory_usage(
     finally:
         peak = monitor.stop()
 
-    dataframe_memory = df.memory_usage(deep=True).sum()
+    dataframe_memory = (
+        df.memory_usage(index=False, deep=True).sum()
+        + df.index.memory_usage(deep=True)
+        + df.columns.memory_usage(deep=True)
+    )
     peak_to_df_ratio = peak / dataframe_memory
 
     print()
