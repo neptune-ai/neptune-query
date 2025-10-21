@@ -11,17 +11,17 @@ from neptune_query.internal.output_format import (
     create_metrics_dataframe,
     create_series_dataframe,
 )
-from neptune_query.internal.retrieval.metrics import (
-    StepIndex,
-    ValueIndex,
-)
 from tests.fuzzy.data_generators import (
     metric_buckets_datasets,
     metric_datasets,
     series_datasets,
 )
+from tests.helpers.metrics import normalize_metrics_data
 
 EXPECTED_COLUMN_ORDER = ["value", "absolute_time", "is_preview", "preview_completion"]
+
+STEP_INDEX = 1
+VALUE_INDEX = 2
 
 
 @given(
@@ -37,7 +37,7 @@ def test_create_metrics_dataframe(
     metrics_data, sys_id_label_mapping = metric_dataset
 
     df = create_metrics_dataframe(
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         timestamp_column_name=timestamp_column_name,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -51,7 +51,7 @@ def test_create_metrics_dataframe(
     # validate index
     expected_experiment_steps = sorted(
         {
-            (sys_id_label_mapping[run_attributes.run_identifier.sys_id], point[StepIndex])
+            (sys_id_label_mapping[run_attributes.run_identifier.sys_id], point[STEP_INDEX])
             for run_attributes, points in metrics_data.items()
             for point in points
         }
@@ -84,7 +84,7 @@ def test_create_metrics_dataframe(
 
     # validate actual values using mean comparison (finite values only)
     expected_values = [
-        point[ValueIndex] for points in metrics_data.values() for point in points if np.isfinite(point[ValueIndex])
+        point[VALUE_INDEX] for points in metrics_data.values() for point in points if np.isfinite(point[VALUE_INDEX])
     ]
     value_columns = [
         col for col in df.columns if (isinstance(col, tuple) and col[1] == "value") or (not isinstance(col, tuple))

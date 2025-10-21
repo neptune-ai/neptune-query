@@ -6,6 +6,10 @@ from neptune_query.internal.output_format import (
     create_series_dataframe,
 )
 from neptune_query.internal.retrieval.series import SeriesValue
+from tests.helpers.metrics import (
+    FloatPointValue,
+    normalize_metrics_data,
+)
 
 from . import generate
 from .decorator import expected_benchmark
@@ -30,9 +34,9 @@ def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_pa
 
 
 @expected_benchmark(
-    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.180, max_p80=0.300, max_p100=0.500),
-    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.200, max_p80=0.300, max_p100=0.500),
-    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.200, max_p80=0.300, max_p100=0.500),
+    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.030, max_p80=0.050, max_p100=0.060),
+    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.070, max_p80=0.080, max_p100=0.090),
+    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.070, max_p80=0.090, max_p100=0.100),
 )
 def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, num_paths):
     """Test the performance of create_metrics_dataframe"""
@@ -41,15 +45,21 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
         for path in range(num_paths):
             run_attr_def = generate.run_attribute_definition(exp, path)
             metrics_data[run_attr_def] = [
-                (None, float(step), float(step * exp), False, 1.0)
-                for step in range(num_steps)  # FloatPointValue as tuple
+                FloatPointValue.create(
+                    step=float(step),
+                    value=float(step * exp),
+                    timestamp_ms=None,
+                    is_preview=False,
+                    completion_ratio=1.0,
+                )
+                for step in range(num_steps)
             ]
 
     sys_id_label_mapping = {SysId(f"sysid{exp}"): f"exp{exp}" for exp in range(num_experiments)}
 
     benchmark(
         create_metrics_dataframe,
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=True,
         include_point_previews=False,
@@ -60,7 +70,7 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
 # NOTE: This test gets surprisingly big variance in timing, probably due to memory usage?
 # Example from 2025-10-01: p0: 0.772, p80: 0.941, p100: 0.946
 @expected_benchmark(
-    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.300, max_p80=0.500, max_p100=0.700
+    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.070, max_p80=0.110, max_p100=0.120
 )
 def test_perf_create_metrics_dataframe_with_random_data(
     benchmark, num_experiments, num_attributes, num_points_per_attribute
@@ -79,7 +89,7 @@ def test_perf_create_metrics_dataframe_with_random_data(
     sys_id_label_mapping = {r.run_identifier.sys_id: r.run_identifier.sys_id for r in metrics_data.keys()}
     benchmark(
         create_metrics_dataframe,
-        metrics_data=metrics_data,
+        metrics_data=normalize_metrics_data(metrics_data),
         sys_id_label_mapping=sys_id_label_mapping,
         type_suffix_in_column_names=False,
         include_point_previews=False,

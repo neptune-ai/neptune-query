@@ -21,8 +21,8 @@ from neptune_query.internal.retrieval.attribute_types import (
     Histogram,
 )
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
-from neptune_query.internal.retrieval.metrics import FloatPointValue
 from neptune_query.internal.retrieval.series import SeriesValue
+from tests.helpers.metrics import FloatPointValue
 
 
 @st.composite
@@ -93,12 +93,12 @@ def float_point_values(draw, *, min_size: int = 0, max_size: Optional[int] = Non
         preview_completion_list = [1.0] * size
 
     return [
-        (
-            timestamp_millis,
-            step,
-            value,
-            preview,
-            preview_completion,
+        FloatPointValue.create(
+            step=step,
+            value=value,
+            timestamp_ms=timestamp_millis,
+            is_preview=preview,
+            completion_ratio=preview_completion,
         )
         for timestamp_millis, step, value, preview, preview_completion in zip(
             timestamp_millis_list, step_list, values_list, preview_list, preview_completion_list

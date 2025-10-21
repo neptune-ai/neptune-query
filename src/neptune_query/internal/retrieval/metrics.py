@@ -14,12 +14,14 @@
 # limitations under the License.
 
 import functools as ft
+from dataclasses import dataclass
 from typing import (
     Any,
     Optional,
     Union,
 )
 
+import numpy as np
 from neptune_api.api.retrieval import get_multiple_float_series_values_proto
 from neptune_api.client import AuthenticatedClient
 from neptune_api.models import FloatTimeSeriesValuesRequest
@@ -37,17 +39,50 @@ from .search import ContainerType
 
 logger = get_logger()
 
-# Tuples are used here to enhance performance
-FloatPointValue = tuple[float, float, float, bool, float]
-(
-    TimestampIndex,
-    StepIndex,
-    ValueIndex,
-    IsPreviewIndex,
-    PreviewCompletionIndex,
-) = range(5)
-
 TOTAL_POINT_LIMIT: int = 1_000_000
+
+
+@dataclass(frozen=True, slots=True)
+class MetricValues:
+    steps: np.ndarray
+    values: np.ndarray
+    timestamps: Optional[np.ndarray]
+    is_preview: Optional[np.ndarray]
+    completion_ratio: Optional[np.ndarray]
+
+    @classmethod
+    def allocate(cls, size: int, include_timestamp: bool, include_preview: bool) -> "MetricValues":
+        return cls(
+            steps=np.empty(size, dtype=np.float64),
+            values=np.empty(size, dtype=np.float64),
+            timestamps=np.empty(size, dtype=np.float64) if include_timestamp else None,
+            is_preview=np.empty(size, dtype=bool) if include_preview else None,
+            completion_ratio=np.empty(size, dtype=np.float64) if include_preview else None,
+        )
+
+    @classmethod
+    def concatenate(cls, metrics_list: list["MetricValues"]) -> "MetricValues":
+        return cls(
+            steps=np.concatenate([m.steps for m in metrics_list], axis=0),
+            values=np.concatenate([m.values for m in metrics_list], axis=0),
+            timestamps=np.concatenate([m.timestamps for m in metrics_list], axis=0)
+            if metrics_list[0].timestamps is not None
+            else None,
+            is_preview=np.concatenate([m.is_preview for m in metrics_list], axis=0)
+            if metrics_list[0].is_preview is not None
+            else None,
+            completion_ratio=np.concatenate([m.completion_ratio for m in metrics_list], axis=0)
+            if metrics_list[0].completion_ratio is not None
+            else None,
+        )
+
+    @property
+    def length(self) -> int:
+        return self.steps.size  # type: ignore # np.ndarray.size is int
+
+    @classmethod
+    def length_sum(cls, metrics_list: list["MetricValues"]) -> int:
+        return sum(m.length for m in metrics_list)
 
 
 def fetch_multiple_series_values(
@@ -55,10 +90,11 @@ def fetch_multiple_series_values(
     run_attribute_definitions: list[identifiers.RunAttributeDefinition],
     include_inherited: bool,
     container_type: ContainerType,
+    include_timestamp: bool,
     include_preview: bool,
     step_range: tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
-) -> dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]:
+) -> dict[identifiers.RunAttributeDefinition, MetricValues]:
     if not run_attribute_definitions:
         return {}
 
@@ -93,25 +129,37 @@ def fetch_multiple_series_values(
         "order": "ascending" if not tail_limit else "descending",
     }
 
-    results: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {
-        run_attribute: [] for run_attribute in run_attribute_definitions
-    }
+    paged_results: dict[identifiers.RunAttributeDefinition, list[MetricValues]] = {}
 
     for page_result in util.fetch_pages(
         client=client,
         fetch_page=_fetch_metrics_page,
-        process_page=ft.partial(_process_metrics_page, request_id_to_attribute=request_id_to_attribute),
+        process_page=ft.partial(
+            _process_metrics_page,
+            request_id_to_attribute=request_id_to_attribute,
+            include_timestamp=include_timestamp,
+            include_preview=include_preview,
+            reverse_order=tail_limit is not None,
+        ),
         make_new_page_params=ft.partial(
             _make_new_metrics_page_params,
             request_id_to_attribute=request_id_to_attribute,
             tail_limit=tail_limit,
-            partial_results=results,
+            partial_results=paged_results,
         ),
         params=params,
     ):
-        for attribute, values in page_result.items:
-            sorted_values = values if tail_limit else reversed(values)
-            results[attribute].extend(sorted_values)
+        for definition, metric_values in page_result.items:
+            paged_results.setdefault(definition, []).append(metric_values)
+
+    results: dict[identifiers.RunAttributeDefinition, MetricValues] = {}
+    for definition, paged_metric_values in paged_results.items():
+        if len(paged_metric_values) > 1:
+            results[definition] = MetricValues.concatenate(paged_metric_values)
+        elif len(paged_metric_values) == 1:
+            results[definition] = paged_metric_values[0]
+        else:
+            pass
 
     return results
 
@@ -138,20 +186,32 @@ def _fetch_metrics_page(
 def _process_metrics_page(
     data: ProtoFloatSeriesValuesResponseDTO,
     request_id_to_attribute: dict[str, identifiers.RunAttributeDefinition],
-) -> util.Page[tuple[identifiers.RunAttributeDefinition, list[FloatPointValue]]]:
+    include_timestamp: bool,
+    include_preview: bool,
+    reverse_order: bool,
+) -> util.Page[tuple[identifiers.RunAttributeDefinition, MetricValues]]:
     result = {}
     for series in data.series:
-        run_attribute = request_id_to_attribute[series.requestId]
-        result[run_attribute] = [
-            (
-                point.timestamp_millis,
-                point.step,
-                point.value,
-                point.is_preview,
-                point.completion_ratio,
-            )
-            for point in series.series.values
-        ]
+        metric_values = MetricValues.allocate(
+            size=len(series.series.values), include_timestamp=include_timestamp, include_preview=include_preview
+        )
+
+        for i, point in enumerate(series.series.values):
+            idx = metric_values.length - 1 - i if reverse_order else i
+
+            metric_values.steps[idx] = point.step
+            metric_values.values[idx] = point.value
+            if include_timestamp:
+                assert metric_values.timestamps is not None
+                metric_values.timestamps[idx] = point.timestamp_millis
+            if include_preview:
+                assert metric_values.is_preview is not None
+                assert metric_values.completion_ratio is not None
+                metric_values.is_preview[idx] = point.is_preview
+                metric_values.completion_ratio[idx] = point.completion_ratio
+        definition = request_id_to_attribute[series.requestId]
+        result[definition] = metric_values
+
     return util.Page(items=list(result.items()))
 
 
@@ -160,7 +220,7 @@ def _make_new_metrics_page_params(
     data: Optional[ProtoFloatSeriesValuesResponseDTO],
     request_id_to_attribute: dict[str, identifiers.RunAttributeDefinition],
     tail_limit: Optional[int],
-    partial_results: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]],
+    partial_results: dict[identifiers.RunAttributeDefinition, list[MetricValues]],
 ) -> Optional[dict[str, Any]]:
     if data is None:  # no past data, we are fetching the first page
         for request in params["requests"]:
@@ -181,7 +241,9 @@ def _make_new_metrics_page_params(
         is_page_full = value_size == prev_per_series_points_limit
 
         attribute = request_id_to_attribute[request_id]
-        need_more_points = len(partial_results[attribute]) < tail_limit if tail_limit is not None else True
+        need_more_points = (
+            MetricValues.length_sum(partial_results[attribute]) < tail_limit if tail_limit is not None else True
+        )
 
         if is_page_full and need_more_points:
             new_request_after_steps[request_id] = series.series.values[-1].step
@@ -201,7 +263,8 @@ def _make_new_metrics_page_params(
     per_series_points_limit = max(1, TOTAL_POINT_LIMIT // len(params["requests"]))
     if tail_limit is not None:
         already_fetched = next(
-            len(partial_results[request_id_to_attribute[request_id]]) for request_id in new_request_after_steps.keys()
+            MetricValues.length_sum(partial_results[request_id_to_attribute[request_id]])
+            for request_id in new_request_after_steps.keys()
         )  # assumes the results for all unfinished series have the same length
         per_series_points_limit = min(per_series_points_limit, tail_limit - already_fetched)
     params["perSeriesPointsLimit"] = per_series_points_limit

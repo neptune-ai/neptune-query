@@ -46,7 +46,7 @@ from ..retrieval import (
     split,
 )
 from ..retrieval.metrics import (
-    FloatPointValue,
+    MetricValues,
     fetch_multiple_series_values,
 )
 from ..retrieval.search import ContainerType
@@ -96,6 +96,7 @@ def fetch_metrics(
             project_identifier=project_identifier,
             step_range=step_range,
             lineage_to_the_root=lineage_to_the_root,
+            include_timestamp=include_time is not None,
             include_point_previews=include_point_previews,
             tail_limit=tail_limit,
             executor=executor,
@@ -124,10 +125,11 @@ def _fetch_metrics(
     fetch_attribute_definitions_executor: Executor,
     step_range: tuple[Optional[float], Optional[float]],
     lineage_to_the_root: bool,
+    include_timestamp: bool,
     include_point_previews: bool,
     tail_limit: Optional[int],
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, MetricValues], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
@@ -170,6 +172,7 @@ def _fetch_metrics(
                         client=client,
                         run_attribute_definitions=run_attribute_definitions_split,
                         include_inherited=lineage_to_the_root,
+                        include_timestamp=include_timestamp,
                         include_preview=include_point_previews,
                         container_type=container_type,
                         step_range=step_range,
@@ -180,13 +183,12 @@ def _fetch_metrics(
         ),
     )
 
-    results: Generator[
-        dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None
-    ] = concurrency.gather_results(output)
+    results: Generator[dict[identifiers.RunAttributeDefinition, MetricValues], None, None] = concurrency.gather_results(
+        output
+    )
 
-    metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
-    for result in results:
-        for run_attribute_definition, metric_points in result.items():
-            metrics_data.setdefault(run_attribute_definition, []).extend(metric_points)
+    metrics_data: dict[identifiers.RunAttributeDefinition, MetricValues] = {
+        definition: metric_values for result in results for definition, metric_values in result.items()
+    }
 
     return metrics_data, sys_id_label_mapping

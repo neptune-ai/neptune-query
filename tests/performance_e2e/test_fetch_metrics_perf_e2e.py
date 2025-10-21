@@ -14,7 +14,7 @@ from tests.performance_e2e.test_helpers import PerfRequestBuilder
 
 @dataclass
 class Scenario:
-    id: int
+    id: str
     # Total number of experiments matching user's filter
     experiments_count: int
     # Total number of attribute definitions in selected experiments matching user's filter
@@ -69,7 +69,7 @@ class Scenario:
         # ########################
         # 1M steps
         Scenario(
-            id=1,
+            id="fm001",
             experiments_count=1,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -77,10 +77,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=1,
             expected_rows=1_000_000,
-        ).to_pytest_param(timeout=3.771),
+        ).to_pytest_param(timeout=2.64),
         # 10M steps
         Scenario(
-            id=2,
+            id="fm002",
             experiments_count=1,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -88,13 +88,13 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=1,
             expected_rows=10_000_000,
-        ).to_pytest_param(timeout=41.722),
+        ).to_pytest_param(timeout=25.58),
         # ############################
         # 1 experiment, 100k metrics #
         # ############################
         # 1 step
         Scenario(
-            id=3,
+            id="fm003",
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -102,10 +102,10 @@ class Scenario:
             expected_points=100_000,
             expected_columns=100_000,
             expected_rows=1,
-        ).to_pytest_param(timeout=6.297),
+        ).to_pytest_param(timeout=5.97),
         # 10 steps
         Scenario(
-            id=4,
+            id="fm004",
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -113,10 +113,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=100_000,
             expected_rows=10,
-        ).to_pytest_param(timeout=7.529),
+        ).to_pytest_param(timeout=6.42),
         # 100 steps
         Scenario(
-            id=5,
+            id="fm005",
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -124,10 +124,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=100_000,
             expected_rows=100,
-        ).to_pytest_param(timeout=26.463),
+        ).to_pytest_param(timeout=15.26),
         # 1k steps
         Scenario(
-            id=6,
+            id="fm006",
             experiments_count=1,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -135,13 +135,13 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=100_000,
             expected_rows=1_000,
-        ).to_pytest_param(timeout=223.119),
+        ).to_pytest_param(timeout=90.40),
         # ##########################
         # 1 experiment, 1M metrics #
         # ##########################
         # 1 step
         Scenario(
-            id=7,
+            id="fm007",
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -149,10 +149,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=1_000_000,
             expected_rows=1,
-        ).to_pytest_param(timeout=67.945),
+        ).to_pytest_param(timeout=73.40),
         # 10 steps
         Scenario(
-            id=8,
+            id="fm008",
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -160,10 +160,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=1_000_000,
             expected_rows=10,
-        ).to_pytest_param(timeout=86.696),
+        ).to_pytest_param(timeout=78.51),
         # 100 steps
         Scenario(
-            id=9,
+            id="fm009",
             experiments_count=1,
             attribute_definitions_count=1_000_000,
             metric_existence_probability=1.0,
@@ -171,13 +171,13 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=1_000_000,
             expected_rows=100,
-        ).to_pytest_param(timeout=283.399),
+        ).to_pytest_param(timeout=168.87),
         # ###############################################################
         # 2 experiments, 50k metrics per experiment (75k metrics total) #
         # ###############################################################
         # 1 step
         Scenario(
-            id=10,
+            id="fm010",
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -185,10 +185,10 @@ class Scenario:
             expected_points=pytest.approx(100_000, rel=0.05),
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=2,
-        ).to_pytest_param(timeout=7.268),
+        ).to_pytest_param(timeout=7.15),
         # 10 steps
         Scenario(
-            id=11,
+            id="fm011",
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -196,10 +196,10 @@ class Scenario:
             expected_points=pytest.approx(1_000_000, rel=0.05),
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=20,
-        ).to_pytest_param(timeout=10.095),
+        ).to_pytest_param(timeout=8.83),
         # 100 steps
         Scenario(
-            id=12,
+            id="fm012",
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -207,10 +207,10 @@ class Scenario:
             expected_points=pytest.approx(10_000_000, rel=0.05),
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=200,
-        ).to_pytest_param(timeout=28.551),
+        ).to_pytest_param(timeout=18.11),
         # 500 steps
         Scenario(
-            id=13,
+            id="fm013",
             experiments_count=2,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.5,
@@ -218,13 +218,13 @@ class Scenario:
             expected_points=pytest.approx(50_000_000, rel=0.05),
             expected_columns=pytest.approx(75_000, rel=0.05),
             expected_rows=1_000,
-        ).to_pytest_param(timeout=104.910),
+        ).to_pytest_param(timeout=46.02),
         # ################################################################
         # 10 experiments, 10k metrics per experiment (65k metrics total) #
         # ################################################################
         # 1 step
         Scenario(
-            id=14,
+            id="fm014",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -232,10 +232,10 @@ class Scenario:
             expected_points=pytest.approx(100_000, rel=0.05),
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=10,
-        ).to_pytest_param(timeout=31.388),
+        ).to_pytest_param(timeout=34.10),
         # 10 steps
         Scenario(
-            id=15,
+            id="fm015",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -243,10 +243,10 @@ class Scenario:
             expected_points=pytest.approx(1_000_000, rel=0.05),
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=100,
-        ).to_pytest_param(timeout=33.331),
+        ).to_pytest_param(timeout=34.21),
         # 100 steps
         Scenario(
-            id=16,
+            id="fm016",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -254,10 +254,10 @@ class Scenario:
             expected_points=pytest.approx(10_000_000, rel=0.05),
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=1_000,
-        ).to_pytest_param(timeout=54.590),
+        ).to_pytest_param(timeout=46.38),
         # 1k steps
         Scenario(
-            id=17,
+            id="fm017",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=0.1,
@@ -265,13 +265,13 @@ class Scenario:
             expected_points=pytest.approx(100_000_000, rel=0.05),
             expected_columns=pytest.approx(65_000, rel=0.05),
             expected_rows=10_000,
-        ).to_pytest_param(timeout=235.017),
+        ).to_pytest_param(timeout=105.35),
         # ##################################################################
         # 10 experiments, 100k metrics per experiment (100k metrics total) #
         # ##################################################################
         # 1 step
         Scenario(
-            id=18,
+            id="fm018",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -279,10 +279,10 @@ class Scenario:
             expected_points=pytest.approx(1_000_000, rel=0.05),
             expected_columns=pytest.approx(100_000, rel=0.05),
             expected_rows=10,
-        ).to_pytest_param(timeout=35.459),
+        ).to_pytest_param(timeout=37.01),
         # 10 steps
         Scenario(
-            id=19,
+            id="fm019",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -290,10 +290,10 @@ class Scenario:
             expected_points=pytest.approx(10_000_000, rel=0.05),
             expected_columns=pytest.approx(100_000, rel=0.05),
             expected_rows=100,
-        ).to_pytest_param(timeout=52.231),
+        ).to_pytest_param(timeout=42.52),
         # 100 steps
         Scenario(
-            id=20,
+            id="fm020",
             experiments_count=10,
             attribute_definitions_count=100_000,
             metric_existence_probability=1.0,
@@ -301,14 +301,14 @@ class Scenario:
             expected_points=pytest.approx(100_000_000, rel=0.05),
             expected_columns=pytest.approx(100_000, rel=0.05),
             expected_rows=1_000,
-        ).to_pytest_param(timeout=244.418),
+        ).to_pytest_param(timeout=133.76),
         # ##################################################################
         # #############     Doesn't work - too slow    #####################
         # # 1k experiments, 1k metrics per experiment (100k metrics total) #
         # ##################################################################
         # ## 1 step
         # Scenario(
-        #     id=21,
+        #     id='fm021',
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -319,7 +319,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
-        #     id=22,
+        #     id='fm022',
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -330,7 +330,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 100 steps
         # Scenario(
-        #     id=23,
+        #     id='fm023',
         #     experiments_count=10,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -344,7 +344,7 @@ class Scenario:
         # ##############################################################
         # 1 step
         Scenario(
-            id=24,
+            id="fm024",
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -352,10 +352,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=1_000,
             expected_rows=1_000,
-        ).to_pytest_param(timeout=31.243),
+        ).to_pytest_param(timeout=32.82),
         # 10 steps
         Scenario(
-            id=25,
+            id="fm025",
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -363,10 +363,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=1_000,
             expected_rows=10_000,
-        ).to_pytest_param(timeout=45.729),
+        ).to_pytest_param(timeout=37.77),
         # 100 steps
         Scenario(
-            id=26,
+            id="fm026",
             experiments_count=1_000,
             attribute_definitions_count=1_000,
             metric_existence_probability=1.0,
@@ -374,13 +374,13 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=1_000,
             expected_rows=100_000,
-        ).to_pytest_param(timeout=228.996),
+        ).to_pytest_param(timeout=128.31),
         # ################################################################
         # 1k experiments, 10k metrics per experiment (10k metrics total) #
         # ################################################################
         # 1 step
         Scenario(
-            id=27,
+            id="fm027",
             experiments_count=1_000,
             attribute_definitions_count=10_000,
             metric_existence_probability=1.0,
@@ -388,10 +388,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=10_000,
             expected_rows=1_000,
-        ).to_pytest_param(timeout=293.297),
+        ).to_pytest_param(timeout=331.73),
         # 10 steps
         Scenario(
-            id=28,
+            id="fm028",
             experiments_count=1_000,
             attribute_definitions_count=10_000,
             metric_existence_probability=1.0,
@@ -399,14 +399,14 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=10_000,
             expected_rows=10_000,
-        ).to_pytest_param(timeout=515.5656),
+        ).to_pytest_param(timeout=389.31),
         # ###################################################################
         # #############     Doesn't work - too slow    ######################
         # # 1k experiments, 10k metrics per experiment (100k metrics total) #
         # ###################################################################
         # ## 1 step
         # Scenario(
-        #     id=29,
+        #     id='fm029',
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -417,7 +417,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
-        #     id=30,
+        #     id='fm030',
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -432,7 +432,7 @@ class Scenario:
         # ####################################################################
         # ## 1 step
         # Scenario(
-        #     id=31,
+        #     id='fm031',
         #     experiments_count=1_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=1.0,
@@ -447,7 +447,7 @@ class Scenario:
         # ###################################################################
         # ## 1 step
         # Scenario(
-        #     id=32,
+        #     id='fm032',
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -458,7 +458,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
-        #     id=33,
+        #     id='fm033',
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.01,
@@ -473,7 +473,7 @@ class Scenario:
         # ####################################################################
         # ## 1 step
         # Scenario(
-        #     id=34,
+        #     id='fm034',
         #     experiments_count=10_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.1,
@@ -487,7 +487,7 @@ class Scenario:
         # ###############################################################
         # 1 step
         Scenario(
-            id=35,
+            id="fm035",
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -495,10 +495,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=100_000,
-        ).to_pytest_param(timeout=30.7131),
+        ).to_pytest_param(timeout=31.50),
         # 10 steps
         Scenario(
-            id=36,
+            id="fm036",
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -506,10 +506,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=1_000_000,
-        ).to_pytest_param(timeout=46.860),
+        ).to_pytest_param(timeout=40.17),
         # 100 steps
         Scenario(
-            id=37,
+            id="fm037",
             experiments_count=100_000,
             attribute_definitions_count=10,
             metric_existence_probability=1.0,
@@ -517,14 +517,14 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=pytest.approx(10, rel=0.05),
             expected_rows=10_000_000,
-        ).to_pytest_param(timeout=232.357),
+        ).to_pytest_param(timeout=128.44),
         # #################################################################
         # # #############     Doesn't work - too slow    ##################
         # # 100k experiments, 1 metric per experiment (63k metric total) #
         # #################################################################
         # ## 1 step
         # Scenario(
-        #     id=38,
+        #     id='fm038',
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -535,7 +535,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 10 steps
         # Scenario(
-        #     id=39,
+        #     id='fm039',
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -546,7 +546,7 @@ class Scenario:
         # ).to_pytest_param(timeout=600),
         # ## 100 steps
         # Scenario(
-        #     id=40,
+        #     id='fm040',
         #     experiments_count=100_000,
         #     attribute_definitions_count=100_000,
         #     metric_existence_probability=0.00001,
@@ -560,7 +560,7 @@ class Scenario:
         # ##############################################################
         # 1 step
         Scenario(
-            id=41,
+            id="fm041",
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -568,10 +568,10 @@ class Scenario:
             expected_points=1_000_000,
             expected_columns=1,
             expected_rows=1_000_000,
-        ).to_pytest_param(timeout=39.247),
+        ).to_pytest_param(timeout=47.96),
         # 10 steps
         Scenario(
-            id=42,
+            id="fm042",
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -579,10 +579,10 @@ class Scenario:
             expected_points=10_000_000,
             expected_columns=1,
             expected_rows=10_000_000,
-        ).to_pytest_param(timeout=61.948),
+        ).to_pytest_param(timeout=57.23),
         # 100 steps
         Scenario(
-            id=43,
+            id="fm043",
             experiments_count=1_000_000,
             attribute_definitions_count=1,
             metric_existence_probability=1.0,
@@ -590,14 +590,14 @@ class Scenario:
             expected_points=100_000_000,
             expected_columns=1,
             expected_rows=100_000_000,
-        ).to_pytest_param(timeout=275.968),
+        ).to_pytest_param(timeout=138.85),
         # ################################################################
         # # # #############     Doesn't work - too slow    ###############
         # # 1M experiments, 100 metric per experiment (100 metric total) #
         # ################################################################
         # ## 1 step
         # Scenario(
-        #     id=44,
+        #     id='fm044',
         #     experiments_count=1_000_000,
         #     attribute_definitions_count=100,
         #     metric_existence_probability=1.0,

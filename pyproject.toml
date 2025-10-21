@@ -101,3 +101,7 @@ ignore_missing_imports = "True"
 markers = [
     "files: mark test as downloading files using the neptune storage api",
 ]
+pythonpath = [
+    ".",
+    "src",
+]
