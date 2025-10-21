@@ -1181,9 +1181,7 @@ def test_create_empty_series_dataframe(timestamp_column_name: str):
     pd.testing.assert_frame_equal(df, expected_df)
 
 
-@pytest.mark.parametrize(
-    "path", ["value", "step", "experiment", "value", "timestamp", "is_preview", "preview_completion"]
-)
+@pytest.mark.parametrize("path", ["value", "step", "experiment", "absolute_time", "is_preview", "preview_completion"])
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_preview", [True, False])
 @pytest.mark.parametrize("timestamp_column_name", ["absolute_time"])
@@ -1279,9 +1277,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
     pd.testing.assert_frame_equal(df, expected_df)
 
 
-@pytest.mark.parametrize(
-    "path", ["value", "step", "experiment", "value", "timestamp", "is_preview", "preview_completion"]
-)
+@pytest.mark.parametrize("path", ["value", "step", "experiment", "absolute_time", "is_preview", "preview_completion"])
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 def test_create_metrics_dataframe_with_reserved_paths_with_flat_index(path: str, type_suffix_in_column_names: bool):
     # Given
