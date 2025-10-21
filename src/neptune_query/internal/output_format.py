@@ -15,7 +15,6 @@
 import pathlib
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import repeat
 from typing import (
     Any,
     Callable,
@@ -461,29 +460,27 @@ class IndexData:
         Importantly, this is where the sorting order of the index is defined.
         """
 
-        display_names: list[str] = []
-        step_values: list[float] = []
         sys_id_ranges: Optional[dict[identifiers.SysId, tuple[int, int]]] = {} if access == "vector" else None
         row_dict_lookup: Optional[dict[identifiers.SysId, dict[float, int]]] = {} if access == "dict" else None
 
-        row_count: int = 0
+        total_rows_count = sum(len(steps) for steps in observed_steps.values())
+        display_names: list[str] = [""] * total_rows_count
+        step_values: np.ndarray = np.empty(shape=(total_rows_count,), dtype=np.float64)
+
+        row_num: int = 0
         for display_name in sorted(observed_steps.keys()):
-            steps = observed_steps[display_name]
             sys_id = display_name_to_sys_id[display_name]
-
-            sorted_steps = np.sort(steps, kind="stable")
-            start_index = row_count
-            step_count = int(sorted_steps.size)
-
-            if step_count:
-                display_names.extend(repeat(display_name, step_count))
-                step_values.extend(sorted_steps)
-                row_count += step_count
+            sorted_steps = np.sort(observed_steps[display_name], kind="stable")
+            for i, step in enumerate(sorted_steps, start=row_num):
+                display_names[i] = display_name
+                step_values[i] = step
 
             if sys_id_ranges is not None:
-                sys_id_ranges[sys_id] = (start_index, start_index + step_count)
+                sys_id_ranges[sys_id] = (row_num, row_num + sorted_steps.size)
             if row_dict_lookup is not None:
-                row_dict_lookup[sys_id] = {float(step): idx for idx, step in enumerate(sorted_steps, start=start_index)}
+                row_dict_lookup[sys_id] = {float(step): idx for idx, step in enumerate(sorted_steps, start=row_num)}
+
+            row_num += sorted_steps.size
 
         return cls(
             display_names=display_names,
