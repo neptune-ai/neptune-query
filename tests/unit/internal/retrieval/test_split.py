@@ -3,6 +3,7 @@ import pytest
 from neptune_query.internal import identifiers
 from neptune_query.internal.env import (
     NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE,
+    NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE,
     NEPTUNE_QUERY_MAX_REQUEST_SIZE,
     NEPTUNE_QUERY_SERIES_BATCH_SIZE,
 )
@@ -13,6 +14,7 @@ from neptune_query.internal.identifiers import (
     RunIdentifier,
 )
 from neptune_query.internal.retrieval.split import (
+    split_attribute_names,
     split_series_attributes,
     split_sys_ids,
     split_sys_ids_attributes,
@@ -23,7 +25,9 @@ SYS_ID = SYS_IDS[0]
 RUN_ID = RunIdentifier(ProjectIdentifier("test_project"), SYS_ID)
 ATTRIBUTE_DEFINITIONS = [AttributeDefinition(f"config/attribute{n}", "string") for n in range(10)]
 ATTRIBUTE_DEFINITION = ATTRIBUTE_DEFINITIONS[0]
-ATTRIBUTE_DEFINITION_SIZES = [len(attr.name) for attr in ATTRIBUTE_DEFINITIONS]
+ATTRIBUTE_NAMES = [attr.name for attr in ATTRIBUTE_DEFINITIONS]
+ATTRIBUTE_NAME = ATTRIBUTE_NAMES[0]
+ATTRIBUTE_DEFINITION_SIZES = [len(name) for name in ATTRIBUTE_NAMES]
 ATTRIBUTE_DEFINITION_SIZE = ATTRIBUTE_DEFINITION_SIZES[0]
 
 UUID_SIZE = 50
@@ -76,6 +80,58 @@ def test_split_sys_ids_custom_envs(monkeypatch, given_num, query_size_limit, exp
 
     # when
     groups = list(split_sys_ids(sys_ids))
+
+    # then
+    assert groups == expected
+
+
+@pytest.mark.parametrize(
+    "attribute_names, expected",
+    [
+        ([], []),
+        ([ATTRIBUTE_NAME], [[ATTRIBUTE_NAME]]),
+        (
+            [ATTRIBUTE_NAMES[0], ATTRIBUTE_NAMES[1]],
+            [[ATTRIBUTE_NAMES[0], ATTRIBUTE_NAMES[1]]],
+        ),
+    ],
+)
+def test_split_attribute_names(attribute_names, expected):
+    # when
+    groups = list(split_attribute_names(attribute_names))
+
+    # then
+    assert groups == expected
+
+
+@pytest.mark.parametrize(
+    "given_num, filter_size_limit, expected_nums",
+    [
+        (0, 0, []),
+        (1, 0, [1]),
+        (2, 0, [1, 1]),
+        (3, ATTRIBUTE_DEFINITION_SIZE * 2, [2, 1]),
+        (4, ATTRIBUTE_DEFINITION_SIZE * 2, [2, 2]),
+        (5, ATTRIBUTE_DEFINITION_SIZE * 2, [2, 2, 1]),
+        (9, ATTRIBUTE_DEFINITION_SIZE * 3 - 1, [2, 2, 2, 2, 1]),
+        (9, ATTRIBUTE_DEFINITION_SIZE * 3, [3, 3, 3]),
+        (9, ATTRIBUTE_DEFINITION_SIZE * 3 + 1, [3, 3, 3]),
+        (9, ATTRIBUTE_DEFINITION_SIZE * 4, [4, 4, 1]),
+        (8, ATTRIBUTE_DEFINITION_SIZE * 4, [4, 4]),
+        (8, ATTRIBUTE_DEFINITION_SIZE * 3, [3, 3, 2]),
+        (7, ATTRIBUTE_DEFINITION_SIZE * 3, [3, 3, 1]),
+        (6, ATTRIBUTE_DEFINITION_SIZE * 3, [3, 3]),
+        (5, ATTRIBUTE_DEFINITION_SIZE * 3, [3, 2]),
+    ],
+)
+def test_split_attribute_names_custom_envs(monkeypatch, given_num, filter_size_limit, expected_nums):
+    # given
+    monkeypatch.setenv(NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.name, str(filter_size_limit))
+    sys_ids = [ATTRIBUTE_NAME] * given_num
+    expected = [[ATTRIBUTE_NAME] * num for num in expected_nums]
+
+    # when
+    groups = list(split_attribute_names(sys_ids))
 
     # then
     assert groups == expected
