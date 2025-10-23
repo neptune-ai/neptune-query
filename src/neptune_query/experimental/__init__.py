@@ -1,0 +1,134 @@
+#
+# Copyright (c) 2025, Neptune Labs Sp. z o.o.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+__all__ = [
+    "fetch_experiments_table",
+    "fetch_runs_table",
+]
+
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
+
+import pandas as _pandas
+
+from neptune_query import (
+    filters,
+    use_query_metadata,
+)
+
+
+@use_query_metadata(api_function="experimental.fetch_experiments_table")
+def fetch_experiments_table(
+    *,
+    experiments: Optional[Union[str, list[str], filters.Filter]] = None,
+    attributes: Union[str, list[str], filters.AttributeFilter] = [],
+    sort_by: Union[str, filters.Attribute] = filters.Attribute("sys/creation_time", type="datetime"),
+    sort_direction: Literal["asc", "desc"] = "desc",
+    limit: Optional[int] = None,
+    type_suffix_in_column_names: bool = False,
+) -> _pandas.DataFrame:
+    """Fetches a table of experiment metadata, with runs as rows and attributes as columns.
+
+    To narrow the results, define filters for experiments to search or attributes to include.
+
+    Returns a DataFrame similar to the runs table in the web app.
+    For series attributes, the last logged value is returned.
+
+    Args:
+        experiments: Filter specifying which experiments to include.
+            If a string is provided, it's treated as a regex pattern that the names must match.
+            If a list of strings is provided, it's treated as exact experiment names to match.
+            To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
+            The filter must use only attributes from the sys/ and env/ namespaces.
+        attributes: Filter specifying which attributes to include.
+            If a string is provided, it's treated as a regex pattern that the attribute names must match.
+            If a list of strings is provided, it's treated as exact attribute names to match.
+            To provide a more complex condition, pass an AttributeFilter object.
+        sort_by: Name of the attribute to sort the table by.
+            Alternatively, an Attribute object that specifies the attribute type.
+        sort_direction: The direction to sort columns by: `"desc"` (default) or `"asc"`.
+        limit: Maximum number of experiments to return. By default, all experiments are included.
+        type_suffix_in_column_names: If True, columns of the returned DataFrame
+            are suffixed with ":<type>", e.g. "attribute1:float_series", "attribute1:string".
+            If False (default), the method throws an exception if there are multiple types under one path.
+
+    Example:
+        Fetch attributes matching `loss` or `configs` from two specific experiments:
+        ```
+        import neptune_query as nq
+
+
+        nq.fetch_experiments_table(
+            experiments=["seagull-week1", "seagull-week2"],
+            attributes=r"loss | configs",
+        )
+        ```
+    """
+    ...
+
+
+@use_query_metadata(api_function="experimental.runs.fetch_runs_table")
+def fetch_runs_table(
+    *,
+    runs: Optional[Union[str, list[str], filters.Filter]] = None,
+    attributes: Union[str, list[str], filters.AttributeFilter] = [],
+    sort_by: Union[str, filters.Attribute] = filters.Attribute("sys/creation_time", type="datetime"),
+    sort_direction: Literal["asc", "desc"] = "desc",
+    limit: Optional[int] = None,
+    type_suffix_in_column_names: bool = False,
+) -> _pandas.DataFrame:
+    """Fetches a table of run metadata, with runs as rows and attributes as columns.
+
+    To narrow the results, define filters for runs to search or attributes to include.
+
+    Returns a DataFrame similar to the runs table in the web app.
+    For series attributes, the last logged value is returned.
+
+    Args:
+        runs: Filter specifying which runs to include.
+            If a string is provided, it's treated as a regex pattern that the run IDs must match.
+            If a list of strings is provided, it's treated as exact run IDs to match.
+            To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
+            The filter must use only attributes from the sys/ and env/ namespaces.
+        attributes: Filter specifying which attributes to include.
+            If a string is provided, it's treated as a regex pattern that the attribute names must match.
+            If a list of strings is provided, it's treated as exact attribute names to match.
+            To provide a more complex condition, pass an AttributeFilter object.
+        sort_by: Name of the attribute to sort the table by.
+            Alternatively, an Attribute object that specifies the attribute type.
+        sort_direction: The direction to sort columns by: `"desc"` (default) or `"asc"`.
+        limit: Maximum number of runs to return. By default, all runs are included.
+        type_suffix_in_column_names: If True, columns of the returned DataFrame
+            are suffixed with ":<type>", e.g. "attribute1:float_series", "attribute1:string".
+            If False (default), the method throws an exception if there are multiple types under one path.
+
+    Example:
+        Fetch constituent runs of an experiment, with attributes matching `loss` or `configs` as columns:
+        ```
+        import neptune_query.runs as nq_runs
+        from neptune_query.filters import Filter
+
+
+        nq_runs.fetch_runs_table(
+            runs=Filter.eq("sys/name", "exp-week9"),
+            attributes=r"loss | configs",
+        )
+        ```
+    """
+    ...
