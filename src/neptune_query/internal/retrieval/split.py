@@ -66,6 +66,27 @@ def split_sys_ids(
             yield sys_ids[i : i + batch_size]
 
 
+def split_attribute_names(attribute_names: list[str]) -> list[list[str]]:
+    query_size_limit = env.NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.get()
+
+    attribute_batches = []
+    current_batch: list[str] = []
+    current_batch_size = 0
+    for attr in attribute_names:
+        attr_size = _attribute_name_size(attr)
+        if current_batch and current_batch_size + attr_size > query_size_limit:
+            attribute_batches.append(current_batch)
+            current_batch = []
+            current_batch_size = 0
+        current_batch.append(attr)
+        current_batch_size += attr_size
+
+    if current_batch:
+        attribute_batches.append(current_batch)
+
+    return attribute_batches
+
+
 def split_sys_ids_attributes(
     sys_ids: list[identifiers.SysId],
     attribute_definitions: list[identifiers.AttributeDefinition],

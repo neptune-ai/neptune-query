@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import dataclasses
 import itertools as it
 import re
 from typing import (
@@ -23,13 +24,18 @@ from typing import (
 
 from .. import filters  # noqa: E402
 from ..retrieval import attribute_types as types  # noqa: E402
+from .split import split_attribute_names
 
 
 def split_attribute_filters(
     _attribute_filter: filters._BaseAttributeFilter,
 ) -> list[filters._AttributeFilter]:
     if isinstance(_attribute_filter, filters._AttributeFilter):
-        return [_attribute_filter]
+        if isinstance(_attribute_filter.name_eq, list):
+            split_name_eqs = split_attribute_names(_attribute_filter.name_eq)
+            return [dataclasses.replace(_attribute_filter, name_eq=name_eq_subset) for name_eq_subset in split_name_eqs]
+        else:
+            return [_attribute_filter]
     elif isinstance(_attribute_filter, filters._AttributeFilterAlternative):
         return list(it.chain.from_iterable(split_attribute_filters(child) for child in _attribute_filter.filters))
     else:
