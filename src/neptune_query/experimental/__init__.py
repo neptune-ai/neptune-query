@@ -31,9 +31,19 @@ from neptune_query import (
     filters,
     use_query_metadata,
 )
+from neptune_query._internal import (
+    resolve_attributes_filter,
+    resolve_experiments_filter,
+    resolve_runs_filter,
+    resolve_sort_by,
+)
+from neptune_query.internal.composition import fetch_table as _fetch_table
+from neptune_query.internal.experimental import experimental
+from neptune_query.internal.retrieval import search as _search
 
 
 @use_query_metadata(api_function="experimental.fetch_experiments_table")
+@experimental
 def fetch_experiments_table(
     *,
     experiments: Optional[Union[str, list[str], filters.Filter]] = None,
@@ -80,10 +90,23 @@ def fetch_experiments_table(
         )
         ```
     """
-    ...
+    experiments_filter = resolve_experiments_filter(experiments)
+    attributes_filter = resolve_attributes_filter(attributes)
+    resolved_sort_by = resolve_sort_by(sort_by)
+
+    return _fetch_table.fetch_table_global(
+        filter_=experiments_filter,
+        attributes=attributes_filter,
+        sort_by=resolved_sort_by,
+        sort_direction=sort_direction,
+        limit=limit,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        container_type=_search.ContainerType.EXPERIMENT,
+    )
 
 
 @use_query_metadata(api_function="experimental.runs.fetch_runs_table")
+@experimental
 def fetch_runs_table(
     *,
     runs: Optional[Union[str, list[str], filters.Filter]] = None,
@@ -131,4 +154,16 @@ def fetch_runs_table(
         )
         ```
     """
-    ...
+    runs_filter = resolve_runs_filter(runs)
+    attributes_filter = resolve_attributes_filter(attributes)
+    resolved_sort_by = resolve_sort_by(sort_by)
+
+    return _fetch_table.fetch_table_global(
+        filter_=runs_filter,
+        attributes=attributes_filter,
+        sort_by=resolved_sort_by,
+        sort_direction=sort_direction,
+        limit=limit,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        container_type=_search.ContainerType.RUN,
+    )

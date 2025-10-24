@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
+from dataclasses import dataclass
 from typing import (
     Any,
     Generator,
@@ -47,7 +48,9 @@ from .retrieval.metrics import (
 from .retrieval.search import ContainerType
 
 __all__ = (
-    "convert_table_to_dataframe",
+    "create_runs_table",
+    "create_runs_table_multiproject",
+    "TableRow",
     "create_metrics_dataframe",
     "create_series_dataframe",
     "create_files_dataframe",
@@ -55,24 +58,63 @@ __all__ = (
 )
 
 
-def convert_table_to_dataframe(
-    table_data: dict[str, list[AttributeValue]],
-    project_identifier: str,
-    type_suffix_in_column_names: bool,
-    # TODO: accept container_type as an argument instead of index_column_name
-    # see https://github.com/neptune-ai/neptune-fetcher/pull/402/files#r2260012199
-    index_column_name: str = "experiment",
-) -> pd.DataFrame:
+@dataclass
+class TableRow:
+    values: list[AttributeValue]
+    label: str
+    project_identifier: Optional[identifiers.ProjectIdentifier] = None
 
-    if not table_data:
+
+def create_runs_table(
+    table_rows: list[TableRow],
+    *,
+    type_suffix_in_column_names: bool,
+    container_type: ContainerType,
+) -> pd.DataFrame:
+    return _convert_table_to_dataframe(
+        table_rows=table_rows,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        container_type=container_type,
+        include_project_column=False,
+    )
+
+
+def create_runs_table_multiproject(
+    table_rows: list[TableRow],
+    *,
+    type_suffix_in_column_names: bool,
+    container_type: ContainerType,
+) -> pd.DataFrame:
+    return _convert_table_to_dataframe(
+        table_rows=table_rows,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        container_type=container_type,
+        include_project_column=True,
+    )
+
+
+def _convert_table_to_dataframe(
+    *,
+    table_rows: list[TableRow],
+    type_suffix_in_column_names: bool,
+    container_type: ContainerType,
+    include_project_column: bool,
+) -> pd.DataFrame:
+    index_column_name = "experiment" if container_type == ContainerType.EXPERIMENT else "run"
+
+    if not table_rows:
         return pd.DataFrame(
-            index=pd.Index([], name=index_column_name),
+            index=(
+                pd.MultiIndex.from_tuples([], names=["project", index_column_name])
+                if include_project_column
+                else pd.Index([], name=index_column_name)
+            ),
             columns=pd.Index([], name="attribute"),
         )
 
-    def convert_row(label: str, values: list[AttributeValue]) -> dict[str, Any]:
+    def convert_row(table_row: TableRow) -> dict[str, Any]:
         row: dict[str, Any] = {}
-        for value in values:
+        for value in table_row.values:
             column_name = f"{value.attribute_definition.name}:{value.attribute_definition.type}"
             attribute_type = value.attribute_definition.type
             if attribute_type in TYPE_AGGREGATIONS:
@@ -85,10 +127,10 @@ def convert_table_to_dataframe(
 
             if attribute_type == "file" or attribute_type == "file_series":
                 row[column_name] = _create_output_file(
-                    project_identifier=project_identifier,
                     file=element_value,
-                    label=label,
-                    index_column_name=index_column_name,
+                    run_identifier=value.run_identifier,
+                    label=table_row.label,
+                    container_type=container_type,
                     attribute_path=value.attribute_definition.name,
                     step=step,
                 )
@@ -121,14 +163,21 @@ def convert_table_to_dataframe(
         return df
 
     rows = []
-    for label, values in table_data.items():
-        row: Any = convert_row(label, values)
-        row[index_column_name] = label
+    for table_row in table_rows:
+        if include_project_column and table_row.project_identifier is None:
+            raise ValueError("Missing project identifier for at least one row.")
+        row: Any = convert_row(table_row)
+        row[index_column_name] = table_row.label
+        if include_project_column:
+            row["project"] = str(table_row.project_identifier)
         rows.append(row)
 
     dataframe = pd.DataFrame(rows)
     dataframe = transform_column_names(dataframe)
-    dataframe.set_index(index_column_name, drop=True, inplace=True)
+    if include_project_column:
+        dataframe.set_index(["project", index_column_name], drop=True, inplace=True)
+    else:
+        dataframe.set_index(index_column_name, drop=True, inplace=True)
 
     dataframe.columns.name = "attribute"
     sorted_columns = sorted(dataframe.columns)
@@ -252,6 +301,7 @@ def create_series_dataframe(
     index_column_name: str,
     timestamp_column_name: Optional[str],
 ) -> pd.DataFrame:
+    container_type = ContainerType.EXPERIMENT if index_column_name == "experiment" else ContainerType.RUN
     experiment_mapping: dict[identifiers.SysId, int] = {}
     path_mapping: dict[str, int] = {}
     label_mapping: list[str] = []
@@ -273,10 +323,10 @@ def create_series_dataframe(
                 series.SeriesValue(
                     step=point.step,
                     value=_create_output_file(
-                        project_identifier=project_identifier,
                         file=point.value,
+                        run_identifier=run_attribute_definition.run_identifier,
                         label=label,
-                        index_column_name=index_column_name,
+                        container_type=container_type,
                         attribute_path=run_attribute_definition.attribute_definition.name,
                         step=point.step,
                     ),
@@ -625,19 +675,18 @@ def create_files_dataframe(
 
 
 def _create_output_file(
-    project_identifier: str,
+    *,
     file: File,
+    run_identifier: identifiers.RunIdentifier,
     label: str,
-    index_column_name: str,
+    container_type: ContainerType,
     attribute_path: str,
     step: Optional[float] = None,
 ) -> types.File:
-    run_id = label if index_column_name == "run" else None
-    experiment_name = label if index_column_name == "experiment" else None
     return types.File(
-        project_identifier=project_identifier,
-        experiment_name=experiment_name,
-        run_id=run_id,
+        project_identifier=str(run_identifier.project_identifier),
+        experiment_name=label if container_type == ContainerType.EXPERIMENT else None,
+        run_id=label if container_type == ContainerType.RUN else None,
         attribute_path=attribute_path,
         step=step,
         path=file.path,
