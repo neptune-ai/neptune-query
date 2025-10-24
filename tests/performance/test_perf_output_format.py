@@ -30,9 +30,9 @@ def test_perf_create_metric_buckets_dataframe(benchmark, num_experiments, num_pa
 
 
 @expected_benchmark(
-    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.500, max_p80=0.700, max_p100=1.000),
-    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
-    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=50, num_paths=50, num_steps=500, min_p0=0.180, max_p80=0.300, max_p100=0.500),
+    dict(num_experiments=50, num_paths=500, num_steps=50, min_p0=0.200, max_p80=0.300, max_p100=0.500),
+    dict(num_experiments=500, num_paths=50, num_steps=50, min_p0=0.200, max_p80=0.300, max_p100=0.500),
 )
 def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, num_paths):
     """Test the performance of create_metrics_dataframe"""
@@ -60,7 +60,7 @@ def test_perf_create_metrics_dataframe(benchmark, num_experiments, num_steps, nu
 # NOTE: This test gets surprisingly big variance in timing, probably due to memory usage?
 # Example from 2025-10-01: p0: 0.772, p80: 0.941, p100: 0.946
 @expected_benchmark(
-    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.700, max_p80=1.100, max_p100=1.300
+    num_experiments=100, num_attributes=10, num_points_per_attribute=1500, min_p0=0.300, max_p80=0.500, max_p100=0.700
 )
 def test_perf_create_metrics_dataframe_with_random_data(
     benchmark, num_experiments, num_attributes, num_points_per_attribute
@@ -89,8 +89,8 @@ def test_perf_create_metrics_dataframe_with_random_data(
 
 
 @expected_benchmark(
-    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
-    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.160, max_p80=0.200, max_p100=0.300),
+    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.160, max_p80=0.200, max_p100=0.300),
 )
 def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
     """Test the performance of create_series_dataframe"""
