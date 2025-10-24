@@ -15,5 +15,5 @@ git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scal
 fastapi == 0.116.2
 uvicorn == 0.35.0
 humanize == 4.13.0
-colorlog == 6.9.0
+colorlog == 6.10.1
 hypothesis==6.139.2
