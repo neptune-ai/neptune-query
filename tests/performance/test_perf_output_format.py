@@ -1,10 +1,12 @@
 from neptune_query.internal.identifiers import SysId
 from neptune_query.internal.output_format import (
-    convert_table_to_dataframe,
+    TableRow,
     create_metric_buckets_dataframe,
     create_metrics_dataframe,
+    create_runs_table,
     create_series_dataframe,
 )
+from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.internal.retrieval.series import SeriesValue
 
 from . import generate
@@ -133,9 +135,8 @@ def test_perf_convert_table_to_dataframe(benchmark, num_experiments, num_paths):
         table_data[f"exp{exp}"] = values
 
     benchmark(
-        convert_table_to_dataframe,
-        table_data=table_data,
-        project_identifier="foo/bar",
+        create_runs_table,
+        table_rows=[TableRow(values=values, label=key, project_identifier=None) for key, values in table_data.items()],
         type_suffix_in_column_names=True,
-        index_column_name="experiment",
+        container_type=ContainerType.EXPERIMENT,
     )
