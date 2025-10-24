@@ -208,6 +208,16 @@ def test_split_sys_ids_attributes_custom_envs(
         ([], []),
         ([ATTRIBUTE_DEFINITION], [[ATTRIBUTE_DEFINITION]]),
         ([ATTRIBUTE_DEFINITION] * 2, [[ATTRIBUTE_DEFINITION] * 2]),
+        ([ATTRIBUTE_DEFINITION] * 9, [[ATTRIBUTE_DEFINITION] * 5, [ATTRIBUTE_DEFINITION] * 4]),
+        ([ATTRIBUTE_DEFINITION] * 27, [[ATTRIBUTE_DEFINITION] * 9] * 3),
+        ([ATTRIBUTE_DEFINITION] * 64, [[ATTRIBUTE_DEFINITION] * 16] * 4),
+        ([ATTRIBUTE_DEFINITION] * 729, [[ATTRIBUTE_DEFINITION] * 81] * 9),
+        ([ATTRIBUTE_DEFINITION] * 4096, [[ATTRIBUTE_DEFINITION] * 256] * 16),
+        ([ATTRIBUTE_DEFINITION] * 32768, [[ATTRIBUTE_DEFINITION] * 1024] * 32),
+        (
+            [ATTRIBUTE_DEFINITION] * 35937,
+            [[ATTRIBUTE_DEFINITION] * 1124] * 31 + [[ATTRIBUTE_DEFINITION] * 1093],
+        ),  # MAX_WORKERS=32 takes over
     ],
 )
 def test_split_series_attributes(attributes, expected):
@@ -242,6 +252,9 @@ def test_split_series_attributes(attributes, expected):
         (3, 3 * ATTRIBUTE_DEFINITION_SIZE, 500, [3]),
         (3, 4 * ATTRIBUTE_DEFINITION_SIZE, 500, [3]),
         (10, 10 * ATTRIBUTE_DEFINITION_SIZE, 3, [3, 3, 3, 1]),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 17, [16] * 4),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 16, [16] * 4),
+        (64, 64 * ATTRIBUTE_DEFINITION_SIZE, 15, [15, 15, 15, 15, 4]),
     ],
 )
 def test_split_series_attributes_custom_envs(monkeypatch, given_num, query_size_limit, batch_size, expected_nums):
