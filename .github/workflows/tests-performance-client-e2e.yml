@@ -53,7 +53,7 @@ jobs:
           slack-webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           failure-message: "Performance tests (client-e2e) failed"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: test-client-e2e-performance.log
           path: test-results/test-client-e2e-performance.log
