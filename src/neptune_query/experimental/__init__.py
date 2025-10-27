@@ -27,10 +27,7 @@ from typing import (
 
 import pandas as _pandas
 
-from neptune_query import (
-    filters,
-    use_query_metadata,
-)
+from neptune_query import filters
 from neptune_query._internal import (
     resolve_attributes_filter,
     resolve_experiments_filter,
@@ -39,6 +36,7 @@ from neptune_query._internal import (
 )
 from neptune_query.internal.composition import fetch_table as _fetch_table
 from neptune_query.internal.experimental import experimental
+from neptune_query.internal.query_metadata_context import use_query_metadata
 from neptune_query.internal.retrieval import search as _search
 
 
