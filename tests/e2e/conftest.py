@@ -1,11 +1,17 @@
 import itertools as it
 import os
 import pathlib
+import random
+import string
 import tempfile
 import time
 from concurrent.futures import Executor
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+)
 
 import pytest
 from neptune_api import AuthenticatedClient
@@ -44,6 +50,25 @@ def api_token() -> str:
     if api_token is None:
         raise RuntimeError("NEPTUNE_E2E_API_TOKEN environment variable is not set")
     return api_token
+
+
+@pytest.fixture(scope="session")
+def test_execution_id() -> str:
+    execution_id = os.getenv("NEPTUNE_TEST_EXECUTION_ID")
+    if execution_id:
+        return execution_id
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
+    return f"{timestamp}_{random_suffix}"
+
+
+@pytest.fixture(scope="session")
+def workspace() -> str:
+    value = os.getenv("NEPTUNE_E2E_WORKSPACE")
+    if not value:
+        raise RuntimeError("NEPTUNE_E2E_WORKSPACE environment variable is not set")
+    return value
 
 
 @pytest.fixture(autouse=True)

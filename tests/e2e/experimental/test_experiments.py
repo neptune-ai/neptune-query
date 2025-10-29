@@ -1,58 +1,63 @@
+from __future__ import annotations
+
 import pandas as pd
+import pytest
 
 from neptune_query import filters
 from neptune_query.experimental import fetch_experiments_table
-from tests.e2e.v1.generator import (
-    EXP_NAME_INF_NAN_RUN,
-    LINEAR_TREE_EXP_NAME,
-    MULT_EXPERIMENT_HISTORY_EXP_1,
+from tests.e2e.data_model import IngestedProjectData
+from tests.e2e.experimental.test_experiments_data import (
+    project_1_data,
+    project_2_data,
 )
+from tests.e2e.ingestion import ensure_project
 
-pytest_plugins = ("tests.e2e.v1.conftest",)
+pytestmark = pytest.mark.filterwarnings("ignore:.*fetch_experiments_table.*:neptune_query.warnings.ExperimentalWarning")
 
 
-def test_experimental_fetch_experiments_table_basic(new_project_id):
-    experiment_names = [LINEAR_TREE_EXP_NAME, MULT_EXPERIMENT_HISTORY_EXP_1]
+@pytest.fixture(scope="session")
+def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjectData:
+    return ensure_project(
+        client=client,
+        api_token=api_token,
+        workspace=workspace,
+        execution_id=test_execution_id,
+        project_data=project_1_data,
+    )
 
-    df = fetch_experiments_table(
-        experiments=experiment_names,
-        attributes=[],
+
+@pytest.fixture(scope="session")
+def project_2(client, api_token, workspace, test_execution_id) -> IngestedProjectData:
+    return ensure_project(
+        client=client,
+        api_token=api_token,
+        workspace=workspace,
+        execution_id=test_execution_id,
+        project_data=project_2_data,
+    )
+
+
+def test_fetch_experiments_table_isolated_to_execution(project_1, project_2, test_execution_id):
+    dataframe = fetch_experiments_table(
+        experiments=f"{test_execution_id}",  # all experiments in this test execution
+        attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
-        limit=len(experiment_names),
     )
 
-    expected_index = pd.MultiIndex.from_tuples(
-        [(new_project_id, name) for name in sorted(experiment_names)],
-        names=["project", "experiment"],
+    expected_config_mapping = {
+        (run.project_identifier, run.experiment_name): run.configs.get("config/int")
+        for project in (project_1, project_2)
+        for run in project.ingested_runs
+    }
+    expected_index_entries = sorted(expected_config_mapping.keys())
+
+    expected_dataframe = pd.DataFrame(
+        data={
+            "config/int": [value for _, value in sorted(expected_config_mapping.items())],
+        },
+        index=pd.MultiIndex.from_tuples(expected_index_entries, names=["project", "experiment"]),
+        columns=pd.Index(["config/int"], name="attribute"),
     )
 
-    assert list(df.index.names) == ["project", "experiment"]
-    assert df.index.equals(expected_index)
-    assert df.empty
-
-
-def test_experimental_fetch_experiments_table_with_sys_id(new_project_id):
-    experiment_names = [EXP_NAME_INF_NAN_RUN, LINEAR_TREE_EXP_NAME]
-    experiments_filter = filters.Filter.eq(
-        filters.Attribute("sys/name", type="string"), experiment_names[0]
-    ) | filters.Filter.eq(filters.Attribute("sys/name", type="string"), experiment_names[1])
-
-    df = fetch_experiments_table(
-        experiments=experiments_filter,
-        attributes=["sys/id"],
-        sort_by=filters.Attribute("sys/name", type="string"),
-        sort_direction="desc",
-        limit=len(experiment_names),
-    )
-
-    expected_order = sorted(experiment_names, reverse=True)
-    expected_index = pd.MultiIndex.from_tuples(
-        [(new_project_id, name) for name in expected_order],
-        names=["project", "experiment"],
-    )
-
-    assert df.index.equals(expected_index)
-    assert list(df.columns) == ["sys/id"]
-    assert df["sys/id"].notna().all()
-    assert df["sys/id"].str.len().gt(0).all()
+    pd.testing.assert_frame_equal(dataframe, expected_dataframe)
