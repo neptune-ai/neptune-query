@@ -43,16 +43,14 @@ from neptune_api.types import UNSET
 
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
-from .. import (
-    env,
-    identifiers,
-)
+from .. import env
 from ..filters import (
     _Attribute,
     _Filter,
 )
 from ..identifiers import (
     CustomRunId,
+    ProjectIdentifier,
     SysId,
     SysName,
 )
@@ -71,10 +69,10 @@ __all__ = ("GlobalRunSearchEntry", "fetch_global_entries")
 
 @dataclass(frozen=True)
 class GlobalRunSearchEntry:
-    sys_id: identifiers.SysId
-    sys_name: Optional[identifiers.SysName]
-    sys_custom_run_id: Optional[identifiers.CustomRunId]
-    project_identifier: identifiers.ProjectIdentifier
+    sys_id: SysId
+    sys_name: Optional[SysName]
+    sys_custom_run_id: Optional[CustomRunId]
+    project_identifier: ProjectIdentifier
     container_type: ContainerType
 
     @property
@@ -186,10 +184,10 @@ def _process_entries_page(
         return GlobalRunSearchEntry(
             sys_id=SysId(attributes["sys/id"]),
             sys_name=SysName(attributes["sys/name"]) if attributes.get("sys/name") else None,
-            sys_custom_run_id=CustomRunId(attributes["sys/custom_run_id"])
-            if attributes.get("sys/custom_run_id")
-            else None,
-            project_identifier=identifiers.ProjectIdentifier(f"{entry.organization_name}/{entry.project_name}"),
+            sys_custom_run_id=(
+                CustomRunId(attributes["sys/custom_run_id"]) if attributes.get("sys/custom_run_id") else None
+            ),
+            project_identifier=ProjectIdentifier(f"{entry.organization_name}/{entry.project_name}"),
             container_type=container_type,
         )
 
