@@ -29,10 +29,12 @@ from neptune_query.internal.identifiers import (
     SysName,
 )
 from neptune_query.internal.output_format import (
-    convert_table_to_dataframe,
+    TableRow,
     create_files_dataframe,
     create_metric_buckets_dataframe,
     create_metrics_dataframe,
+    create_runs_table,
+    create_runs_table_multiproject,
     create_series_dataframe,
 )
 from neptune_query.internal.retrieval import util
@@ -57,11 +59,25 @@ from neptune_query.internal.retrieval.series import SeriesValue
 from neptune_query.types import File as OFile
 from neptune_query.types import Histogram as OHistogram
 
-EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(
-    identifiers.ProjectIdentifier("project/abc"), identifiers.SysId("XXX-1")
-)
+PROJECT_IDENTIFIER = identifiers.ProjectIdentifier("project/abc")
+EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(PROJECT_IDENTIFIER, identifiers.SysId("XXX-1"))
 
 EXPECTED_COLUMN_ORDER = ["value", "absolute_time", "is_preview", "preview_completion"]
+
+
+def _table_rows_from_mapping(
+    data: dict[str, list[AttributeValue]],
+    *,
+    project_identifier: identifiers.ProjectIdentifier = PROJECT_IDENTIFIER,
+) -> list[TableRow]:
+    return [
+        TableRow(
+            values=values,
+            label=label,
+            project_identifier=project_identifier,
+        )
+        for label, values in data.items()
+    ]
 
 
 def test_convert_experiment_table_to_dataframe_empty():
@@ -69,7 +85,11 @@ def test_convert_experiment_table_to_dataframe_empty():
     experiment_data = {}
 
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     assert dataframe.empty
@@ -86,7 +106,11 @@ def test_convert_experiment_table_to_dataframe_single_string():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     assert dataframe.to_dict() == {
@@ -103,7 +127,11 @@ def test_convert_experiment_table_to_dataframe_single_string_with_type_suffix():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=True,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     assert dataframe.to_dict() == {
@@ -124,10 +152,10 @@ def test_convert_experiment_table_to_dataframe_single_float_series():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
         type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
     )
 
     # then
@@ -149,10 +177,10 @@ def test_convert_experiment_table_to_dataframe_single_string_series():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
         type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
     )
 
     # then
@@ -175,10 +203,10 @@ def test_convert_experiment_table_to_dataframe_single_histogram_series():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
         type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
     )
 
     # then
@@ -201,17 +229,17 @@ def test_convert_experiment_table_to_dataframe_single_file_series():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
         type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
     )
 
     # then
     assert dataframe.to_dict() == {
         "attr1": {
             "exp1": OFile(
-                project_identifier="my-project",
+                project_identifier=PROJECT_IDENTIFIER,
                 experiment_name="exp1",
                 run_id=None,
                 attribute_path="attr1",
@@ -238,13 +266,17 @@ def test_convert_experiment_table_to_dataframe_single_file():
     }
 
     # when
-    dataframe_unflattened = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+    dataframe_unflattened = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     assert dataframe_unflattened.to_dict() == {
         "attr1": {
             "exp1": OFile(
-                project_identifier="my-project",
+                project_identifier="project/abc",
                 experiment_name="exp1",
                 run_id=None,
                 attribute_path="attr1",
@@ -269,7 +301,11 @@ def test_convert_experiment_table_to_dataframe_disjoint_names():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     expected_data = pd.DataFrame.from_dict(
@@ -295,7 +331,11 @@ def test_convert_experiment_table_to_dataframe_conflicting_types_with_suffix():
     }
 
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=True,
+        container_type=ContainerType.EXPERIMENT,
+    )
 
     # then
     expected_data = pd.DataFrame.from_dict(
@@ -322,7 +362,11 @@ def test_convert_experiment_table_to_dataframe_conflicting_types_without_suffix(
 
     # when
     with pytest.raises(ConflictingAttributeTypes) as exc_info:
-        convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+        create_runs_table(
+            table_rows=_table_rows_from_mapping(experiment_data),
+            type_suffix_in_column_names=False,
+            container_type=ContainerType.EXPERIMENT,
+        )
 
     # then
     assert "attr1/a:b:c" in str(exc_info.value)
@@ -337,7 +381,11 @@ def test_convert_experiment_table_to_dataframe_duplicate_column_name_with_type_s
         ],
     }
     # when
-    dataframe = convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=True)
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(experiment_data),
+        type_suffix_in_column_names=True,
+        container_type=ContainerType.EXPERIMENT,
+    )
     # then
     assert set(dataframe.columns.get_level_values(0)) == {"attr:int", "attr:float"}
 
@@ -352,28 +400,80 @@ def test_convert_experiment_table_to_dataframe_duplicate_column_name_without_typ
     }
     # when / then
     with pytest.raises(ConflictingAttributeTypes):
-        convert_table_to_dataframe(experiment_data, "my-project", type_suffix_in_column_names=False)
+        create_runs_table(
+            table_rows=_table_rows_from_mapping(experiment_data),
+            type_suffix_in_column_names=False,
+            container_type=ContainerType.EXPERIMENT,
+        )
 
 
-def test_convert_experiment_table_to_dataframe_index_column_name_custom():
+def test_convert_table_to_dataframe_uses_container_type_for_index_name():
     # given
-    experiment_data = {
-        identifiers.SysName("exp1"): [
-            AttributeValue(AttributeDefinition("attr1", "int"), 42, EXPERIMENT_IDENTIFIER),
+    run_identifier = identifiers.RunIdentifier(
+        identifiers.ProjectIdentifier("project/abc"),
+        identifiers.SysId("RUN-1"),
+    )
+    run_data = {
+        "custom-run-id": [
+            AttributeValue(AttributeDefinition("attr1", "int"), 42, run_identifier),
         ],
     }
     # when
-    dataframe = convert_table_to_dataframe(
-        experiment_data,
-        "my-project",
+    dataframe = create_runs_table(
+        table_rows=_table_rows_from_mapping(run_data),
         type_suffix_in_column_names=False,
-        index_column_name="custom_index",
+        container_type=ContainerType.RUN,
     )
     # then
-    assert dataframe.index.name == "custom_index"
+    assert dataframe.index.name == "run"
     assert dataframe.to_dict() == {
-        "attr1": {"exp1": 42},
+        "attr1": {"custom-run-id": 42},
     }
+
+
+def test_convert_table_to_dataframe_with_projects_creates_multiindex():
+    project_a = identifiers.ProjectIdentifier("team/a")
+    project_b = identifiers.ProjectIdentifier("team/b")
+    run_identifier_a = identifiers.RunIdentifier(project_a, identifiers.SysId("SYS-A"))
+    run_identifier_b = identifiers.RunIdentifier(project_b, identifiers.SysId("SYS-B"))
+
+    table_rows = [
+        TableRow(
+            values=[AttributeValue(AttributeDefinition("attr1", "int"), 1, run_identifier_a)],
+            label="exp-a",
+            project_identifier=project_a,
+        ),
+        TableRow(
+            values=[AttributeValue(AttributeDefinition("attr1", "int"), 2, run_identifier_b)],
+            label="exp-b",
+            project_identifier=project_b,
+        ),
+        TableRow(
+            values=[AttributeValue(AttributeDefinition("attr1", "int"), 3, run_identifier_a)],
+            label="exp-c",
+            project_identifier=project_a,
+        ),
+    ]
+
+    dataframe = create_runs_table_multiproject(
+        table_rows=table_rows,
+        type_suffix_in_column_names=False,
+        container_type=ContainerType.EXPERIMENT,
+    )
+
+    assert list(dataframe.index.names) == ["project", "experiment"]
+    assert dataframe.to_dict() == {"attr1": {("team/a", "exp-a"): 1, ("team/b", "exp-b"): 2, ("team/a", "exp-c"): 3}}
+
+
+def test_convert_table_to_dataframe_with_projects_requires_project_identifier():
+    table_rows = [TableRow(values=[], label="exp-a", project_identifier=None)]
+
+    with pytest.raises(ValueError):
+        create_runs_table_multiproject(
+            table_rows=table_rows,
+            type_suffix_in_column_names=False,
+            container_type=ContainerType.EXPERIMENT,
+        )
 
 
 EXPERIMENTS = 5
@@ -796,7 +896,7 @@ def test_create_file_series_dataframe_with_absolute_timestamp():
         OFile(
             experiment_name="exp1",
             run_id=None,
-            project_identifier="my-project",
+            project_identifier="foo/bar",
             attribute_path="path1",
             step=1.0,
             path=files[0].path,
@@ -806,7 +906,7 @@ def test_create_file_series_dataframe_with_absolute_timestamp():
         OFile(
             experiment_name="exp1",
             run_id=None,
-            project_identifier="my-project",
+            project_identifier="foo/bar",
             attribute_path="path2",
             step=2.0,
             path=files[1].path,
@@ -816,7 +916,7 @@ def test_create_file_series_dataframe_with_absolute_timestamp():
         OFile(
             experiment_name="exp2",
             run_id=None,
-            project_identifier="my-project",
+            project_identifier="foo/bar",
             attribute_path="path1",
             step=1.0,
             path=files[2].path,

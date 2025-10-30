@@ -1,11 +1,17 @@
 import itertools as it
 import os
 import pathlib
+import random
+import string
 import tempfile
 import time
 from concurrent.futures import Executor
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+)
 
 import pytest
 from neptune_api import AuthenticatedClient
@@ -44,6 +50,46 @@ def api_token() -> str:
     if api_token is None:
         raise RuntimeError("NEPTUNE_E2E_API_TOKEN environment variable is not set")
     return api_token
+
+
+def pytest_configure(config):
+    """
+    Pytest hook: called once at the beginning of the test run.
+    Generate a unique test execution ID to be shared across all workers.
+    """
+    if not hasattr(config, "workerinput"):
+        # Controller (no xdist or before workers spawn): generate once
+        execution_id = os.getenv("NEPTUNE_TEST_EXECUTION_ID")
+        if execution_id is None:
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
+            execution_id = f"{timestamp}_{random_suffix}"
+        config.neptune_test_execution_id = execution_id
+    else:
+        # Worker: get from worker input
+        config.neptune_test_execution_id = config.workerinput["__neptune_test_execution_id"]
+
+
+def pytest_configure_node(node):
+    """
+    Controller hook: called for each worker being created.
+    Share the test execution ID with the worker.
+    """
+    # Send the already-generated value to each worker
+    node.workerinput["__neptune_test_execution_id"] = node.config.neptune_test_execution_id
+
+
+@pytest.fixture(scope="session")
+def test_execution_id(request) -> str:
+    return request.config.neptune_test_execution_id
+
+
+@pytest.fixture(scope="session")
+def workspace() -> str:
+    value = os.getenv("NEPTUNE_E2E_WORKSPACE")
+    if not value:
+        raise RuntimeError("NEPTUNE_E2E_WORKSPACE environment variable is not set")
+    return value
 
 
 @pytest.fixture(autouse=True)

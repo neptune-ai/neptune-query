@@ -175,7 +175,7 @@ def _create_fetch_sys_attrs(
             fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
             process_page=ft.partial(_process_sys_attrs_page, make_record=make_record),
             make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
-            params=params,
+            initial_params=params,
         )
 
     return fetch_sys_attrs

@@ -89,7 +89,7 @@ def fetch_attribute_values(
             project_identifier=project_identifier,
         ),
         make_new_page_params=_make_new_attribute_values_page_params,
-        params=params,
+        initial_params=params,
     )
 
 

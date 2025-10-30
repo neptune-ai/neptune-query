@@ -107,7 +107,7 @@ def fetch_multiple_series_values(
             tail_limit=tail_limit,
             partial_results=results,
         ),
-        params=params,
+        initial_params=params,
     ):
         for attribute, values in page_result.items:
             sorted_values = values if tail_limit else reversed(values)

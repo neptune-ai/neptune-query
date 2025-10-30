@@ -128,7 +128,7 @@ class TestData:
         return self.experiments[index].name
 
     def __post_init__(self):
-        random.seed(10)
+        random_gen = random.Random(10)
 
         if not self.experiments:
             for i in range(6):
@@ -144,7 +144,7 @@ class TestData:
 
                 string_sets = {f"{PATH}/string_set-value": [f"string-{i}-{j}" for j in range(5)]}
                 float_series = {
-                    path: [float(step**2) + float(random.uniform(0, 1)) for step in range(NUMBER_OF_STEPS)]
+                    path: [float(step**2) + float(random_gen.uniform(0, 1)) for step in range(NUMBER_OF_STEPS)]
                     for path in FLOAT_SERIES_PATHS
                 }
 
@@ -204,7 +204,7 @@ class TestData:
 
                 unique_length_float_series = {
                     f"{PATH}/unique-length-metrics/unique-length-float-series-value-{ix}": [
-                        (float(step), float(step**2) + float(random.uniform(0, 1))) for step in steps
+                        (float(step), float(step**2) + float(random_gen.uniform(0, 1))) for step in steps
                     ]
                     for ix, steps in enumerate([[0], [0, 1], range(10), [1, 10], [12, 14, 16], [18, 19, 20]])
                 }

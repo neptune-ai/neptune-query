@@ -32,7 +32,7 @@ from neptune_api.types import File
 
 T = TypeVar("T")
 R = TypeVar("R")
-_Params = dict[str, Any]
+_Params = Any
 
 
 @dataclass
@@ -45,9 +45,9 @@ def fetch_pages(
     fetch_page: Callable[[AuthenticatedClient, _Params], R],
     process_page: Callable[[R], Page[T]],
     make_new_page_params: Callable[[_Params, Optional[R]], Optional[_Params]],
-    params: _Params,
+    initial_params: _Params,
 ) -> Generator[Page[T], None, None]:
-    page_params = make_new_page_params(params, None)
+    page_params = make_new_page_params(initial_params, None)
     while page_params is not None:
         data = fetch_page(client, page_params)
         page = process_page(data)

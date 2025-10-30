@@ -14,11 +14,11 @@ from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
 
 # Set the random seed for reproducibility
-random.seed(20250925)
+random_gen = random.Random(20250925)
 
 
 def random_alnum(length: int) -> str:
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return "".join(random_gen.choices(string.ascii_lowercase + string.digits, k=length))
 
 
 def random_alnum_strings(count: int, length: int) -> list[str]:

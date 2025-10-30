@@ -98,7 +98,7 @@ def fetch_series_values(
             _process_series_page, request_id_to_run_attr_definition=request_id_to_run_attr_definition
         ),
         make_new_page_params=_make_new_series_page_params,
-        params=params,
+        initial_params=params,
     )
 
 
