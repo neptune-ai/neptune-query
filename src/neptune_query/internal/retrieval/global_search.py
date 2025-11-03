@@ -35,7 +35,7 @@ from neptune_api.models import (
     QueryLeaderboardParamsSortingParamsDTO,
     QueryLeaderboardParamsSortingParamsDTODir,
 )
-from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
+from neptune_api.proto.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
     ProtoAttributesDTO,
     ProtoLeaderboardEntriesSearchResultDTO,
 )
@@ -159,12 +159,16 @@ def _make_next_page_params(
     if len(data.entries) < batch_size:
         return None
 
+    retrieved_so_far = current_params.pagination.offset + batch_size
+    if limit is not None and retrieved_so_far >= limit:
+        return None
+
     return attrs.evolve(
         current_params,
         pagination=attrs.evolve(
             current_params.pagination,
-            limit=min(limit - current_params.pagination.offset, batch_size) if limit is not None else UNSET,
-            offset=current_params.pagination.offset + batch_size,
+            limit=min(limit - retrieved_so_far, batch_size) if limit is not None else batch_size,
+            offset=retrieved_so_far,
         ),
     )
 

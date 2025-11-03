@@ -15,8 +15,8 @@
 #
 
 __all__ = [
-    "fetch_experiments_table",
-    "fetch_runs_table",
+    "fetch_experiments_table_multiproject",
+    "fetch_runs_table_multiproject",
 ]
 
 from typing import (
@@ -42,11 +42,11 @@ from neptune_query.internal.retrieval import search as _search
 
 @use_query_metadata(api_function="experimental.fetch_experiments_table")
 @experimental
-def fetch_experiments_table(
+def fetch_experiments_table_multiproject(
     *,
     experiments: Optional[Union[str, list[str], filters.Filter]] = None,
     attributes: Union[str, list[str], filters.AttributeFilter] = [],
-    sort_by: Union[str, filters.Attribute] = filters.Attribute("sys/creation_time", type="datetime"),
+    sort_by: filters.Attribute = filters.Attribute("sys/creation_time", type="datetime"),
     sort_direction: Literal["asc", "desc"] = "desc",
     limit: Optional[int] = None,
     type_suffix_in_column_names: bool = False,
@@ -68,8 +68,7 @@ def fetch_experiments_table(
             If a string is provided, it's treated as a regex pattern that the attribute names must match.
             If a list of strings is provided, it's treated as exact attribute names to match.
             To provide a more complex condition, pass an AttributeFilter object.
-        sort_by: Name of the attribute to sort the table by.
-            Alternatively, an Attribute object that specifies the attribute type.
+        sort_by: Attribute to sort the table by. If specified, needs to specify the attribute type.
         sort_direction: The direction to sort columns by: `"desc"` (default) or `"asc"`.
         limit: Maximum number of experiments to return. By default, all experiments are included.
         type_suffix_in_column_names: If True, columns of the returned DataFrame
@@ -105,11 +104,11 @@ def fetch_experiments_table(
 
 @use_query_metadata(api_function="experimental.runs.fetch_runs_table")
 @experimental
-def fetch_runs_table(
+def fetch_runs_table_multiproject(
     *,
     runs: Optional[Union[str, list[str], filters.Filter]] = None,
     attributes: Union[str, list[str], filters.AttributeFilter] = [],
-    sort_by: Union[str, filters.Attribute] = filters.Attribute("sys/creation_time", type="datetime"),
+    sort_by: filters.Attribute = filters.Attribute("sys/creation_time", type="datetime"),
     sort_direction: Literal["asc", "desc"] = "desc",
     limit: Optional[int] = None,
     type_suffix_in_column_names: bool = False,
@@ -131,8 +130,7 @@ def fetch_runs_table(
             If a string is provided, it's treated as a regex pattern that the attribute names must match.
             If a list of strings is provided, it's treated as exact attribute names to match.
             To provide a more complex condition, pass an AttributeFilter object.
-        sort_by: Name of the attribute to sort the table by.
-            Alternatively, an Attribute object that specifies the attribute type.
+        sort_by: Attribute to sort the table by. If specified, needs to specify the attribute type.
         sort_direction: The direction to sort columns by: `"desc"` (default) or `"asc"`.
         limit: Maximum number of runs to return. By default, all runs are included.
         type_suffix_in_column_names: If True, columns of the returned DataFrame

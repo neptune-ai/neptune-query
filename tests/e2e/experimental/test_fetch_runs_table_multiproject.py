@@ -10,7 +10,7 @@ import pytest
 
 from neptune_query import filters
 from neptune_query.exceptions import ConflictingAttributeTypes
-from neptune_query.experimental import fetch_runs_table
+from neptune_query.experimental import fetch_runs_table_multiproject
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestedRunData,
@@ -33,14 +33,14 @@ class Column:
 @pytest.fixture(scope="session")
 def unique_execution_module_key(test_execution_id) -> str:
     """
-    This fixture provides a key for that is unique for this module in the current test execution.
+    This fixture provides a key that is unique for this module in the current test execution.
     It can be used to create unique project names, experiment names, etc.
     """
     return f"{test_execution_id}_{__name__}"
 
 
 def test_fetch_runs_table_returns_all_runs(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -62,7 +62,7 @@ def test_fetch_runs_table_returns_all_runs(project_1, project_2, unique_executio
 def test_fetch_runs_table_respects_sort_direction(
     project_1, project_2, unique_execution_module_key, sort_direction: Literal["asc", "desc"]
 ):
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=f"{unique_execution_module_key}",
         attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -85,7 +85,7 @@ def test_fetch_runs_table_respects_sort_direction(
 
 def test_fetch_runs_table_filters_by_regex(project_1, project_2, unique_execution_module_key):
     pattern = rf"run_project_1_.*__{unique_execution_module_key}"
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=pattern,
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -105,7 +105,7 @@ def test_fetch_runs_table_filters_by_regex(project_1, project_2, unique_executio
 
 def test_fetch_runs_table_filters_by_name_list(project_1, project_2, unique_execution_module_key):
     selected_runs = [project_1.ingested_runs[1], project_2.ingested_runs[2]]
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=[run.run_id for run in selected_runs],
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -125,7 +125,7 @@ def test_fetch_runs_table_filters_by_name_list(project_1, project_2, unique_exec
 
 def test_fetch_runs_table_filters_by_attribute_filter(project_1, project_2):
     target_run = project_2.ingested_runs[0]
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=filters.Filter.eq(filters.Attribute("sys/custom_run_id", type="string"), target_run.run_id),
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -145,7 +145,7 @@ def test_fetch_runs_table_filters_by_attribute_filter(project_1, project_2):
 
 def test_fetch_runs_table_applies_limit(project_1, project_2, unique_execution_module_key):
     limit = 4
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -165,7 +165,7 @@ def test_fetch_runs_table_applies_limit(project_1, project_2, unique_execution_m
 
 
 def test_fetch_runs_table_with_type_suffix(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=f"{unique_execution_module_key}",
         attributes=r"config/(int|string)",
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -191,7 +191,7 @@ def test_fetch_runs_table_conflicting_attributes_with_type_suffix(project_1, pro
         project_2.ingested_runs[0],
     ]
 
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=[run.run_id for run in runs_with_conflict],
         attributes=[CONFLICTING_ATTRIBUTE_PATH],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -217,7 +217,7 @@ def test_fetch_runs_table_conflicting_attributes_without_type_suffix(project_1, 
     ]
 
     with pytest.raises(ConflictingAttributeTypes):
-        fetch_runs_table(
+        fetch_runs_table_multiproject(
             runs=[run.run_id for run in runs_with_conflict],
             attributes=[CONFLICTING_ATTRIBUTE_PATH],
             sort_by=filters.Attribute("sys/name", type="string"),
@@ -226,7 +226,7 @@ def test_fetch_runs_table_conflicting_attributes_without_type_suffix(project_1, 
 
 
 def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_runs_table(
+    dataframe = fetch_runs_table_multiproject(
         runs=f"{unique_execution_module_key}",
         attributes=[],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -307,6 +307,19 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
         project_data=ProjectData(
             project_name_base="project_2",
             runs=[
+                RunData(
+                    experiment_name_base="exp_aardvark",  # This name is chosen to appear first alphabetically
+                    run_id_base="run_project_2_aardvark",
+                    fork_point=None,
+                    configs={
+                        "config/int": 0,
+                        "config/string": "project-2-aardvark",
+                    },
+                    float_series={
+                        "metrics/loss": {0: 0.95, 1: 0.75},
+                        "metrics/accuracy": {0: 0.55, 1: 0.65},
+                    },
+                ),
                 RunData(
                     experiment_name_base="exp_project_2_alpha",
                     run_id_base="run_project_2_alpha",

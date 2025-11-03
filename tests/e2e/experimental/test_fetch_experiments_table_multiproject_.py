@@ -10,7 +10,7 @@ import pytest
 
 from neptune_query import filters
 from neptune_query.exceptions import ConflictingAttributeTypes
-from neptune_query.experimental import fetch_experiments_table
+from neptune_query.experimental import fetch_experiments_table_multiproject
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestedRunData,
@@ -33,14 +33,14 @@ class Column:
 @pytest.fixture(scope="session")
 def unique_execution_module_key(test_execution_id) -> str:
     """
-    This fixture provides a key for that is unique for this module in the current test execution.
+    This fixture provides a key that is unique for this module in the current test execution.
     It can be used to create unique project names, experiment names, etc.
     """
     return f"{test_execution_id}_{__name__}"
 
 
 def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -64,7 +64,7 @@ def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, u
 def test_fetch_experiments_table_respects_sort_direction(
     project_1, project_2, unique_execution_module_key, sort_direction: Literal["asc", "desc"]
 ):
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -85,7 +85,7 @@ def test_fetch_experiments_table_respects_sort_direction(
 
 
 def test_fetch_experiments_table_filters_by_regex(project_1, unique_execution_module_key):
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=rf"^exp_project_1 & {unique_execution_module_key}",
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -109,7 +109,7 @@ def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, uniq
         _experiment_head_by_name(project_2, "exp_project_2_alt"),
     ]
 
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=[e.experiment_name for e in selected_experiments],
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -130,7 +130,7 @@ def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, uniq
 def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
     target_experiment = _experiment_head_by_name(project_2, "exp_project_2")
 
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=filters.Filter.eq(filters.Attribute("sys/name", type="string"), target_experiment.experiment_name),
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -150,7 +150,7 @@ def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
 
 def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_execution_module_key):
     limit = 2
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -172,7 +172,7 @@ def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_exec
 
 
 def test_fetch_experiments_table_with_type_suffix(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=f"{unique_execution_module_key}",
         attributes=r"(config/(int|string)|metrics/loss)",
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -199,7 +199,7 @@ def test_fetch_experiments_table_conflicting_attributes_with_type_suffix(project
         _experiment_head_by_name(project_2, "exp_project_2"),
     ]
 
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=[e.experiment_name for e in experiments_with_conflict],
         attributes=[CONFLICTING_ATTRIBUTE_PATH],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -225,7 +225,7 @@ def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(proj
     ]
 
     with pytest.raises(ConflictingAttributeTypes):
-        fetch_experiments_table(
+        fetch_experiments_table_multiproject(
             experiments=[e.experiment_name for e in experiments_with_conflict],
             attributes=[CONFLICTING_ATTRIBUTE_PATH],
             sort_by=filters.Attribute("sys/name", type="string"),
@@ -234,7 +234,7 @@ def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(proj
 
 
 def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table(
+    dataframe = fetch_experiments_table_multiproject(
         experiments=f"{unique_execution_module_key}",
         attributes=[],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -336,6 +336,19 @@ def project_1(client, api_token, workspace, unique_execution_module_key) -> Inge
 
 @pytest.fixture(scope="session")
 def project_2(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
+    exp_project_2_aardvark = RunData(
+        experiment_name_base="exp_aardvark",  # This name is chosen to appear first alphabetically
+        run_id_base="run_project_2_aardvark",
+        fork_point=None,
+        configs={
+            "config/int": 0,
+            "config/string": "project-2-aardvark",
+        },
+        float_series={
+            "metrics/loss": {0: 0.9, 1: 0.7},
+            "metrics/accuracy": {0: 0.5, 1: 0.6},
+        },
+    )
     exp_project_2_root = RunData(
         experiment_name_base="exp_project_2",
         run_id_base="run_project_2_root",
@@ -398,6 +411,7 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
         project_data=ProjectData(
             project_name_base="global_fetch_experiments_table_project_2",
             runs=[
+                exp_project_2_aardvark,
                 exp_project_2_root,
                 exp_project_2_branch,
                 exp_project_2_branch_deep,

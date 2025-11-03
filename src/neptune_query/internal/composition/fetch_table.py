@@ -188,22 +188,17 @@ def fetch_table_global(
                 limit=limit,
                 container_type=container_type,
             ):
-                grouped: dict[identifiers.ProjectIdentifier, list[global_search.GlobalRunSearchEntry]] = {}
+                entries_by_project: dict[identifiers.ProjectIdentifier, list[global_search.GlobalRunSearchEntry]] = {}
                 for entry in page.items:
-                    grouped.setdefault(entry.project_identifier, []).append(entry)
+                    entries_by_project[entry.project_identifier].append(entry)
+                    table_rows[identifiers.RunIdentifier(entry.project_identifier, entry.sys_id)] = TableRow(
+                        values=[],
+                        label=entry.label,
+                        project_identifier=entry.project_identifier,
+                    )
 
-                for project_identifier, entries in grouped.items():
-                    sys_ids: list[identifiers.SysId] = []
-                    for entry in entries:
-                        table_rows.setdefault(
-                            identifiers.RunIdentifier(entry.project_identifier, entry.sys_id),
-                            TableRow(
-                                values=[],
-                                label=entry.label,
-                                project_identifier=entry.project_identifier,
-                            ),
-                        )
-                        sys_ids.append(entry.sys_id)
+                for project_identifier, entries in entries_by_project.items():
+                    sys_ids: list[identifiers.SysId] = [entry.sys_id for entry in entries]
                     yield project_identifier, sys_ids
 
         def _fetch_attribute_values(

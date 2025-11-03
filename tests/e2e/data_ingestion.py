@@ -3,7 +3,10 @@ from __future__ import annotations
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import (
+    Generator,
+    Optional,
+)
 
 import filelock
 import neptune_scale
@@ -125,19 +128,17 @@ def _ingest_project_data(api_token: str, workspace: str, project_data: ProjectDa
         )
 
 
-def _group_runs_by_execution_order(runs_data: list[RunData]) -> list[list[RunData]]:
+def _group_runs_by_execution_order(runs_data: list[RunData]) -> Generator[list[RunData], None, None]:
     if not runs_data:
-        return []
+        return
 
     def parent_id(run: RunData) -> str | None:
         if run.fork_point is not None:
             return run.fork_point[0]
-
         return None
 
     remaining: list[RunData] = list(runs_data)
     resolved: set[Optional[str]] = {None}  # None represents a parent of root runs
-    batches: list[list[RunData]] = []
 
     while remaining:
         ready_batch = [run for run in remaining if parent_id(run) in resolved]
@@ -148,9 +149,7 @@ def _group_runs_by_execution_order(runs_data: list[RunData]) -> list[list[RunDat
             remaining.remove(run)
             resolved.add(run.run_id_base)
 
-        batches.append(ready_batch)
-
-    return batches
+        yield ready_batch
 
 
 def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: str, unique_key: str) -> None:
