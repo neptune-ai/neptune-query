@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from collections import defaultdict
 from typing import (
     Generator,
     Literal,
@@ -188,17 +189,16 @@ def fetch_table_global(
                 limit=limit,
                 container_type=container_type,
             ):
-                entries_by_project: dict[identifiers.ProjectIdentifier, list[global_search.GlobalRunSearchEntry]] = {}
+                entries_by_project: dict[identifiers.ProjectIdentifier, list[identifiers.SysId]] = defaultdict(list)
                 for entry in page.items:
-                    entries_by_project[entry.project_identifier].append(entry)
+                    entries_by_project[entry.project_identifier].append(entry.sys_id)
                     table_rows[identifiers.RunIdentifier(entry.project_identifier, entry.sys_id)] = TableRow(
                         values=[],
                         label=entry.label,
                         project_identifier=entry.project_identifier,
                     )
 
-                for project_identifier, entries in entries_by_project.items():
-                    sys_ids: list[identifiers.SysId] = [entry.sys_id for entry in entries]
+                for project_identifier, sys_ids in entries_by_project.items():
                     yield project_identifier, sys_ids
 
         def _fetch_attribute_values(

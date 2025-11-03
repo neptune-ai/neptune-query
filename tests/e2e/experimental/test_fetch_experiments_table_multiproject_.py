@@ -336,19 +336,6 @@ def project_1(client, api_token, workspace, unique_execution_module_key) -> Inge
 
 @pytest.fixture(scope="session")
 def project_2(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
-    exp_project_2_aardvark = RunData(
-        experiment_name_base="exp_aardvark",  # This name is chosen to appear first alphabetically
-        run_id_base="run_project_2_aardvark",
-        fork_point=None,
-        configs={
-            "config/int": 0,
-            "config/string": "project-2-aardvark",
-        },
-        float_series={
-            "metrics/loss": {0: 0.9, 1: 0.7},
-            "metrics/accuracy": {0: 0.5, 1: 0.6},
-        },
-    )
     exp_project_2_root = RunData(
         experiment_name_base="exp_project_2",
         run_id_base="run_project_2_root",
@@ -402,6 +389,19 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
             "metrics/accuracy": {0: 0.45, 1: 0.55},
         },
     )
+    exp_project_2_aardvark = RunData(
+        experiment_name_base="exp_aardvark",  # Named to sort first alphabetically across projects
+        run_id_base="run_project_2_aardvark",
+        fork_point=None,
+        configs={
+            "config/int": 0,
+            "config/string": "project-2-aardvark",
+        },
+        float_series={
+            "metrics/loss": {0: 0.9, 1: 0.7},
+            "metrics/accuracy": {0: 0.5, 1: 0.6},
+        },
+    )
 
     return ensure_project(
         client=client,
@@ -411,11 +411,11 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
         project_data=ProjectData(
             project_name_base="global_fetch_experiments_table_project_2",
             runs=[
-                exp_project_2_aardvark,
                 exp_project_2_root,
                 exp_project_2_branch,
                 exp_project_2_branch_deep,
                 exp_project_2_alt_root,
+                exp_project_2_aardvark,
             ],
         ),
     )

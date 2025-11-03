@@ -308,19 +308,6 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
             project_name_base="project_2",
             runs=[
                 RunData(
-                    experiment_name_base="exp_aardvark",  # This name is chosen to appear first alphabetically
-                    run_id_base="run_project_2_aardvark",
-                    fork_point=None,
-                    configs={
-                        "config/int": 0,
-                        "config/string": "project-2-aardvark",
-                    },
-                    float_series={
-                        "metrics/loss": {0: 0.95, 1: 0.75},
-                        "metrics/accuracy": {0: 0.55, 1: 0.65},
-                    },
-                ),
-                RunData(
                     experiment_name_base="exp_project_2_alpha",
                     run_id_base="run_project_2_alpha",
                     fork_point=None,
@@ -358,6 +345,19 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
                     float_series={
                         "metrics/loss": {0: 1.2, 1: 1.0, 2: 0.8},
                         "metrics/accuracy": {0: 0.5, 1: 0.6, 2: 0.7},
+                    },
+                ),
+                RunData(
+                    experiment_name_base="exp_aardvark",  # Named to sort first alphabetically across projects
+                    run_id_base="run_project_2_aardvark",
+                    fork_point=None,
+                    configs={
+                        "config/int": 0,
+                        "config/string": "project-2-aardvark",
+                    },
+                    float_series={
+                        "metrics/loss": {0: 0.95, 1: 0.75},
+                        "metrics/accuracy": {0: 0.55, 1: 0.65},
                     },
                 ),
             ],
