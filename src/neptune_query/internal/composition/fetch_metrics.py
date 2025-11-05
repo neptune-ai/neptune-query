@@ -46,7 +46,7 @@ from ..retrieval import (
     split,
 )
 from ..retrieval.metrics import (
-    MetricValues,
+    MetricDatapoints,
     fetch_multiple_series_values,
 )
 from ..retrieval.search import ContainerType
@@ -129,7 +129,7 @@ def _fetch_metrics(
     include_point_previews: bool,
     tail_limit: Optional[int],
     container_type: ContainerType,
-) -> tuple[dict[identifiers.RunAttributeDefinition, MetricValues], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, MetricDatapoints], dict[identifiers.SysId, str]]:
     sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
@@ -183,11 +183,13 @@ def _fetch_metrics(
         ),
     )
 
-    results: Generator[dict[identifiers.RunAttributeDefinition, MetricValues], None, None] = concurrency.gather_results(
+    results: Generator[
+        dict[identifiers.RunAttributeDefinition, MetricDatapoints], None, None
+    ] = concurrency.gather_results(
         output
     )
 
-    metrics_data: dict[identifiers.RunAttributeDefinition, MetricValues] = {
+    metrics_data: dict[identifiers.RunAttributeDefinition, MetricDatapoints] = {
         definition: metric_values for result in results for definition, metric_values in result.items()
     }
 

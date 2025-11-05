@@ -16,7 +16,7 @@ from neptune_query.internal.identifiers import (
     SysId,
 )
 from neptune_query.internal.output_format import create_metrics_dataframe
-from neptune_query.internal.retrieval.metrics import MetricValues
+from neptune_query.internal.retrieval.metrics import MetricDatapoints
 
 
 def _generate_metrics_dataset(
@@ -26,9 +26,9 @@ def _generate_metrics_dataset(
     num_steps: int,
     include_timestamp: bool,
     include_preview: bool,
-) -> tuple[dict[RunAttributeDefinition, MetricValues], dict[SysId, str]]:
+) -> tuple[dict[RunAttributeDefinition, MetricDatapoints], dict[SysId, str]]:
     project = ProjectIdentifier("perf/project")
-    metrics_data: dict[RunAttributeDefinition, MetricValues] = {}
+    metrics_data: dict[RunAttributeDefinition, MetricDatapoints] = {}
     label_mapping: dict[SysId, str] = {}
 
     for experiment_index in range(num_experiments):
@@ -39,7 +39,7 @@ def _generate_metrics_dataset(
         for metric_index in range(num_metrics):
             attribute = AttributeDefinition(f"metric_{metric_index}", "float_series")
             definition = RunAttributeDefinition(run_identifier, attribute)
-            metric_values = MetricValues.allocate(
+            metric_values = MetricDatapoints.allocate(
                 size=num_steps, include_timestamp=include_timestamp, include_preview=include_preview
             )
             for step in range(num_steps):

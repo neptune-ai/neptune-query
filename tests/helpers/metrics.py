@@ -10,7 +10,7 @@ from typing import (
 import numpy as np
 
 from neptune_query.internal.identifiers import RunAttributeDefinition
-from neptune_query.internal.retrieval.metrics import MetricValues
+from neptune_query.internal.retrieval.metrics import MetricDatapoints
 
 
 @dataclass(frozen=True)
@@ -58,12 +58,12 @@ class FloatPointValue:
         return self.is_preview is not None and self.completion_ratio is not None
 
 
-def to_metric_values(points: Sequence[FloatPointValue]) -> MetricValues:
+def to_metric_datapoints(points: Sequence[FloatPointValue]) -> MetricDatapoints:
     size = len(points)
     include_timestamp = any(point.has_timestamp() for point in points)
     include_preview = any(point.has_preview_data() for point in points)
 
-    metric_values = MetricValues.allocate(
+    metric_values = MetricDatapoints.allocate(
         size=size, include_timestamp=include_timestamp, include_preview=include_preview
     )
 
@@ -88,18 +88,18 @@ def to_metric_values(points: Sequence[FloatPointValue]) -> MetricValues:
 def normalize_metrics_data(
     metrics_data: Mapping[
         RunAttributeDefinition,
-        Union[MetricValues, Sequence[FloatPointValue]],
+        Union[MetricDatapoints, Sequence[FloatPointValue]],
     ],
-) -> dict[RunAttributeDefinition, MetricValues]:
+) -> dict[RunAttributeDefinition, MetricDatapoints]:
     return {
-        definition: value if isinstance(value, MetricValues) else to_metric_values(value)
+        definition: value if isinstance(value, MetricDatapoints) else to_metric_datapoints(value)
         for definition, value in metrics_data.items()
     }
 
 
 def assert_metric_mappings_equal(
-    actual: Mapping[RunAttributeDefinition, MetricValues],
-    expected: Mapping[RunAttributeDefinition, MetricValues],
+    actual: Mapping[RunAttributeDefinition, MetricDatapoints],
+    expected: Mapping[RunAttributeDefinition, MetricDatapoints],
 ) -> None:
     actual_keys = set(actual.keys())
     expected_keys = set(expected.keys())

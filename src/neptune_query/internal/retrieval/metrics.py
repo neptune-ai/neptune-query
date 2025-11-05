@@ -43,7 +43,7 @@ TOTAL_POINT_LIMIT: int = 1_000_000
 
 
 @dataclass(frozen=True, slots=True)
-class MetricValues:
+class MetricDatapoints:
     steps: np.ndarray
     values: np.ndarray
     timestamps: Optional[np.ndarray]
@@ -51,7 +51,7 @@ class MetricValues:
     completion_ratio: Optional[np.ndarray]
 
     @classmethod
-    def allocate(cls, size: int, include_timestamp: bool, include_preview: bool) -> "MetricValues":
+    def allocate(cls, size: int, include_timestamp: bool, include_preview: bool) -> "MetricDatapoints":
         return cls(
             steps=np.empty(size, dtype=np.float64),
             values=np.empty(size, dtype=np.float64),
@@ -61,7 +61,7 @@ class MetricValues:
         )
 
     @classmethod
-    def concatenate(cls, metrics_list: list["MetricValues"]) -> "MetricValues":
+    def concatenate(cls, metrics_list: list["MetricDatapoints"]) -> "MetricDatapoints":
         return cls(
             steps=np.concatenate([m.steps for m in metrics_list], axis=0),
             values=np.concatenate([m.values for m in metrics_list], axis=0),
@@ -81,7 +81,7 @@ class MetricValues:
         return self.steps.size  # type: ignore # np.ndarray.size is int
 
     @classmethod
-    def length_sum(cls, metrics_list: list["MetricValues"]) -> int:
+    def length_sum(cls, metrics_list: list["MetricDatapoints"]) -> int:
         return sum(m.length for m in metrics_list)
 
 
@@ -94,7 +94,7 @@ def fetch_multiple_series_values(
     include_preview: bool,
     step_range: tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
-) -> dict[identifiers.RunAttributeDefinition, MetricValues]:
+) -> dict[identifiers.RunAttributeDefinition, MetricDatapoints]:
     if not run_attribute_definitions:
         return {}
 
@@ -129,7 +129,7 @@ def fetch_multiple_series_values(
         "order": "ascending" if not tail_limit else "descending",
     }
 
-    paged_results: dict[identifiers.RunAttributeDefinition, list[MetricValues]] = {}
+    paged_results: dict[identifiers.RunAttributeDefinition, list[MetricDatapoints]] = {}
 
     for page_result in util.fetch_pages(
         client=client,
@@ -152,10 +152,10 @@ def fetch_multiple_series_values(
         for definition, metric_values in page_result.items:
             paged_results.setdefault(definition, []).append(metric_values)
 
-    results: dict[identifiers.RunAttributeDefinition, MetricValues] = {}
+    results: dict[identifiers.RunAttributeDefinition, MetricDatapoints] = {}
     for definition, paged_metric_values in paged_results.items():
         if len(paged_metric_values) > 1:
-            results[definition] = MetricValues.concatenate(paged_metric_values)
+            results[definition] = MetricDatapoints.concatenate(paged_metric_values)
         elif len(paged_metric_values) == 1:
             results[definition] = paged_metric_values[0]
         else:
@@ -189,10 +189,10 @@ def _process_metrics_page(
     include_timestamp: bool,
     include_preview: bool,
     reverse_order: bool,
-) -> util.Page[tuple[identifiers.RunAttributeDefinition, MetricValues]]:
+) -> util.Page[tuple[identifiers.RunAttributeDefinition, MetricDatapoints]]:
     result = {}
     for series in data.series:
-        metric_values = MetricValues.allocate(
+        metric_values = MetricDatapoints.allocate(
             size=len(series.series.values), include_timestamp=include_timestamp, include_preview=include_preview
         )
 
@@ -220,7 +220,7 @@ def _make_new_metrics_page_params(
     data: Optional[ProtoFloatSeriesValuesResponseDTO],
     request_id_to_attribute: dict[str, identifiers.RunAttributeDefinition],
     tail_limit: Optional[int],
-    partial_results: dict[identifiers.RunAttributeDefinition, list[MetricValues]],
+    partial_results: dict[identifiers.RunAttributeDefinition, list[MetricDatapoints]],
 ) -> Optional[dict[str, Any]]:
     if data is None:  # no past data, we are fetching the first page
         for request in params["requests"]:
@@ -242,7 +242,7 @@ def _make_new_metrics_page_params(
 
         attribute = request_id_to_attribute[request_id]
         need_more_points = (
-            MetricValues.length_sum(partial_results[attribute]) < tail_limit if tail_limit is not None else True
+            MetricDatapoints.length_sum(partial_results[attribute]) < tail_limit if tail_limit is not None else True
         )
 
         if is_page_full and need_more_points:
@@ -263,7 +263,7 @@ def _make_new_metrics_page_params(
     per_series_points_limit = max(1, TOTAL_POINT_LIMIT // len(params["requests"]))
     if tail_limit is not None:
         already_fetched = next(
-            MetricValues.length_sum(partial_results[request_id_to_attribute[request_id]])
+            MetricDatapoints.length_sum(partial_results[request_id_to_attribute[request_id]])
             for request_id in new_request_after_steps.keys()
         )  # assumes the results for all unfinished series have the same length
         per_series_points_limit = min(per_series_points_limit, tail_limit - already_fetched)

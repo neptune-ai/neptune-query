@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
+import sys
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
@@ -40,7 +42,7 @@ from .retrieval.attribute_types import (
     Histogram,
 )
 from .retrieval.attribute_values import AttributeValue
-from .retrieval.metrics import MetricValues
+from .retrieval.metrics import MetricDatapoints
 from .retrieval.search import ContainerType
 from .util import _validate_allowed_value
 
@@ -135,8 +137,10 @@ def convert_table_to_dataframe(
     return dataframe
 
 
+
+
 def create_metrics_dataframe(
-    metrics_data: dict[identifiers.RunAttributeDefinition, MetricValues],
+    metrics_data: dict[identifiers.RunAttributeDefinition, MetricDatapoints],
     sys_id_label_mapping: dict[identifiers.SysId, str],
     *,
     type_suffix_in_column_names: bool,
@@ -159,13 +163,22 @@ def create_metrics_dataframe(
 
     _validate_allowed_value(timestamp_column_name, ["absolute_time"], "timestamp_column_name")
 
+    # TODO - to remove, as not needed and takes time
+    # Ensure that all MetricDatapoints in metrics_data are sorted by their step values.
+    # for _, datapoints in metrics_data.items():
+    #     if datapoints.length <= 1:
+    #         continue
+    #     if np.any( datapoints.steps[1:] <  datapoints.steps[:-1]):
+    #         raise ValueError("MetricDatapoints.steps must be sorted in non-decreasing order")
+
+
+
     def path_display_name(attr_def: identifiers.RunAttributeDefinition) -> str:
         return (
             f"{attr_def.attribute_definition.name}:float_series"
             if type_suffix_in_column_names
             else attr_def.attribute_definition.name
         )
-
     paths_with_data: set[str] = {
         path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
     }
@@ -174,9 +187,17 @@ def create_metrics_dataframe(
     for definition, metric_values in metrics_data.items():
         sys_id_to_steps[definition.run_identifier.sys_id].append(metric_values.steps)
 
+    # More time-efficient implemention of np.unique(np.concatenate(step_arrays)
+    def sort_and_unique(arrays, kind='mergesort'):
+        c = np.concatenate((arrays))
+        c.sort(kind=kind)
+        flag = np.ones(len(c), dtype=bool)
+        np.not_equal(c[1:], c[:-1], out=flag[1:])
+        return c[flag]
+
     run_to_observed_steps: dict[str, np.ndarray] = {}
     for sys_id, step_arrays in sys_id_to_steps.items():
-        run_to_observed_steps[sys_id_label_mapping[sys_id]] = np.unique(np.concatenate(step_arrays))
+        run_to_observed_steps[sys_id_label_mapping[sys_id]] = sort_and_unique(step_arrays)
 
     del sys_id_to_steps
 
@@ -217,7 +238,7 @@ def create_metrics_dataframe(
         if buffer.preview_completion is not None:
             buffer.preview_completion[rows] = metric_values.completion_ratio
 
-    return _assemble_wide_dataframe(
+    dataframe = _assemble_wide_dataframe(
         index_data=index_data,
         path_buffers=path_buffers,
         sub_columns=(
@@ -226,6 +247,7 @@ def create_metrics_dataframe(
             + (["is_preview", "preview_completion"] if include_point_previews else [])
         ),
     )
+    return dataframe
 
 
 def create_series_dataframe(
@@ -500,6 +522,9 @@ class IndexData:
             raise RuntimeError("IndexData was not initialized with vector lookup support.")
         start, end = self.sys_id_ranges[sys_id]
         run_steps = self.step_values[start:end]
+        
+        # TO-OPTIMIZE: there is space for optimization, we can use fact that both are sorted and have O(n+m) complexity, but it is hard
+        # to beat numpy implementation without going to C code.
         relative_rows = run_steps.searchsorted(steps)
         return relative_rows + start
 
@@ -599,7 +624,7 @@ def _assemble_wide_dataframe(
         arrays=[index_data.display_names, index_data.step_values],
         names=index_data.index_level_labels,
     )
-    return pd.DataFrame(data=data, index=index, columns=columns)
+    return pd.DataFrame(data=data, index=index, columns=columns, copy=False)
 
 
 def _create_nan_float_array(size: int) -> np.ndarray:
