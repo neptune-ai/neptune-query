@@ -23,6 +23,7 @@ __all__ = [
     "fetch_metric_buckets",
     "fetch_series",
     "download_files",
+    "experimental",
 ]
 
 import pathlib
@@ -58,7 +59,7 @@ from neptune_query.internal.composition import fetch_table as _fetch_table
 from neptune_query.internal.composition import list_attributes as _list_attributes
 from neptune_query.internal.composition import list_containers as _list_containers
 from neptune_query.internal.context import set_api_token
-from neptune_query.internal.experimental import experimental
+from neptune_query.internal.experimental import experimental as experimental_api
 from neptune_query.internal.query_metadata_context import use_query_metadata
 from neptune_query.internal.retrieval import search as _search
 
@@ -429,7 +430,7 @@ def download_files(
     )
 
 
-@experimental
+@experimental_api
 @use_query_metadata(api_function="fetch_metric_buckets")
 def fetch_metric_buckets(
     *,

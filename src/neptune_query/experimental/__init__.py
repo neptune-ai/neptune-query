@@ -35,13 +35,13 @@ from neptune_query._internal import (
     resolve_sort_by,
 )
 from neptune_query.internal.composition import fetch_table as _fetch_table
-from neptune_query.internal.experimental import experimental
+from neptune_query.internal.experimental import experimental as experimental_api
 from neptune_query.internal.query_metadata_context import use_query_metadata
 from neptune_query.internal.retrieval import search as _search
 
 
-@use_query_metadata(api_function="experimental.fetch_experiments_table")
-@experimental
+@use_query_metadata(api_function="fetch_experiments_table_multiproject")
+@experimental_api
 def fetch_experiments_table_multiproject(
     *,
     experiments: Optional[Union[str, list[str], filters.Filter]] = None,
@@ -78,10 +78,10 @@ def fetch_experiments_table_multiproject(
     Example:
         Fetch attributes matching `loss` or `configs` from two specific experiments:
         ```
-        import neptune_query as nq
+        import neptune_query.experimental as nq_experimental
 
 
-        nq.fetch_experiments_table(
+        nq_experimental.fetch_experiments_table_multiproject(
             experiments=["seagull-week1", "seagull-week2"],
             attributes=r"loss | configs",
         )
@@ -102,8 +102,8 @@ def fetch_experiments_table_multiproject(
     )
 
 
-@use_query_metadata(api_function="experimental.runs.fetch_runs_table")
-@experimental
+@use_query_metadata(api_function="fetch_runs_table_multiproject")
+@experimental_api
 def fetch_runs_table_multiproject(
     *,
     runs: Optional[Union[str, list[str], filters.Filter]] = None,
@@ -140,11 +140,11 @@ def fetch_runs_table_multiproject(
     Example:
         Fetch constituent runs of an experiment, with attributes matching `loss` or `configs` as columns:
         ```
-        import neptune_query.runs as nq_runs
+        import neptune_query.experimental as nq_experimental
         from neptune_query.filters import Filter
 
 
-        nq_runs.fetch_runs_table(
+        nq_experimental.fetch_runs_table_multiproject(
             runs=Filter.eq("sys/name", "exp-week9"),
             attributes=r"loss | configs",
         )
