@@ -10,7 +10,7 @@ from tests.performance_e2e.test_helpers import PerfRequestBuilder
 
 @dataclass
 class Scenario:
-    id: int
+    id: str
     experiments_count: int
     latency_range_ms: tuple[int, int]
 
@@ -33,12 +33,12 @@ class Scenario:
     "scenario",
     [
         Scenario(
-            id=1,
+            id="le001",
             experiments_count=29_000,
             latency_range_ms=(500, 500),
         ).to_pytest_param(timeout=1.617),
         Scenario(
-            id=2,
+            id="le002",
             experiments_count=1_000_000,
             latency_range_ms=(30, 30),
         ).to_pytest_param(timeout=10.103),
