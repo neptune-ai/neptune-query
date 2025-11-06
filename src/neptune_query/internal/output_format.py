@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-import sys
-import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
@@ -488,21 +486,18 @@ class IndexData:
         total_rows_count = sum(len(steps) for steps in observed_steps.values())
         display_names: list[str] = [""] * total_rows_count
         step_values: np.ndarray = np.empty(shape=(total_rows_count,), dtype=np.float64)
-
         row_num: int = 0
-        for display_name in sorted(observed_steps.keys()):
+        sorted_observed_steps = sorted(observed_steps.items(), key=lambda x: x[0])
+        for display_name, steps in sorted_observed_steps:
             sys_id = display_name_to_sys_id[display_name]
-            sorted_steps = np.sort(observed_steps[display_name], kind="stable")
-            for i, step in enumerate(sorted_steps, start=row_num):
-                display_names[i] = display_name
-                step_values[i] = step
-
+            step_values[row_num:row_num + steps.size] = steps
+            display_names[row_num:row_num + steps.size] = [display_name] * steps.size
             if sys_id_ranges is not None:
-                sys_id_ranges[sys_id] = (row_num, row_num + sorted_steps.size)
+                sys_id_ranges[sys_id] = (row_num, row_num + steps.size)
             if row_dict_lookup is not None:
-                row_dict_lookup[sys_id] = {float(step): idx for idx, step in enumerate(sorted_steps, start=row_num)}
+                row_dict_lookup[sys_id] = {float(step): idx for idx, step in enumerate(steps, start=row_num)}
+            row_num += steps.size
 
-            row_num += sorted_steps.size
 
         return cls(
             display_names=display_names,
