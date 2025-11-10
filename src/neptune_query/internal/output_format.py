@@ -246,7 +246,7 @@ def create_metrics_dataframe(
         index = 0
         for name in paths_with_data:
             for suffix, _ in column_suffixes_and_types:
-                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
+                attribute_to_ndarray[(name, suffix)] = (raw_data, index)
                 index += 1
         dataframe = pd.DataFrame(raw_data, columns=column_names, index=index_data.display_names, copy=False)
     else:
@@ -267,7 +267,8 @@ def create_metrics_dataframe(
         rows_indexes = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
         attribute_name = path_display_name(definition)
         for suffix, _ in column_suffixes_and_types:
-            attribute_to_ndarray[(attribute_name, suffix)][rows_indexes] = getattr(metric_values, SUFFIX_TO_ATTRIBUTE[suffix])
+            raw_data, index = attribute_to_ndarray[(attribute_name, suffix)]
+            raw_data[rows_indexes, index] = getattr(metric_values, SUFFIX_TO_ATTRIBUTE[suffix])
 
 
     # # Preallocate column vectors for every logical value we might emit.
