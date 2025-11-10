@@ -192,11 +192,9 @@ def _process_metrics_page(
 ) -> util.Page[tuple[identifiers.RunAttributeDefinition, MetricDatapoints]]:
     result = {}
     for series in data.series:
-        pass
         metric_values = MetricDatapoints.allocate(
             size=len(series.series.values), include_timestamp=include_timestamp, include_preview=include_preview
         )
-        
         for i, point in enumerate(series.series.values):
             idx = metric_values.length - 1 - i if reverse_order else i
 

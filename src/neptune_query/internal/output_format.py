@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
+import itertools
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
@@ -487,9 +488,10 @@ class IndexData:
         display_names: list[str] = [""] * total_rows_count
         step_values: np.ndarray = np.empty(shape=(total_rows_count,), dtype=np.float64)
         row_num: int = 0
-        sorted_observed_steps = sorted(observed_steps.items(), key=lambda x: x[0])
-        for display_name, steps in sorted_observed_steps:
+
+        for display_name, steps in sorted(observed_steps.items(), key=lambda x: x[0]):
             sys_id = display_name_to_sys_id[display_name]
+
             step_values[row_num:row_num + steps.size] = steps
             display_names[row_num:row_num + steps.size] = [display_name] * steps.size
             if sys_id_ranges is not None:
@@ -521,7 +523,8 @@ class IndexData:
         # TO-OPTIMIZE: there is space for optimization, we can use fact that both are sorted and have O(n+m) complexity, but it is hard
         # to beat numpy implementation without going to C code.
         relative_rows = run_steps.searchsorted(steps)
-        return relative_rows + start
+        relative_rows += start
+        return relative_rows
 
     def lookup_row_dict(self, sys_id: identifiers.SysId) -> dict[float, int]:
         if self.row_dict_lookup is None:
