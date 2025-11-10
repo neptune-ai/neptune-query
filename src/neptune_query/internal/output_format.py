@@ -188,6 +188,11 @@ def create_metrics_dataframe(
 
     # More time-efficient implemention of np.unique(np.concatenate(step_arrays)
     def sort_and_unique(arrays, kind='mergesort'):
+        emperical_threshold = 32 # optimization - number of arrays to split into two for recursion
+        if len(arrays) > emperical_threshold:
+            left = sort_and_unique(arrays[:len(arrays)//2])
+            right = sort_and_unique(arrays[len(arrays)//2:])
+            arrays = [left, right]
         c = np.concatenate((arrays))
         c.sort(kind=kind)
         flag = np.ones(len(c), dtype=bool)
@@ -622,7 +627,7 @@ def _assemble_wide_dataframe(
         arrays=[index_data.display_names, index_data.step_values],
         names=index_data.index_level_labels,
     )
-    return pd.DataFrame(data=data, index=index, columns=columns, copy=False)
+    return pd.DataFrame(data=data, index=index, columns=columns, copy=True)
 
 
 def _create_nan_float_array(size: int) -> np.ndarray:
