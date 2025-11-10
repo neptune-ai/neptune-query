@@ -41,7 +41,7 @@ jobs:
           pytest --junitxml=test-results/test-performance.xml tests/performance
 
       - name: Performance validation
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         if: always()
         with:
           check_name: Performance validation
