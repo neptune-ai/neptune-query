@@ -178,6 +178,7 @@ def create_metrics_dataframe(
             if type_suffix_in_column_names
             else attr_def.attribute_definition.name
         )
+    # TODO - I would recommend to sort it by name to avoid random order of columns
     paths_with_data: set[str] = {
         path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
     }
@@ -214,43 +215,98 @@ def create_metrics_dataframe(
 
     del run_to_observed_steps
 
-    # Preallocate column vectors for every logical value we might emit.
-    path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
-        num_rows=index_data.row_count(),
-        paths_with_data=paths_with_data,
-        value_initializers=ValueInitializers(
-            value=_create_nan_float_array,
-            absolute_time=_create_nan_float_array if timestamp_column_name else None,
-            is_preview=_create_nan_object_array if include_point_previews else None,
-            preview_completion=_create_nan_float_array if include_point_previews else None,
-        ),
-    )
 
-    # Write every metric point directly into the pre-allocated buffers.
+    # It is time to construct the dataframe
+    rows_count = index_data.row_count()
+    columns_per_attribute = 1 + (1 if timestamp_column_name else 0) + (2 if include_point_previews else 0)
+    columns_count = columns_per_attribute * len(paths_with_data)
+    
+    column_suffixes_and_types = [("", "float64"),]
+    if timestamp_column_name:
+        column_suffixes_and_types.append((":absolute_time", np.float64))
+    if include_point_previews:
+        column_suffixes_and_types.append((":is_preview", bool))
+        
+    column_names = [
+        name + suffix
+        for name in paths_with_data
+        for suffix, _ in column_suffixes_and_types
+    ]
+
+    # Prepare numpy_array mapping and dataframe
+    is_uniform_dtype = len({type for _, type in column_suffixes_and_types}) == 1
+
+    if is_uniform_dtype:
+        # TODO:
+        # np.empty is more appropriate here, but it is not supported by pandas
+        raw_data = np.empty((rows_count, columns_count), dtype=column_suffixes_and_types[0][1])
+        # TODO - works only with float64
+        raw_data.fill(np.nan)
+        attribute_to_ndarray = {}
+        index = 0
+        for name in paths_with_data:
+            for suffix, _ in column_suffixes_and_types:
+                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
+                index += 1
+        dataframe = pd.DataFrame(raw_data, columns=column_names, index=index_data.display_names, copy=False)
+    else:
+        # TODO - implement non-uniform column dtypes
+        raise NotImplementedError("Non-uniform column dtypes are not supported yet")
+
+    SUFFIX_TO_ATTRIBUTE = {
+        "": "values",
+        ":absolute_time": "timestamps",
+        ":is_preview": "is_preview",
+        ":preview_completion": "completion_ratio",
+    }
+    # Fill dataframe with data
     for definition, metric_values in metrics_data.items():
         if metric_values.length == 0:
             continue
 
-        rows = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
+        rows_indexes = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
+        attribute_name = path_display_name(definition)
+        for suffix, _ in column_suffixes_and_types:
+            attribute_to_ndarray[(attribute_name, suffix)][rows_indexes] = getattr(metric_values, SUFFIX_TO_ATTRIBUTE[suffix])
 
-        buffer: PathBuffer = path_buffers[path_display_name(definition)]
-        buffer.value[rows] = metric_values.values
-        if buffer.absolute_time is not None:
-            buffer.absolute_time[rows] = metric_values.timestamps
-        if buffer.is_preview is not None:
-            buffer.is_preview[rows] = metric_values.is_preview
-        if buffer.preview_completion is not None:
-            buffer.preview_completion[rows] = metric_values.completion_ratio
 
-    dataframe = _assemble_wide_dataframe(
-        index_data=index_data,
-        path_buffers=path_buffers,
-        sub_columns=(
-            ["value"]
-            + ([timestamp_column_name] if timestamp_column_name else [])
-            + (["is_preview", "preview_completion"] if include_point_previews else [])
-        ),
-    )
+    # # Preallocate column vectors for every logical value we might emit.
+    # path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
+    #     num_rows=index_data.row_count(),
+    #     paths_with_data=paths_with_data,
+    #     value_initializers=ValueInitializers(
+    #         value=_create_nan_float_array,
+    #         absolute_time=_create_nan_float_array if timestamp_column_name else None,
+    #         is_preview=_create_nan_object_array if include_point_previews else None,
+    #         preview_completion=_create_nan_float_array if include_point_previews else None,
+    #     ),
+    # )
+
+    # # Write every metric point directly into the pre-allocated buffers.
+    # for definition, metric_values in metrics_data.items():
+    #     if metric_values.length == 0:
+    #         continue
+
+    #     rows = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
+
+    #     buffer: PathBuffer = path_buffers[path_display_name(definition)]
+    #     buffer.value[rows] = metric_values.values
+    #     if buffer.absolute_time is not None:
+    #         buffer.absolute_time[rows] = metric_values.timestamps
+    #     if buffer.is_preview is not None:
+    #         buffer.is_preview[rows] = metric_values.is_preview
+    #     if buffer.preview_completion is not None:
+    #         buffer.preview_completion[rows] = metric_values.completion_ratio
+
+    # dataframe = _assemble_wide_dataframe(
+    #     index_data=index_data,
+    #     path_buffers=path_buffers,
+    #     sub_columns=(
+    #         ["value"]
+    #         + ([timestamp_column_name] if timestamp_column_name else [])
+    #         + (["is_preview", "preview_completion"] if include_point_previews else [])
+    #     ),
+    # )
     return dataframe
 
 
