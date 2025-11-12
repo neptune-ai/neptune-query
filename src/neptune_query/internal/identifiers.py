@@ -26,8 +26,9 @@ class RunIdentifier:
     project_identifier: ProjectIdentifier
     sys_id: SysId
 
-    def __str__(self) -> str:
-        return f"{self.project_identifier}/{self.sys_id}"
+
+    def __lt__(self, other: "RunIdentifier") -> bool:
+        return (self.project_identifier, self.sys_id) < (other.project_identifier, other.sys_id)
 
 
 @dataclass(frozen=True)
@@ -35,8 +36,14 @@ class AttributeDefinition:
     name: str
     type: str
 
+    def __lt__(self, other: "AttributeDefinition") -> bool:
+        return (self.name, self.type) < (other.name, other.type)
+
 
 @dataclass(frozen=True)
 class RunAttributeDefinition:
     run_identifier: RunIdentifier
     attribute_definition: AttributeDefinition
+
+    def __lt__(self, other: "RunAttributeDefinition") -> bool:
+        return (self.run_identifier, self.attribute_definition) < (other.run_identifier, other.attribute_definition)

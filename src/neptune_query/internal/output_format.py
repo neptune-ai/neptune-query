@@ -136,7 +136,12 @@ def convert_table_to_dataframe(
     return dataframe
 
 
-
+def _path_display_name(attr_def: identifiers.RunAttributeDefinition, type_suffix_in_column_names: bool) -> str:
+    return (
+        f"{attr_def.attribute_definition.name}:float_series"
+        if type_suffix_in_column_names
+        else attr_def.attribute_definition.name
+    )
 
 def create_metrics_dataframe(
     metrics_data: dict[identifiers.RunAttributeDefinition, MetricDatapoints],
@@ -160,71 +165,47 @@ def create_metrics_dataframe(
     the metric values.
     """
 
-    _validate_allowed_value(timestamp_column_name, ["absolute_time"], "timestamp_column_name")
+    assert timestamp_column_name in (None, "absolute_time"), f"Invalid timestamp_column_name: {timestamp_column_name}"
 
-    # TODO - to remove, as not needed and takes time
-    # Ensure that all MetricDatapoints in metrics_data are sorted by their step values.
-    # for _, datapoints in metrics_data.items():
-    #     if datapoints.length <= 1:
-    #         continue
-    #     if np.any( datapoints.steps[1:] <  datapoints.steps[:-1]):
-    #         raise ValueError("MetricDatapoints.steps must be sorted in non-decreasing order")
-
-
-
-    def path_display_name(attr_def: identifiers.RunAttributeDefinition) -> str:
-        return (
-            f"{attr_def.attribute_definition.name}:float_series"
-            if type_suffix_in_column_names
-            else attr_def.attribute_definition.name
-        )
-    # TODO - I would recommend to sort it by name to avoid random order of columns
-    paths_with_data: set[str] = {
-        path_display_name(definition) for definition, metric_values in metrics_data.items() if metric_values.length > 0
-    }
-
-    sys_id_to_steps = defaultdict(list)
+    attribute_names_with_data: set[str] = set()
+#    Build mapping sys_id -> list of (attribute_definition, metric_values)
+    sys_id_to_metrics: dict[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
     for definition, metric_values in metrics_data.items():
-        sys_id_to_steps[definition.run_identifier.sys_id].append(metric_values.steps)
+        if metric_values.length:
+            sys_id_to_metrics[definition.run_identifier.sys_id].append((definition.attribute_definition, metric_values))
+            attribute_names_with_data.add(_path_display_name(definition, type_suffix_in_column_names))
 
-    # More time-efficient implemention of np.unique(np.concatenate(step_arrays)
-    def sort_and_unique(arrays, kind='mergesort'):
-        c = np.concatenate((arrays))
-        c.sort(kind=kind)
-        flag = np.ones(len(c), dtype=bool)
-        np.not_equal(c[1:], c[:-1], out=flag[1:])
-        return c[flag]
+    # Sort each list of (attribute_definition, metric_values) by attribute_definition
+    for metrics in sys_id_to_metrics.values():
+        metrics.sort(key=lambda x: x[0])
 
-    run_to_observed_steps: dict[str, np.ndarray] = {}
-    for sys_id, step_arrays in sys_id_to_steps.items():
-        run_to_observed_steps[sys_id_label_mapping[sys_id]] = sort_and_unique(step_arrays)
+    # Create sorted list: list of (sys_id, [(attribute_definition, metric_values), ...]), sorted by sys_id and then attribute_definition
+    sorted_sys_id_and_metrics: list[tuple[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
+        sorted(sys_id_to_metrics.items(), key=lambda x: x[0])
 
-    del sys_id_to_steps
-
-    index_data = IndexData.from_observed_steps(
-        observed_steps=run_to_observed_steps,
-        display_name_to_sys_id={v: k for k, v in sys_id_label_mapping.items()},
-        index_level_labels=(index_column_name, "step"),
-        access="vector",
-    )
-
-    del run_to_observed_steps
-
+    observed_steps: dict[identifiers.SysId, np.ndarray] = {}
+    all_unique_steps = []
+    for sys_id, metrics in sorted_sys_id_and_metrics:
+        all_steps = np.concatenate([metric_values.steps for _, metric_values in metrics])
+        unique_steps, unique_indices = np.unique(all_steps, return_index=True)
+        observed_steps[sys_id] = unique_steps
+        all_unique_steps.append(unique_steps)
+    all_unique_steps = np.concatenate(all_unique_steps)
 
     # It is time to construct the dataframe
-    rows_count = index_data.row_count()
-    columns_per_attribute = 1 + (1 if timestamp_column_name else 0) + (2 if include_point_previews else 0)
-    columns_count = columns_per_attribute * len(paths_with_data)
-    
+    rows_count = all_unique_steps.size
     column_suffixes_and_types = [("", "float64"),]
     if timestamp_column_name:
         column_suffixes_and_types.append((":absolute_time", np.float64))
     if include_point_previews:
+        column_suffixes_and_types.append((":preview_completion", np.float64))
         column_suffixes_and_types.append((":is_preview", bool))
-        
+
+    columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
+
     column_names = [
         name + suffix
-        for name in paths_with_data
+        for name in attribute_names_with_data
         for suffix, _ in column_suffixes_and_types
     ]
 
@@ -234,16 +215,15 @@ def create_metrics_dataframe(
     if is_uniform_dtype:
         # TODO:
         # np.empty is more appropriate here, but it is not supported by pandas
-        raw_data = np.empty((rows_count, columns_count), dtype=column_suffixes_and_types[0][1])
-        # TODO - works only with float64
-        raw_data.fill(np.nan)
+        raw_data = np.zeros((rows_count, columns_count), dtype=column_suffixes_and_types[0][1])
         attribute_to_ndarray = {}
         index = 0
-        for name in paths_with_data:
+        for name in attribute_names_with_data:
             for suffix, _ in column_suffixes_and_types:
                 attribute_to_ndarray[(name, suffix)] = (raw_data, index)
                 index += 1
-        dataframe = pd.DataFrame(raw_data, columns=column_names, index=index_data.display_names, copy=False)
+        # TODO - multiindex dataframe is missing
+        dataframe = pd.DataFrame(raw_data, columns=column_names, index=all_unique_steps, copy=False)
     else:
         # TODO - implement non-uniform column dtypes
         raise NotImplementedError("Non-uniform column dtypes are not supported yet")
@@ -254,6 +234,7 @@ def create_metrics_dataframe(
         ":is_preview": "is_preview",
         ":preview_completion": "completion_ratio",
     }
+    return dataframe
     # Fill dataframe with data
     for definition, metric_values in metrics_data.items():
         if metric_values.length == 0:
