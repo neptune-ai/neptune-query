@@ -183,8 +183,13 @@ def create_metrics_dataframe(
 
     # Create a sorted list: (sys_id, [(attribute_definition, metric_values), ...])
     # Sorting is by sys_id and then by attribute within each sys_id.
+
+    _label_to_sys_id = {v: k for k, v in sys_id_label_mapping.items()}
+    _sorted_runs_labels = np.array([sys_id_label_mapping[sys_id] for sys_id in run_to_attributes.keys()], dtype='U')
+    _sorted_runs_labels.sort()
+
     sorted_runs_and_attributes: list[tuple[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
-        sorted(run_to_attributes.items(), key=lambda x: x[0])
+        [(_label_to_sys_id[label], run_to_attributes[_label_to_sys_id[label]]) for label in _sorted_runs_labels]
 
     steps_per_run: dict[identifiers.SysId, np.ndarray] = {}
     rows_range_per_run: dict[identifiers.SysId, tuple[int, int]] = {}
@@ -266,15 +271,14 @@ def create_metrics_dataframe(
     
     # Fill dataframe with data
     for run_id, attributes in sorted_runs_and_attributes:
-        run_rows_range = rows_range_per_run[run_id]
+        from_row, to_row = rows_range_per_run[run_id]
         cached_steps_idx = None
         cached_steps = None
-
         for attribute, datapoints in attributes:
             # If steps are not the same, we need to recalculate the indices
             if not np.array_equal(cached_steps, datapoints.steps):
-                cached_steps_idx = np.searchsorted(row_steps[run_rows_range[0]:run_rows_range[1]], datapoints.steps)
-                cached_steps_idx += run_rows_range[0]
+                cached_steps_idx = np.searchsorted(row_steps[from_row:to_row], datapoints.steps)
+                cached_steps_idx += from_row
                 cached_steps = datapoints.steps
             for suffix, _ in column_suffixes_and_types:
                 raw_data, index = attribute_to_ndarray[(attribute, suffix)]
