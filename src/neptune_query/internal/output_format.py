@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-import itertools
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
@@ -169,37 +168,48 @@ def create_metrics_dataframe(
 
     attribute_names_with_data: set[str] = set()
 #    Build mapping sys_id -> list of (attribute_definition, metric_values)
-    sys_id_to_metrics: dict[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
+    run_to_attributes: dict[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
     for definition, metric_values in metrics_data.items():
         if metric_values.length:
-            sys_id_to_metrics[definition.run_identifier.sys_id].append((definition.attribute_definition, metric_values))
-            attribute_names_with_data.add(_path_display_name(definition, type_suffix_in_column_names))
+            attribute_name = _path_display_name(definition, type_suffix_in_column_names)
+            run_to_attributes[definition.run_identifier.sys_id].append((attribute_name, metric_values))
+            attribute_names_with_data.add(attribute_name)
+    attribute_names_with_data = np.array(list(attribute_names_with_data), dtype='U')
+    attribute_names_with_data.sort()
 
-    # Sort each list of (attribute_definition, metric_values) by attribute_definition
-    for metrics in sys_id_to_metrics.values():
-        metrics.sort(key=lambda x: x[0])
+    # Sort each list of (attribute_definition, metric_values) by attribute name
+    for attributes in run_to_attributes.values():
+        attributes.sort(key=lambda x: x[0])
 
-    # Create sorted list: list of (sys_id, [(attribute_definition, metric_values), ...]), sorted by sys_id and then attribute_definition
-    sorted_sys_id_and_metrics: list[tuple[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
-        sorted(sys_id_to_metrics.items(), key=lambda x: x[0])
+    # Create a sorted list: (sys_id, [(attribute_definition, metric_values), ...])
+    # Sorting is by sys_id and then by attribute within each sys_id.
+    sorted_runs_and_attributes: list[tuple[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
+        sorted(run_to_attributes.items(), key=lambda x: x[0])
 
-    observed_steps: dict[identifiers.SysId, np.ndarray] = {}
-    all_unique_steps = []
-    for sys_id, metrics in sorted_sys_id_and_metrics:
-        all_steps = np.concatenate([metric_values.steps for _, metric_values in metrics])
-        unique_steps, unique_indices = np.unique(all_steps, return_index=True)
-        observed_steps[sys_id] = unique_steps
-        all_unique_steps.append(unique_steps)
-    all_unique_steps = np.concatenate(all_unique_steps)
+    steps_per_run: dict[identifiers.SysId, np.ndarray] = {}
+    rows_range_per_run: dict[identifiers.SysId, tuple[int, int]] = {}
+    # We will have row per (sys_id, step) - we are collecting steps here
+    row_steps = []
+    from_row = 0
+    for sys_id, attributes in sorted_runs_and_attributes:
+        run_steps = np.unique(np.concatenate([datapoints.steps for _, datapoints in attributes]))
 
-    # It is time to construct the dataframe
-    rows_count = all_unique_steps.size
-    column_suffixes_and_types = [("", "float64"),]
+        steps_per_run[sys_id] = run_steps
+        rows_range_per_run[sys_id] = (from_row, from_row + len(run_steps))
+
+        row_steps.append(run_steps)
+        from_row += len(run_steps)
+    row_steps = np.concatenate(row_steps) if row_steps else np.array([], dtype=np.float64)
+
+    # Pre-allocate the dataframe
+    rows_count = row_steps.size
+    column_suffixes_and_types = [("value", np.float64),]
     if timestamp_column_name:
-        column_suffixes_and_types.append((":absolute_time", np.float64))
+        raise NotImplementedError("Timestamp column is not supported yet")
+        column_suffixes_and_types.append(("absolute_time", np.float64))
     if include_point_previews:
-        column_suffixes_and_types.append((":preview_completion", np.float64))
-        column_suffixes_and_types.append((":is_preview", bool))
+        column_suffixes_and_types.append(("is_preview", np.float64))
+        column_suffixes_and_types.append(("preview_completion", bool))
 
     columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
 
@@ -212,40 +222,73 @@ def create_metrics_dataframe(
     # Prepare numpy_array mapping and dataframe
     is_uniform_dtype = len({type for _, type in column_suffixes_and_types}) == 1
 
+    # Prepare dataframe index
+    # Use numpy for efficient bulk assignment
+    row_container_name = np.empty(rows_count, dtype=object)
+    for sys_id, (start, end) in rows_range_per_run.items():
+        row_container_name[start:end] = sys_id_label_mapping[sys_id]
+    dataframe_index = pd.MultiIndex.from_arrays(
+        arrays=[row_container_name, row_steps],
+        names=(index_column_name, "step"),
+    )
+
+    # Prepare dataframe column index
+    if len(column_suffixes_and_types) > 1:
+        column_keys = ((name, suffix) for name in attribute_names_with_data for suffix, _ in column_suffixes_and_types)
+        match len(attribute_names_with_data):
+            case 0:  # it is just a hack to allow pandas to infer the dtype of the column index as string
+                column_index = pd.MultiIndex.from_product([[], ['']], names=[None, None])
+            case _:
+                column_index = pd.MultiIndex.from_tuples(column_keys, names=[None, None])
+        
+        #column_index = pd.MultiIndex.from_tuples(column_keys, names=[None, None], dtype=object) if column_keys 
+    else:
+        column_index = pd.Index(
+            data=(name for name in attribute_names_with_data),
+            dtype=object, name=None, copy=False
+        )
+
     if is_uniform_dtype:
-        # TODO:
-        # np.empty is more appropriate here, but it is not supported by pandas
-        raw_data = np.zeros((rows_count, columns_count), dtype=column_suffixes_and_types[0][1])
+        raw_data = np.full(
+            (rows_count, columns_count),
+            _no_data_value_per_type(column_suffixes_and_types[0][1]),
+            dtype=column_suffixes_and_types[0][1],
+        )
         attribute_to_ndarray = {}
         index = 0
         for name in attribute_names_with_data:
             for suffix, _ in column_suffixes_and_types:
                 attribute_to_ndarray[(name, suffix)] = (raw_data, index)
                 index += 1
-        # TODO - multiindex dataframe is missing
-        dataframe = pd.DataFrame(raw_data, columns=column_names, index=all_unique_steps, copy=False)
+        dataframe = pd.DataFrame(raw_data, columns=column_index, index=dataframe_index, copy=False)
     else:
         # TODO - implement non-uniform column dtypes
         raise NotImplementedError("Non-uniform column dtypes are not supported yet")
 
     SUFFIX_TO_ATTRIBUTE = {
-        "": "values",
-        ":absolute_time": "timestamps",
-        ":is_preview": "is_preview",
-        ":preview_completion": "completion_ratio",
+        "value": "values",
+        "absolute_time": "timestamps",
+        "is_preview": "is_preview",
+        "preview_completion": "completion_ratio",
     }
-    return dataframe
+    
     # Fill dataframe with data
-    for definition, metric_values in metrics_data.items():
-        if metric_values.length == 0:
-            continue
+    for run_id, attributes in sorted_runs_and_attributes:
+        run_rows_range = rows_range_per_run[run_id]
+        cached_steps_idx = None
+        cached_steps = None
 
-        rows_indexes = index_data.lookup_row_vector(sys_id=definition.run_identifier.sys_id, steps=metric_values.steps)
-        attribute_name = path_display_name(definition)
-        for suffix, _ in column_suffixes_and_types:
-            raw_data, index = attribute_to_ndarray[(attribute_name, suffix)]
-            raw_data[rows_indexes, index] = getattr(metric_values, SUFFIX_TO_ATTRIBUTE[suffix])
-
+        for attribute, datapoints in attributes:
+            # If steps are not the same, we need to recalculate the indices
+            if not np.array_equal(cached_steps, datapoints.steps):
+                cached_steps_idx = np.searchsorted(row_steps[run_rows_range[0]:run_rows_range[1]], datapoints.steps)
+                cached_steps_idx += run_rows_range[0]
+                cached_steps = datapoints.steps
+            for suffix, _ in column_suffixes_and_types:
+                raw_data, index = attribute_to_ndarray[(attribute, suffix)]
+                raw_data[cached_steps_idx, index] = getattr(datapoints, SUFFIX_TO_ATTRIBUTE[suffix])
+    
+    return dataframe
 
     # # Preallocate column vectors for every logical value we might emit.
     # path_buffers: dict[str, PathBuffer] = _initialize_path_buffers(
@@ -285,6 +328,15 @@ def create_metrics_dataframe(
     #     ),
     # )
     return dataframe
+
+
+def _no_data_value_per_type(dtype: np.dtype) -> Any:
+    if dtype == np.float64:
+        return np.nan
+    elif dtype == bool:
+        return False
+    else:
+        raise ValueError(f"Unsupported dtype: {dtype}")
 
 
 def create_series_dataframe(
