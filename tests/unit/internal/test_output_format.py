@@ -1023,6 +1023,58 @@ def test_create_metrics_dataframe_random_order():
     pd.testing.assert_frame_equal(df, expected_df)
 
 
+def test_create_metrics_dataframe_uses_labels_for_sorting_runs():
+    # Given two runs where the alphabetical order of labels differs from SysIds
+    project = ProjectIdentifier("foo/bar")
+    sys_id_a = SysId("sysid_a")
+    sys_id_b = SysId("sysid_b")
+    run_a_identifier = RunIdentifier(project, sys_id_a)
+    run_b_identifier = RunIdentifier(project, sys_id_b)
+
+    metric = AttributeDefinition("metric", "float_series")
+    data = {
+        RunAttributeDefinition(run_a_identifier, metric): [
+            FloatPointValue.create(
+                step=1,
+                value=100.0,
+                timestamp_ms=_make_timestamp(2023, 2, 1),
+                is_preview=False,
+                completion_ratio=1.0,
+            )
+        ],
+        RunAttributeDefinition(run_b_identifier, metric): [
+            FloatPointValue.create(
+                step=1,
+                value=200.0,
+                timestamp_ms=_make_timestamp(2023, 2, 2),
+                is_preview=False,
+                completion_ratio=1.0,
+            )
+        ],
+    }
+
+    sys_id_label_mapping = {
+        sys_id_a: "z_run",
+        sys_id_b: "a_run",
+    }
+
+    df = create_metrics_dataframe(
+        metrics_data=normalize_metrics_data(data),
+        sys_id_label_mapping=sys_id_label_mapping,
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        index_column_name="experiment",
+    )
+
+    # Then rows should be ordered by label (a_run first) even though sysid_a < sysid_b
+    expected_df = pd.DataFrame(
+        {"metric": [200.0, 100.0]},
+        index=pd.MultiIndex.from_tuples([("a_run", 1.0), ("z_run", 1.0)], names=["experiment", "step"]),
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df)
+
+
 def test_create_metrics_dataframe_sorts_rows_and_columns():
     # Given metrics arrive out of order for both runs and paths
     project = ProjectIdentifier("foo/bar")
