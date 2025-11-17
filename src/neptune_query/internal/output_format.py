@@ -168,42 +168,39 @@ def create_metrics_dataframe(
 
     attribute_names_with_data: set[str] = set()
 #    Build mapping sys_id -> list of (attribute_definition, metric_values)
-    run_to_attributes: dict[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
+    container_to_attributes: dict[str, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
     for definition, metric_values in metrics_data.items():
         if metric_values.length:
             attribute_name = _path_display_name(definition, type_suffix_in_column_names)
-            run_to_attributes[definition.run_identifier.sys_id].append((attribute_name, metric_values))
+            contatiner_id = sys_id_label_mapping[definition.run_identifier.sys_id]
+            container_to_attributes[contatiner_id].append((attribute_name, metric_values))
             attribute_names_with_data.add(attribute_name)
     attribute_names_with_data = np.array(list(attribute_names_with_data), dtype='U')
     attribute_names_with_data.sort()
 
     # Sort each list of (attribute_definition, metric_values) by attribute name
-    for attributes in run_to_attributes.values():
+    for attributes in container_to_attributes.values():
         attributes.sort(key=lambda x: x[0])
 
     # Create a sorted list: (sys_id, [(attribute_definition, metric_values), ...])
     # Sorting is by sys_id and then by attribute within each sys_id.
 
-    _label_to_sys_id = {v: k for k, v in sys_id_label_mapping.items()}
-    _sorted_runs_labels = np.array([sys_id_label_mapping[sys_id] for sys_id in run_to_attributes.keys()], dtype='U')
-    _sorted_runs_labels.sort()
+    _sorted_containers_id = np.array(list(container_to_attributes.keys()), dtype='U')
+    _sorted_containers_id.sort()
 
-    sorted_runs_and_attributes: list[tuple[identifiers.SysId, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
-        [(_label_to_sys_id[label], run_to_attributes[_label_to_sys_id[label]]) for label in _sorted_runs_labels]
+    sorted_containers_and_attributes: list[tuple[str, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
+        [(container, container_to_attributes[container]) for container in _sorted_containers_id]
 
-    steps_per_run: dict[identifiers.SysId, np.ndarray] = {}
-    rows_range_per_run: dict[identifiers.SysId, tuple[int, int]] = {}
+    container_i_row_range: list[tuple[int, int]] = []
     # We will have row per (sys_id, step) - we are collecting steps here
     row_steps = []
-    from_row = 0
-    for sys_id, attributes in sorted_runs_and_attributes:
+    _row_offset = 0
+    for container, attributes in sorted_containers_and_attributes:
         run_steps = np.unique(np.concatenate([datapoints.steps for _, datapoints in attributes]))
-
-        steps_per_run[sys_id] = run_steps
-        rows_range_per_run[sys_id] = (from_row, from_row + len(run_steps))
+        container_i_row_range.append((_row_offset, _row_offset + len(run_steps)))
 
         row_steps.append(run_steps)
-        from_row += len(run_steps)
+        _row_offset += len(run_steps)
     row_steps = np.concatenate(row_steps) if row_steps else np.array([], dtype=np.float64)
 
     # Pre-allocate the dataframe
@@ -216,16 +213,14 @@ def create_metrics_dataframe(
         column_suffixes_and_types.append(("is_preview", np.float64))
         column_suffixes_and_types.append(("preview_completion", bool))
 
-    columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
-
     # Prepare numpy_array mapping and dataframe
     is_uniform_dtype = len({type for _, type in column_suffixes_and_types}) == 1
 
     # Prepare dataframe index
     # Use numpy for efficient bulk assignment
     row_container_name = np.empty(rows_count, dtype=object)
-    for sys_id, (start, end) in rows_range_per_run.items():
-        row_container_name[start:end] = sys_id_label_mapping[sys_id]
+    for i, (containter, _) in enumerate(sorted_containers_and_attributes):
+        row_container_name[container_i_row_range[i][0]:container_i_row_range[i][1]] = containter
     dataframe_index = pd.MultiIndex.from_arrays(
         arrays=[row_container_name, row_steps],
         names=(index_column_name, "step"),
@@ -246,6 +241,7 @@ def create_metrics_dataframe(
         )
 
     if is_uniform_dtype:
+        columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
         raw_data = np.full(
             (rows_count, columns_count),
             _no_data_value_per_type(column_suffixes_and_types[0][1]),
@@ -255,34 +251,36 @@ def create_metrics_dataframe(
         index = 0
         for name in attribute_names_with_data:
             for suffix, _ in column_suffixes_and_types:
-                attribute_to_ndarray[(name, suffix)] = (raw_data, index)
+                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
                 index += 1
         dataframe = pd.DataFrame(raw_data, columns=column_index, index=dataframe_index, copy=False)
     else:
         # TODO - implement non-uniform column dtypes
         raise NotImplementedError("Non-uniform column dtypes are not supported yet")
-
-    SUFFIX_TO_ATTRIBUTE = {
-        "value": "values",
-        "absolute_time": "timestamps",
-        "is_preview": "is_preview",
-        "preview_completion": "completion_ratio",
-    }
-    
     # Fill dataframe with data
-    for run_id, attributes in sorted_runs_and_attributes:
-        from_row, to_row = rows_range_per_run[run_id]
+    for i, (containter, attributes) in enumerate(sorted_containers_and_attributes):
         cached_steps_idx = None
         cached_steps = None
+        start_offset, end_offset = container_i_row_range[i]
         for attribute, datapoints in attributes:
             # If steps are not the same, we need to recalculate the indices
             if not np.array_equal(cached_steps, datapoints.steps):
-                cached_steps_idx = np.searchsorted(row_steps[from_row:to_row], datapoints.steps)
-                cached_steps_idx += from_row
+                cached_steps_idx = np.searchsorted(row_steps[start_offset:end_offset], datapoints.steps)
+                cached_steps_idx += start_offset
                 cached_steps = datapoints.steps
             for suffix, _ in column_suffixes_and_types:
-                raw_data, index = attribute_to_ndarray[(attribute, suffix)]
-                raw_data[cached_steps_idx, index] = getattr(datapoints, SUFFIX_TO_ATTRIBUTE[suffix])
+                raw_data = attribute_to_ndarray[(attribute, suffix)]
+                match suffix:
+                    case "value":
+                        raw_data[cached_steps_idx] = datapoints.values
+                    case "absolute_time":
+                        raw_data[cached_steps_idx] = datapoints.timestamps
+                    case "is_preview":
+                        raw_data[cached_steps_idx] = datapoints.is_preview
+                    case "preview_completion":
+                        raw_data[cached_steps_idx] = datapoints.completion_ratio
+                    case _:
+                        assert False, f"Invalid suffix: {suffix}"
     
     return dataframe
 
