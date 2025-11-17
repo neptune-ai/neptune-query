@@ -15,14 +15,24 @@
 #
 
 __all__ = [
-    "set_api_token",
-    "list_experiments",
-    "list_attributes",
-    "fetch_experiments_table",
-    "fetch_metrics",
-    "fetch_metric_buckets",
-    "fetch_series",
     "download_files",
+    "fetch_experiments_table",
+    "fetch_metric_buckets",
+    "fetch_metrics",
+    "fetch_series",
+    "list_attributes",
+    "list_experiments",
+    "set_api_token",
+    # Convenience exports for things like:
+    #   import neptune_query as nq
+    #   nq.runs.list_attributes(
+    #     runs=nq.Filter.eq(nq.Attribute("sys/name"), "my-run"),
+    #     attributes=nq.AttributeFilter(name="abc/"),
+    #   )
+    "Attribute",
+    "AttributeFilter",
+    "Filter",
+    "runs",
 ]
 
 import pathlib
@@ -38,6 +48,7 @@ import pandas as _pandas
 
 from neptune_query import (
     filters,
+    runs,
     types,
 )
 from neptune_query._internal import (
@@ -50,6 +61,11 @@ from neptune_query._internal import (
     resolve_sort_by,
 )
 from neptune_query.exceptions import NeptuneUserError
+from neptune_query.filters import (
+    Attribute,
+    AttributeFilter,
+    Filter,
+)
 from neptune_query.internal.composition import download_files as _download_files
 from neptune_query.internal.composition import fetch_metric_buckets as _fetch_metric_buckets
 from neptune_query.internal.composition import fetch_metrics as _fetch_metrics
