@@ -213,12 +213,6 @@ def create_metrics_dataframe(
 
     columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
 
-    column_names = [
-        name + suffix
-        for name in attribute_names_with_data
-        for suffix, _ in column_suffixes_and_types
-    ]
-
     # Prepare numpy_array mapping and dataframe
     is_uniform_dtype = len({type for _, type in column_suffixes_and_types}) == 1
 
@@ -240,8 +234,6 @@ def create_metrics_dataframe(
                 column_index = pd.MultiIndex.from_product([[], ['']], names=[None, None])
             case _:
                 column_index = pd.MultiIndex.from_tuples(column_keys, names=[None, None])
-        
-        #column_index = pd.MultiIndex.from_tuples(column_keys, names=[None, None], dtype=object) if column_keys 
     else:
         column_index = pd.Index(
             data=(name for name in attribute_names_with_data),
