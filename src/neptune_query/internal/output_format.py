@@ -135,14 +135,6 @@ def convert_table_to_dataframe(
     return dataframe
 
 
-def _path_display_name(attr_def: identifiers.RunAttributeDefinition, type_suffix_in_column_names: bool) -> str:
-    return (
-        f"{attr_def.attribute_definition.name}:float_series"
-        if type_suffix_in_column_names
-        else attr_def.attribute_definition.name
-    )
-
-
 def create_metrics_dataframe(
     metrics_data: dict[identifiers.RunAttributeDefinition, MetricDatapoints],
     sys_id_label_mapping: dict[identifiers.SysId, str],
@@ -164,29 +156,40 @@ def create_metrics_dataframe(
     `include_point_previews` is enabled the preview flags are added alongside
     the metric values.
     """
-
+    
     assert timestamp_column_name in (None, "absolute_time"), f"Invalid timestamp_column_name: {timestamp_column_name}"
+    # 16.2  return None
+    # Building here
+    #   mapping container_id (sys_id mapped to label) -> list of (attribute_definition, metric_values)
+    #   sorted_attributes_names - list of attribute_names sorted by name, that has at least one datapoint
+    # _attributes_names: set[str] = set()
 
     _attributes_names: set[str] = set()
-#    Build mapping sys_id -> list of (attribute_definition, metric_values)
-    _container_to_attributes: dict[str, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
-    for definition, metric_values in metrics_data.items():
-        if metric_values.length:
-            attribute_name = _path_display_name(definition, type_suffix_in_column_names)
-            contatiner_id = sys_id_label_mapping[definition.run_identifier.sys_id]
-            _container_to_attributes[contatiner_id].append((attribute_name, metric_values))
-            _attributes_names.add(attribute_name)
-    sorted_attributes_names = np.array(list(_attributes_names), dtype='U')
-    sorted_attributes_names.sort()
+    _sys_id_to_attributes = defaultdict(list)
+    # optimization hack to reduce lookups in the instance dict
+    __get_item_sys_id_to_attributes = _sys_id_to_attributes.__getitem__
+    __add_attributes_names = _attributes_names.add
 
-    # Create a sorted by container_id list: (container_id, [(attribute_definition, metric_values), ...])
-    _sorted_containers_id = np.array(list(_container_to_attributes.keys()), dtype='U')
-    _sorted_containers_id.sort()
-    sorted_containers_and_attributes: list[tuple[str, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
-        [(container, _container_to_attributes[container]) for container in _sorted_containers_id]
+    for definition, datapoints in metrics_data.items():
+        if datapoints.length:
+            match type_suffix_in_column_names:
+                case True:
+                    attribute_name = f"{definition.attribute_definition.name}:float_series"
+                case False:
+                    attribute_name = definition.attribute_definition.name
+            __get_item_sys_id_to_attributes(definition.run_identifier.sys_id).append((attribute_name, datapoints))
+            __add_attributes_names(attribute_name)
 
+    sorted_attributes_names = sorted(_attributes_names)
+    sorted_containers_and_attributes: list[tuple[str, list[tuple[str, MetricDatapoints]]]] = [
+        (sys_id_label_mapping[sys_id], attributes) for sys_id, attributes in _sys_id_to_attributes.items()
+    ]
+    sorted_containers_and_attributes.sort(key=lambda x: x[0])
+
+    # Collecting here:
+    #   container_i_row_range - list of tuples (start_index, end_index) for each container
+    #   row_steps - array of unique & sorted steps per container: s_1_c_1,...,s_(k_1)_c_1,...,s_1_c_m,...,s_(k_m)_c_m
     container_i_row_range: list[tuple[int, int]] = []
-    # We will have row per (sys_id, step) - we are collecting steps here
     row_steps = []
     _row_offset = 0
     for _, attributes in sorted_containers_and_attributes:
@@ -231,20 +234,22 @@ def create_metrics_dataframe(
                     dtype=column_suffixes_and_types[0][1],
                 )
             index += 1
-    
+
     # Fill dataframe with data
+    __get_item_attribute_to_ndarray = attribute_to_ndarray.__getitem__
     for i, (containter, attributes) in enumerate(sorted_containers_and_attributes):
         cached_steps_idx = None
         cached_steps = None
         start_offset, end_offset = container_i_row_range[i]
+        row_steps_slice = row_steps[start_offset:end_offset]
         for attribute, datapoints in attributes:
             # If steps are not the same, we need to recalculate the indices
-            if not np.array_equal(cached_steps, datapoints.steps):
-                cached_steps_idx = np.searchsorted(row_steps[start_offset:end_offset], datapoints.steps)
+            if cached_steps is None or not np.array_equal(cached_steps, datapoints.steps):
+                cached_steps_idx = np.searchsorted(row_steps_slice, datapoints.steps)
                 cached_steps_idx += start_offset
                 cached_steps = datapoints.steps
             for suffix, _ in column_suffixes_and_types:
-                column_data = attribute_to_ndarray[(attribute, suffix)]
+                column_data = __get_item_attribute_to_ndarray((attribute, suffix))
                 match suffix:
                     case "value":
                         column_data[cached_steps_idx] = datapoints.values
@@ -254,9 +259,6 @@ def create_metrics_dataframe(
                         column_data[cached_steps_idx] = datapoints.is_preview
                     case "preview_completion":
                         column_data[cached_steps_idx] = datapoints.completion_ratio
-                    case _:
-                        assert False, f"Invalid suffix: {suffix}"
-    
     # # Time to correct timestamps to UTC aware datetimes
     # if timestamp_column_name:
     #     timestamp_idx = 0
@@ -269,7 +271,6 @@ def create_metrics_dataframe(
     #         # TODO: maybe one day numpy will support datetimes with tzinfo. 
     #         # Until then, pandas conversion to datetime is the best we can do.
     #         dataframe.iloc[:, column_idx] = pd.to_datetime(dataframe.iloc[:, column_idx], unit="ms", utc=True)
-
 
     # Prepare dataframe index
     # Use numpy for efficient bulk assignment
