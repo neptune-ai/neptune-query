@@ -142,6 +142,7 @@ def _path_display_name(attr_def: identifiers.RunAttributeDefinition, type_suffix
         else attr_def.attribute_definition.name
     )
 
+
 def create_metrics_dataframe(
     metrics_data: dict[identifiers.RunAttributeDefinition, MetricDatapoints],
     sys_id_label_mapping: dict[identifiers.SysId, str],
@@ -166,41 +167,34 @@ def create_metrics_dataframe(
 
     assert timestamp_column_name in (None, "absolute_time"), f"Invalid timestamp_column_name: {timestamp_column_name}"
 
-    attribute_names_with_data: set[str] = set()
+    _attributes_names: set[str] = set()
 #    Build mapping sys_id -> list of (attribute_definition, metric_values)
-    container_to_attributes: dict[str, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
+    _container_to_attributes: dict[str, list[tuple[identifiers.AttributeDefinition, Any]]] = defaultdict(list)
     for definition, metric_values in metrics_data.items():
         if metric_values.length:
             attribute_name = _path_display_name(definition, type_suffix_in_column_names)
             contatiner_id = sys_id_label_mapping[definition.run_identifier.sys_id]
-            container_to_attributes[contatiner_id].append((attribute_name, metric_values))
-            attribute_names_with_data.add(attribute_name)
-    attribute_names_with_data = np.array(list(attribute_names_with_data), dtype='U')
-    attribute_names_with_data.sort()
+            _container_to_attributes[contatiner_id].append((attribute_name, metric_values))
+            _attributes_names.add(attribute_name)
+    sorted_attributes_names = np.array(list(_attributes_names), dtype='U')
+    sorted_attributes_names.sort()
 
-    # Sort each list of (attribute_definition, metric_values) by attribute name
-    for attributes in container_to_attributes.values():
-        attributes.sort(key=lambda x: x[0])
-
-    # Create a sorted list: (sys_id, [(attribute_definition, metric_values), ...])
-    # Sorting is by sys_id and then by attribute within each sys_id.
-
-    _sorted_containers_id = np.array(list(container_to_attributes.keys()), dtype='U')
+    # Create a sorted by container_id list: (container_id, [(attribute_definition, metric_values), ...])
+    _sorted_containers_id = np.array(list(_container_to_attributes.keys()), dtype='U')
     _sorted_containers_id.sort()
-
     sorted_containers_and_attributes: list[tuple[str, list[tuple[identifiers.AttributeDefinition, Any]]]] = \
-        [(container, container_to_attributes[container]) for container in _sorted_containers_id]
+        [(container, _container_to_attributes[container]) for container in _sorted_containers_id]
 
     container_i_row_range: list[tuple[int, int]] = []
     # We will have row per (sys_id, step) - we are collecting steps here
     row_steps = []
     _row_offset = 0
-    for container, attributes in sorted_containers_and_attributes:
-        run_steps = np.unique(np.concatenate([datapoints.steps for _, datapoints in attributes]))
-        container_i_row_range.append((_row_offset, _row_offset + len(run_steps)))
+    for _, attributes in sorted_containers_and_attributes:
+        container_steps = np.unique(np.concatenate([datapoints.steps for _, datapoints in attributes]))
+        container_i_row_range.append((_row_offset, _row_offset + len(container_steps)))
 
-        row_steps.append(run_steps)
-        _row_offset += len(run_steps)
+        row_steps.append(container_steps)
+        _row_offset += len(container_steps)
     row_steps = np.concatenate(row_steps) if row_steps else np.array([], dtype=np.float64)
 
     # Pre-allocate the dataframe
@@ -215,6 +209,67 @@ def create_metrics_dataframe(
 
     # Prepare numpy_array mapping and dataframe
     is_uniform_dtype = len({type for _, type in column_suffixes_and_types}) == 1
+    columns_count = len(column_suffixes_and_types) * len(sorted_attributes_names)
+    if is_uniform_dtype:
+        raw_data = np.full(
+            (rows_count, columns_count),
+            _no_data_value_per_type(column_suffixes_and_types[0][1]),
+            dtype=column_suffixes_and_types[0][1],
+        )
+    else:
+        raise NotImplementedError("Non-uniform column dtypes are not supported yet")
+    attribute_to_ndarray = {}
+    index = 0
+    for name in sorted_attributes_names:
+        for suffix, _ in column_suffixes_and_types:
+            if is_uniform_dtype:
+                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
+            else:
+                attribute_to_ndarray[(name, suffix)] = np.full(
+                    (rows_count,),
+                    _no_data_value_per_type(column_suffixes_and_types[0][1]),
+                    dtype=column_suffixes_and_types[0][1],
+                )
+            index += 1
+    
+    # Fill dataframe with data
+    for i, (containter, attributes) in enumerate(sorted_containers_and_attributes):
+        cached_steps_idx = None
+        cached_steps = None
+        start_offset, end_offset = container_i_row_range[i]
+        for attribute, datapoints in attributes:
+            # If steps are not the same, we need to recalculate the indices
+            if not np.array_equal(cached_steps, datapoints.steps):
+                cached_steps_idx = np.searchsorted(row_steps[start_offset:end_offset], datapoints.steps)
+                cached_steps_idx += start_offset
+                cached_steps = datapoints.steps
+            for suffix, _ in column_suffixes_and_types:
+                column_data = attribute_to_ndarray[(attribute, suffix)]
+                match suffix:
+                    case "value":
+                        column_data[cached_steps_idx] = datapoints.values
+                    case "absolute_time":
+                        column_data[cached_steps_idx] = datapoints.timestamps
+                    case "is_preview":
+                        column_data[cached_steps_idx] = datapoints.is_preview
+                    case "preview_completion":
+                        column_data[cached_steps_idx] = datapoints.completion_ratio
+                    case _:
+                        assert False, f"Invalid suffix: {suffix}"
+    
+    # # Time to correct timestamps to UTC aware datetimes
+    # if timestamp_column_name:
+    #     timestamp_idx = 0
+    #     for i, (subproperty_name, _) in enumerate(column_suffixes_and_types):
+    #         if subproperty_name == "absolute_time":
+    #             timestamp_idx = i
+    #             break
+    #     for i, _ in enumerate(attribute_names_with_data):
+    #         column_idx = i * len(column_suffixes_and_types) + timestamp_idx
+    #         # TODO: maybe one day numpy will support datetimes with tzinfo. 
+    #         # Until then, pandas conversion to datetime is the best we can do.
+    #         dataframe.iloc[:, column_idx] = pd.to_datetime(dataframe.iloc[:, column_idx], unit="ms", utc=True)
+
 
     # Prepare dataframe index
     # Use numpy for efficient bulk assignment
@@ -228,60 +283,20 @@ def create_metrics_dataframe(
 
     # Prepare dataframe column index
     if len(column_suffixes_and_types) > 1:
-        column_keys = ((name, suffix) for name in attribute_names_with_data for suffix, _ in column_suffixes_and_types)
-        match len(attribute_names_with_data):
+        column_keys = ((name, suffix) for name in sorted_attributes_names for suffix, _ in column_suffixes_and_types)
+        match len(sorted_attributes_names):
             case 0:  # it is just a hack to allow pandas to infer the dtype of the column index as string
                 column_index = pd.MultiIndex.from_product([[], ['']], names=[None, None])
             case _:
                 column_index = pd.MultiIndex.from_tuples(column_keys, names=[None, None])
     else:
         column_index = pd.Index(
-            data=(name for name in attribute_names_with_data),
+            data=(name for name in sorted_attributes_names),
             dtype=object, name=None, copy=False
         )
 
-    if is_uniform_dtype:
-        columns_count = len(column_suffixes_and_types) * len(attribute_names_with_data)
-        raw_data = np.full(
-            (rows_count, columns_count),
-            _no_data_value_per_type(column_suffixes_and_types[0][1]),
-            dtype=column_suffixes_and_types[0][1],
-        )
-        attribute_to_ndarray = {}
-        index = 0
-        for name in attribute_names_with_data:
-            for suffix, _ in column_suffixes_and_types:
-                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
-                index += 1
-        dataframe = pd.DataFrame(raw_data, columns=column_index, index=dataframe_index, copy=False)
-    else:
-        # TODO - implement non-uniform column dtypes
-        raise NotImplementedError("Non-uniform column dtypes are not supported yet")
-    # Fill dataframe with data
-    for i, (containter, attributes) in enumerate(sorted_containers_and_attributes):
-        cached_steps_idx = None
-        cached_steps = None
-        start_offset, end_offset = container_i_row_range[i]
-        for attribute, datapoints in attributes:
-            # If steps are not the same, we need to recalculate the indices
-            if not np.array_equal(cached_steps, datapoints.steps):
-                cached_steps_idx = np.searchsorted(row_steps[start_offset:end_offset], datapoints.steps)
-                cached_steps_idx += start_offset
-                cached_steps = datapoints.steps
-            for suffix, _ in column_suffixes_and_types:
-                raw_data = attribute_to_ndarray[(attribute, suffix)]
-                match suffix:
-                    case "value":
-                        raw_data[cached_steps_idx] = datapoints.values
-                    case "absolute_time":
-                        raw_data[cached_steps_idx] = datapoints.timestamps
-                    case "is_preview":
-                        raw_data[cached_steps_idx] = datapoints.is_preview
-                    case "preview_completion":
-                        raw_data[cached_steps_idx] = datapoints.completion_ratio
-                    case _:
-                        assert False, f"Invalid suffix: {suffix}"
-    
+    dataframe = pd.DataFrame(raw_data, columns=column_index, index=dataframe_index, copy=False)
+
     return dataframe
 
     # # Preallocate column vectors for every logical value we might emit.
