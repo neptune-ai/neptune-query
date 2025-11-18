@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass
+from token import AT
 from typing import (
     Any,
     Callable,
@@ -170,15 +171,19 @@ def create_metrics_dataframe(
     __get_item_sys_id_to_attributes = _sys_id_to_attributes.__getitem__
     __add_attributes_names = _attributes_names.add
 
-    for definition, datapoints in metrics_data.items():
-        if datapoints.length:
-            match type_suffix_in_column_names:
-                case True:
-                    attribute_name = f"{definition.attribute_definition.name}:float_series"
-                case False:
+    match type_suffix_in_column_names:
+        case True:
+            for definition, datapoints in metrics_data.items():
+                if datapoints.length:
+                    attribute_name = definition.attribute_definition.name + ":float_series"
+                    __get_item_sys_id_to_attributes(definition.run_identifier.sys_id).append((attribute_name, datapoints))
+                    __add_attributes_names(attribute_name)
+        case False:
+            for definition, datapoints in metrics_data.items():
+                if datapoints.length:
                     attribute_name = definition.attribute_definition.name
-            __get_item_sys_id_to_attributes(definition.run_identifier.sys_id).append((attribute_name, datapoints))
-            __add_attributes_names(attribute_name)
+                    __get_item_sys_id_to_attributes(definition.run_identifier.sys_id).append((attribute_name, datapoints))
+                    __add_attributes_names(attribute_name)
 
     sorted_attributes_names = sorted(_attributes_names)
     sorted_containers_and_attributes: list[tuple[str, list[tuple[str, MetricDatapoints]]]] = [
@@ -221,22 +226,18 @@ def create_metrics_dataframe(
         )
     else:
         raise NotImplementedError("Non-uniform column dtypes are not supported yet")
-    attribute_to_ndarray = {}
-    index = 0
+    attribute_to_arrays = {}
+    
+    index = -1
     for name in sorted_attributes_names:
-        for suffix, _ in column_suffixes_and_types:
-            if is_uniform_dtype:
-                attribute_to_ndarray[(name, suffix)] = raw_data[:, index]
-            else:
-                attribute_to_ndarray[(name, suffix)] = np.full(
-                    (rows_count,),
-                    _no_data_value_per_type(column_suffixes_and_types[0][1]),
-                    dtype=column_suffixes_and_types[0][1],
-                )
-            index += 1
-
+        attribute_to_arrays[name] = (
+            raw_data[:, index := index + 1],
+            raw_data[:, index := index + 1] if timestamp_column_name else None,
+            raw_data[:, index := index + 1] if include_point_previews else None,
+            raw_data[:, index := index + 1] if include_point_previews else None
+        )
     # Fill dataframe with data
-    __get_item_attribute_to_ndarray = attribute_to_ndarray.__getitem__
+    __get_item_attribute_to_arrays = attribute_to_arrays.__getitem__
     for i, (containter, attributes) in enumerate(sorted_containers_and_attributes):
         cached_steps_idx = None
         cached_steps = None
@@ -248,17 +249,14 @@ def create_metrics_dataframe(
                 cached_steps_idx = np.searchsorted(row_steps_slice, datapoints.steps)
                 cached_steps_idx += start_offset
                 cached_steps = datapoints.steps
-            for suffix, _ in column_suffixes_and_types:
-                column_data = __get_item_attribute_to_ndarray((attribute, suffix))
-                match suffix:
-                    case "value":
-                        column_data[cached_steps_idx] = datapoints.values
-                    case "absolute_time":
-                        column_data[cached_steps_idx] = datapoints.timestamps
-                    case "is_preview":
-                        column_data[cached_steps_idx] = datapoints.is_preview
-                    case "preview_completion":
-                        column_data[cached_steps_idx] = datapoints.completion_ratio
+            data_values, data_absolute_time, data_is_preview, data_preview_completion = \
+                __get_item_attribute_to_arrays(attribute)
+            data_values[cached_steps_idx] = datapoints.values
+            if data_absolute_time is not None:
+                data_absolute_time[cached_steps_idx] = datapoints.timestamps
+            if data_is_preview is not None:
+                data_is_preview[cached_steps_idx] = datapoints.is_preview
+                data_preview_completion[cached_steps_idx] = datapoints.completion_ratio
     # # Time to correct timestamps to UTC aware datetimes
     # if timestamp_column_name:
     #     timestamp_idx = 0
