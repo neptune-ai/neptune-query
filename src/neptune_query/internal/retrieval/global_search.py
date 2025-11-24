@@ -23,7 +23,7 @@ from typing import (
 )
 
 import attrs
-from neptune_api.api.retrieval import search_l_global_entries_proto
+from neptune_api.api.retrieval import search_global_leaderboard_entries_proto
 from neptune_api.client import AuthenticatedClient
 from neptune_api.models import (
     AttributeTypeDTO,
@@ -135,7 +135,9 @@ def _fetch_entries_page(
 ) -> ProtoLeaderboardEntriesSearchResultDTO:
     logger.debug(f"Calling search_l_global_entries_proto with params: {params}")
 
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(search_l_global_entries_proto.sync_detailed))
+    call_api = retry.handle_errors_default(
+        with_neptune_client_metadata(search_global_leaderboard_entries_proto.sync_detailed)
+    )
     response = call_api(client=client, body=params)
 
     logger.debug(
