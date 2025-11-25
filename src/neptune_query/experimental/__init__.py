@@ -63,7 +63,8 @@ def fetch_experiments_table_multiproject(
             If a string is provided, it's treated as a regex pattern that the names must match.
             If a list of strings is provided, it's treated as exact experiment names to match.
             To provide a more complex condition on an arbitrary attribute value, pass a Filter object.
-            The filter must use only attributes from the sys/ and env/ namespaces.
+            The filter must use only selected attributes from the sys/ and env/ namespaces.
+            Ask your administrator for a list of supported attributes.
         attributes: Filter specifying which attributes to include.
             If a string is provided, it's treated as a regex pattern that the attribute names must match.
             If a list of strings is provided, it's treated as exact attribute names to match.
