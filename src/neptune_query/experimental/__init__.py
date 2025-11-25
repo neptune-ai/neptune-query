@@ -15,8 +15,8 @@
 #
 
 __all__ = [
-    "fetch_experiments_table_multiproject",
-    "fetch_runs_table_multiproject",
+    "fetch_experiments_table_global",
+    "fetch_runs_table_global",
 ]
 
 from typing import (
@@ -40,9 +40,9 @@ from neptune_query.internal.query_metadata_context import use_query_metadata
 from neptune_query.internal.retrieval import search as _search
 
 
-@use_query_metadata(api_function="fetch_experiments_table_multiproject")
+@use_query_metadata(api_function="fetch_experiments_table_global")
 @experimental_api
-def fetch_experiments_table_multiproject(
+def fetch_experiments_table_global(
     *,
     experiments: Optional[Union[str, list[str], filters.Filter]] = None,
     attributes: Union[str, list[str], filters.AttributeFilter] = [],
@@ -82,7 +82,7 @@ def fetch_experiments_table_multiproject(
         import neptune_query.experimental as nq_experimental
 
 
-        nq_experimental.fetch_experiments_table_multiproject(
+        nq_experimental.fetch_experiments_table_global(
             experiments=["seagull-week1", "seagull-week2"],
             attributes=r"loss | configs",
         )
@@ -103,9 +103,9 @@ def fetch_experiments_table_multiproject(
     )
 
 
-@use_query_metadata(api_function="fetch_runs_table_multiproject")
+@use_query_metadata(api_function="fetch_runs_table_global")
 @experimental_api
-def fetch_runs_table_multiproject(
+def fetch_runs_table_global(
     *,
     runs: Optional[Union[str, list[str], filters.Filter]] = None,
     attributes: Union[str, list[str], filters.AttributeFilter] = [],
@@ -145,7 +145,7 @@ def fetch_runs_table_multiproject(
         from neptune_query.filters import Filter
 
 
-        nq_experimental.fetch_runs_table_multiproject(
+        nq_experimental.fetch_runs_table_global(
             runs=Filter.eq("sys/name", "exp-week9"),
             attributes=r"loss | configs",
         )

@@ -10,7 +10,7 @@ import pytest
 
 from neptune_query import filters
 from neptune_query.exceptions import ConflictingAttributeTypes
-from neptune_query.experimental import fetch_experiments_table_multiproject
+from neptune_query.experimental import fetch_experiments_table_global
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestedRunData,
@@ -40,7 +40,7 @@ def unique_execution_module_key(test_execution_id) -> str:
 
 
 def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -64,7 +64,7 @@ def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, u
 def test_fetch_experiments_table_respects_sort_direction(
     project_1, project_2, unique_execution_module_key, sort_direction: Literal["asc", "desc"]
 ):
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -85,7 +85,7 @@ def test_fetch_experiments_table_respects_sort_direction(
 
 
 def test_fetch_experiments_table_filters_by_regex(project_1, unique_execution_module_key):
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=rf"^exp_project_1 & {unique_execution_module_key}",
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -109,7 +109,7 @@ def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, uniq
         _experiment_head_by_name(project_2, "exp_project_2_alt"),
     ]
 
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=[e.experiment_name for e in selected_experiments],
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -130,7 +130,7 @@ def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, uniq
 def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
     target_experiment = _experiment_head_by_name(project_2, "exp_project_2")
 
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=filters.Filter.eq(filters.Attribute("sys/name", type="string"), target_experiment.experiment_name),
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -150,7 +150,7 @@ def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
 
 def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_execution_module_key):
     limit = 2
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=f"{unique_execution_module_key}",
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -172,7 +172,7 @@ def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_exec
 
 
 def test_fetch_experiments_table_with_type_suffix(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=f"{unique_execution_module_key}",
         attributes=r"(config/(int|string)|metrics/loss)",
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -199,7 +199,7 @@ def test_fetch_experiments_table_conflicting_attributes_with_type_suffix(project
         _experiment_head_by_name(project_2, "exp_project_2"),
     ]
 
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=[e.experiment_name for e in experiments_with_conflict],
         attributes=[CONFLICTING_ATTRIBUTE_PATH],
         sort_by=filters.Attribute("sys/name", type="string"),
@@ -225,7 +225,7 @@ def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(proj
     ]
 
     with pytest.raises(ConflictingAttributeTypes):
-        fetch_experiments_table_multiproject(
+        fetch_experiments_table_global(
             experiments=[e.experiment_name for e in experiments_with_conflict],
             attributes=[CONFLICTING_ATTRIBUTE_PATH],
             sort_by=filters.Attribute("sys/name", type="string"),
@@ -234,7 +234,7 @@ def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(proj
 
 
 def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, unique_execution_module_key):
-    dataframe = fetch_experiments_table_multiproject(
+    dataframe = fetch_experiments_table_global(
         experiments=f"{unique_execution_module_key}",
         attributes=[],
         sort_by=filters.Attribute("sys/name", type="string"),
