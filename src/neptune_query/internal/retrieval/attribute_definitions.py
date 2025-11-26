@@ -67,7 +67,7 @@ def fetch_attribute_definitions_single_filter(
         fetch_page=_fetch_attribute_definitions_page,
         process_page=_process_attribute_definitions_page,
         make_new_page_params=ft.partial(_make_new_attribute_definitions_page_params, batch_size=batch_size),
-        params=params,
+        initial_params=params,
     )
 
 
