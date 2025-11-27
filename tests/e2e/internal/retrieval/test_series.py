@@ -90,7 +90,7 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                     fork_point=None,
                     string_series={
                         "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
-                        "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(10)},
+                        "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
                     },
                     histogram_series={
                         "metrics/histograms_1": {
@@ -100,6 +100,11 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                             3: Histogram(bin_edges=[11, 12, 13, 14], counts=[10, 20, 30]),
                             4: Histogram(bin_edges=[14, 15, 16, 17], counts=[40, 50, 60]),
                             5: Histogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
+                        },
+                        "metrics/histograms_2": {
+                            4: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
+                            5: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
+                            6: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
                         },
                     },
                     file_series={
@@ -114,9 +119,9 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                             2: File(b"file-2-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_3": {
-                            0: File(b"file-3-0", mime_type="text/plain"),
-                            1: File(b"file-3-1", mime_type="text/plain"),
-                            2: File(b"file-3-2", mime_type="text/plain"),
+                            10: File(b"file-3-0", mime_type="text/plain"),
+                            11: File(b"file-3-1", mime_type="text/plain"),
+                            12: File(b"file-3-2", mime_type="text/plain"),
                         },
                     },
                 ),
@@ -220,7 +225,7 @@ TEST_SCENARIOS = [
         description="string series, explicit none filters",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
         step_range=(None, None),
-        expected_values=[(i, f"string-2-{i}") for i in range_inclusive(9, 0)],
+        expected_values=[(i, f"string-2-{i}") for i in range_inclusive(14, 5)],
     ),
     # String series - step ranges
     Scenario(
@@ -246,9 +251,9 @@ TEST_SCENARIOS = [
     ),
     Scenario(
         id="tc06",
-        description="string series, step range negative upper bound",
-        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
-        step_range=(None, -1),
+        description="string series, step range doesn't include any values",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
+        step_range=(1, 3),
         expected_values=[],
     ),
     Scenario(
