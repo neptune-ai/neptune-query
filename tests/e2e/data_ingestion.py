@@ -222,10 +222,8 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
         run = neptune_scale.Run(
             api_token=api_token,
             project=project_identifier,
-            experiment_name=_format_experiment_name(run_data.experiment_name_base, unique_key)
-            if run_data.experiment_name_base
-            else None,
-            run_id=_format_run_id(run_data.run_id_base, unique_key) if run_data.run_id_base else None,
+            experiment_name=_format_experiment_name(run_data.experiment_name_base, unique_key),
+            run_id=_format_run_id(run_data.run_id_base, unique_key),
             fork_run_id=_format_run_id(run_data.fork_point[0], unique_key) if run_data.fork_point else None,
             fork_step=run_data.fork_point[1] if run_data.fork_point else None,
             enable_console_log_capture=False,
@@ -289,11 +287,15 @@ def _project_exists(client: AuthenticatedClient, project_identifier: str) -> boo
 
 
 def _format_experiment_name(base_name: str, unique_key: str) -> str:
-    return f"{base_name}__{unique_key}"
+    if base_name:
+        return f"{base_name}__{unique_key}"
+    return None
 
 
 def _format_run_id(base_name: str, unique_key: str) -> str:
-    return f"{base_name}__{unique_key}"
+    if base_name:
+        return f"{base_name}__{unique_key}"
+    return None
 
 
 def _format_project_name(project_name_base: str, unique_key: str) -> str:
