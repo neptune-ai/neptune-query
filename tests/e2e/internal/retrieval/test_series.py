@@ -76,13 +76,6 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                             5: Histogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
                         },
                     },
-                    files={
-                        "files/file-value": File(b"Binary content"),
-                        "files/file-value.txt": File(b"Text content", mime_type="text/plain"),
-                        "files/object-does-not-exist": File(
-                            "/tmp/object-does-not-exist", mime_type="text/plain", size=1
-                        ),
-                    },
                     file_series={
                         "file-series/file_series_1": {
                             0: File(b"file-1-0", mime_type="text/plain"),
