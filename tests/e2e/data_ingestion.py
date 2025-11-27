@@ -34,7 +34,7 @@ SeriesPoint = TypeVar("SeriesPoint", str, float, Histogram, File)
 _STEP0_TIMESTAMP = 1_700_000_000.0  # Arbitrary fixed timestamp for ingestion start
 
 
-def _step_to_timestamp(step: float) -> datetime:
+def step_to_timestamp(step: float) -> datetime:
     """
     Converts a step number to a fixed timestamp for testing purposes.
 
@@ -245,7 +245,7 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
         file_series_by_step = get_series_by_step(run_data.file_series)
 
         for step in all_steps:
-            timestamp = _step_to_timestamp(step)
+            timestamp = step_to_timestamp(step)
             if data := float_series_by_step[step]:
                 run.log_metrics(
                     step=step,
