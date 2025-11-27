@@ -73,7 +73,7 @@ jobs:
           failure-message: "E2E tests failed"
 
       - name: Report
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         if: always()
         with:
           check_name: 'E2E tests report'
