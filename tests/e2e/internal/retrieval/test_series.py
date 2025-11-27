@@ -1,28 +1,184 @@
-from datetime import timedelta
+import re
+from dataclasses import dataclass
 
 import pytest
 
-from neptune_query.internal.identifiers import AttributeDefinition
+from neptune_query.internal.filters import (
+    _Attribute,
+    _Filter,
+)
+from neptune_query.internal.identifiers import (
+    AttributeDefinition,
+    ProjectIdentifier,
+    RunIdentifier,
+    SysId,
+)
+from neptune_query.internal.retrieval import search
+from neptune_query.internal.retrieval.attribute_types import File as NQInternalFile
+from neptune_query.internal.retrieval.attribute_types import Histogram as NQInternalHistogram
 from neptune_query.internal.retrieval.search import ContainerType
 from neptune_query.internal.retrieval.series import (
     RunAttributeDefinition,
     fetch_series_values,
 )
 from tests.e2e.conftest import extract_pages
-from tests.e2e.data import (
-    FILE_SERIES_PATHS,
-    HISTOGRAM_SERIES_PATHS,
-    NOW,
-    STRING_SERIES_PATHS,
-    TEST_DATA,
+from tests.e2e.data_ingestion import (
+    File,
+    Histogram,
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+    ensure_project,
+    step_to_timestamp,
 )
 
 
-def test_fetch_series_values_does_not_exist(client, project, experiment_identifier):
-    # given
-    run_definition = RunAttributeDefinition(experiment_identifier, AttributeDefinition("does-not-exist", "string"))
+@dataclass
+class FileMatcher:
+    path_pattern: str
+    size_bytes: int
+    mime_type: str
 
-    #  when
+    def __eq__(self, other: NQInternalFile) -> bool:
+        return (
+            self.size_bytes == other.size_bytes
+            and self.mime_type == other.mime_type
+            and re.search(self.path_pattern, other.path) is not None
+        )
+
+
+FILE_MATCHER_0 = FileMatcher(
+    path_pattern=".*/file-series_file_series_1.*/.*0000_000.*/.*.txt",
+    mime_type="text/plain",
+    size_bytes=8,
+)
+
+FILE_MATCHER_2 = FileMatcher(
+    path_pattern=".*/file-series_file_series_1.*/.*0002_000.*/.*.txt",
+    mime_type="text/plain",
+    size_bytes=8,
+)
+
+FILE_MATCHER_1 = FileMatcher(
+    path_pattern=".*/file-series_file_series_1.*/.*0001_000.*/.*.txt",
+    mime_type="text/plain",
+    size_bytes=8,
+)
+
+
+@dataclass
+class HistogramMatcher:
+    edges: list[float]
+    values: list[int]
+
+    def __eq__(self, other: NQInternalHistogram) -> bool:
+        return other.type == "COUNTING" and self.edges == other.edges and self.values == other.values
+
+
+@pytest.fixture(scope="session")
+def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjectData:
+    return ensure_project(
+        client=client,
+        api_token=api_token,
+        workspace=workspace,
+        unique_key=test_execution_id,
+        project_data=ProjectData(
+            project_name_base="project_404",
+            runs=[
+                RunData(
+                    experiment_name_base="experiment_project_1_alpha",
+                    fork_point=None,
+                    string_series={
+                        "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
+                        "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
+                    },
+                    histogram_series={
+                        "metrics/histograms_1": {
+                            0: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
+                            1: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
+                            2: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
+                            3: Histogram(bin_edges=[11, 12, 13, 14], counts=[10, 20, 30]),
+                            4: Histogram(bin_edges=[14, 15, 16, 17], counts=[40, 50, 60]),
+                            5: Histogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
+                        },
+                        "metrics/histograms_2": {
+                            4: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
+                            5: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
+                            6: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
+                        },
+                    },
+                    file_series={
+                        "file-series/file_series_1": {
+                            0: File(b"file-1-0", mime_type="text/plain"),
+                            1: File(b"file-1-1", mime_type="text/plain"),
+                            2: File(b"file-1-2", mime_type="text/plain"),
+                        },
+                        "file-series/file_series_2": {
+                            0: File(b"file-2-0", mime_type="text/plain"),
+                            1: File(b"file-2-1", mime_type="text/plain"),
+                            2: File(b"file-2-2", mime_type="text/plain"),
+                        },
+                        "file-series/file_series_3": {
+                            10: File(b"file-3-0", mime_type="text/plain"),
+                            11: File(b"file-3-1", mime_type="text/plain"),
+                            12: File(b"file-3-2", mime_type="text/plain"),
+                        },
+                    },
+                ),
+            ],
+        ),
+    )
+
+
+@pytest.fixture(scope="session")
+def run_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+    run_id = project_1.ingested_runs[0].run_id
+    sys_ids: list[SysId] = []
+    for page in search.fetch_run_sys_ids(
+        client=client,
+        project_identifier=project_1.project_identifier,
+        filter_=_Filter.eq(_Attribute("sys/custom_run_id", type="string"), run_id),
+    ):
+        for item in page.items:
+            sys_ids.append(item)
+    if len(sys_ids) == 0:
+        raise RuntimeError(f"Expected exactly one sys_id for run_id {run_id}, got 0")
+    if len(sys_ids) > 1:
+        raise RuntimeError(f"Expected exactly one sys_id for run_id {run_id}, got {sys_ids}")
+
+    sys_id = SysId(sys_ids[0])
+    return RunIdentifier(ProjectIdentifier(project_1.project_identifier), sys_id)
+
+
+@pytest.fixture(scope="session")
+def experiment_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+    experiment_name = project_1.ingested_runs[0].experiment_name
+    sys_ids: list[SysId] = []
+    for page in search.fetch_experiment_sys_ids(
+        client=client,
+        project_identifier=project_1.project_identifier,
+        filter_=_Filter.eq(_Attribute("sys/name", type="string"), experiment_name),
+    ):
+        for item in page.items:
+            sys_ids.append(item)
+
+    if len(sys_ids) == 0:
+        raise RuntimeError(f"Expected exactly one sys_id for experiment {experiment_name}, got 0")
+    if len(sys_ids) > 1:
+        raise RuntimeError(f"Expected exactly one sys_id for experiment {experiment_name}, got {sys_ids}")
+
+    sys_id = SysId(sys_ids[0])
+    return RunIdentifier(ProjectIdentifier(project_1.project_identifier), sys_id)
+
+
+def test_fetch_series_values_does_not_exist(client, project_1):
+    # given
+    run_definition = RunAttributeDefinition(
+        RunIdentifier(project_1.project_identifier, project_1.ingested_runs[0].experiment_name),
+        AttributeDefinition("does-not-exist", "string"),
+    )
+
+    # when
     series = extract_pages(
         fetch_series_values(
             client,
@@ -36,143 +192,330 @@ def test_fetch_series_values_does_not_exist(client, project, experiment_identifi
     assert series == []
 
 
-@pytest.mark.parametrize(
-    "attribute_name, attribute_type, expected_values",
-    [
-        (STRING_SERIES_PATHS[0], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[0]]),
-        (STRING_SERIES_PATHS[1], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[1]]),
-        (
-            HISTOGRAM_SERIES_PATHS[0],
-            "histogram_series",
-            TEST_DATA.experiments[0].fetcher_histogram_series()[HISTOGRAM_SERIES_PATHS[0]],
-        ),
-        (FILE_SERIES_PATHS[0], "file_series", TEST_DATA.experiments[0].file_series_matchers()[FILE_SERIES_PATHS[0]]),
-    ],
-)
-def test_fetch_series_values_single_series(
-    client, project, experiment_identifier, attribute_name, attribute_type, expected_values
-):
-    # given
-    run_definition = RunAttributeDefinition(experiment_identifier, AttributeDefinition(attribute_name, attribute_type))
+@dataclass
+class Scenario:
+    id: str
+    description: str
+    attribute_definition: AttributeDefinition
+    expected_values: list[tuple[int, object]]
+    step_range: tuple[int | None, int | None] | None = None
+    tail_limit: int | None = None
 
-    #  when
-    series = extract_pages(
-        fetch_series_values(
-            client,
-            [run_definition],
-            include_inherited=False,
-            container_type=ContainerType.EXPERIMENT,
-        )
-    )
-
-    # then
-    expected = [
-        (step, value, int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000)
-        for step, value in enumerate(expected_values)
-    ]
-    assert series == [(run_definition, expected)]
+    def __repr__(self):
+        return f"Scenario(id={self.id}, description={self.description})"
 
 
-@pytest.mark.parametrize(
-    "attribute_name, attribute_type, expected_values",
-    [
-        (STRING_SERIES_PATHS[0], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[0]]),
-        (STRING_SERIES_PATHS[1], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[1]]),
-        (
-            HISTOGRAM_SERIES_PATHS[0],
-            "histogram_series",
-            TEST_DATA.experiments[0].fetcher_histogram_series()[HISTOGRAM_SERIES_PATHS[0]],
-        ),
-        (FILE_SERIES_PATHS[0], "file_series", TEST_DATA.experiments[0].file_series_matchers()[FILE_SERIES_PATHS[0]]),
-    ],
-)
-@pytest.mark.parametrize(
-    "step_range, expected_start, expected_end",
-    [
-        ((None, None), 0, 10),
-        ((1, None), 1, 10),
-        ((None, 5), 0, 6),
-        ((2, 7), 2, 8),
-        ((None, 2), 0, 3),
-        ((5, None), 5, 10),
-    ],
-)
-def test_fetch_series_values_single_series_stop_range(
-    client,
-    project,
-    experiment_identifier,
-    attribute_name,
-    attribute_type,
-    expected_values,
-    step_range,
-    expected_start,
-    expected_end,
-):
-    # given
-    run_definition = RunAttributeDefinition(experiment_identifier, AttributeDefinition(attribute_name, attribute_type))
-
-    #  when
-    series = extract_pages(
-        fetch_series_values(
-            client,
-            [run_definition],
-            include_inherited=False,
-            container_type=ContainerType.EXPERIMENT,
-            step_range=step_range,
-        )
-    )
-
-    # then
-    expected = [
-        (step, value, int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000)
-        for step, value in list(enumerate(expected_values))[expected_start:expected_end]
-    ]
-    if expected:
-        assert series == [(run_definition, expected)]
+def range_inclusive(from_, to):
+    if from_ <= to:
+        return range(from_, to + 1)
     else:
-        assert series == []
+        return range(from_, to - 1, -1)
 
 
-@pytest.mark.parametrize(
-    "attribute_name, attribute_type, expected_values",
-    [
-        (STRING_SERIES_PATHS[0], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[0]]),
-        (STRING_SERIES_PATHS[1], "string_series", TEST_DATA.experiments[0].string_series[STRING_SERIES_PATHS[1]]),
-        (
-            HISTOGRAM_SERIES_PATHS[0],
-            "histogram_series",
-            TEST_DATA.experiments[0].fetcher_histogram_series()[HISTOGRAM_SERIES_PATHS[0]],
-        ),
-        (FILE_SERIES_PATHS[0], "file_series", TEST_DATA.experiments[0].file_series_matchers()[FILE_SERIES_PATHS[0]]),
-    ],
-)
-@pytest.mark.parametrize(
-    "tail_limit",
-    [0, 1, 5, 20, 40],
-)
-def test_fetch_series_values_single_series_tail_limit(
-    client, project, experiment_identifier, attribute_name, attribute_type, expected_values, tail_limit
-):
+TEST_SCENARIOS = [
+    # String series - no filters
+    Scenario(
+        id="tc01",
+        description="string series, no filters",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 0)],
+    ),
+    Scenario(
+        id="tc02",
+        description="string series, explicit none filters",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
+        step_range=(None, None),
+        expected_values=[(i, f"string-2-{i}") for i in range_inclusive(14, 5)],
+    ),
+    # String series - step ranges
+    Scenario(
+        id="tc03",
+        description="string series, step range left-bounded",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(1, None),
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 1)],
+    ),
+    Scenario(
+        id="tc04",
+        description="string series, step range right-bounded",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(None, 5),
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(5, 0)],
+    ),
+    Scenario(
+        id="tc05",
+        description="string series, step range both-bounded",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(2, 7),
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(7, 2)],
+    ),
+    Scenario(
+        id="tc06",
+        description="string series, step range doesn't include any values",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
+        step_range=(1, 3),
+        expected_values=[],
+    ),
+    Scenario(
+        id="tc07",
+        description="string series, step range beyond available",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(11, None),
+        expected_values=[],
+    ),
+    # String series - tail limits
+    Scenario(
+        id="tc08",
+        description="string series, positive tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        tail_limit=3,
+        expected_values=[(9, "string-1-9"), (8, "string-1-8"), (7, "string-1-7")],
+    ),
+    Scenario(
+        id="tc09",
+        description="string series, zero tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        tail_limit=0,
+        expected_values=[],
+    ),
+    Scenario(
+        id="tc10",
+        description="string series, large tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        tail_limit=100,
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 0)],
+    ),
+    # String series - combined filters
+    Scenario(
+        id="tc11",
+        description="string series, step range with tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(2, 7),
+        tail_limit=2,
+        expected_values=[(7, "string-1-7"), (6, "string-1-6")],
+    ),
+    Scenario(
+        id="tc12",
+        description="string series, left-bounded range with tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(5, None),
+        tail_limit=2,
+        expected_values=[(9, "string-1-9"), (8, "string-1-8")],
+    ),
+    Scenario(
+        id="tc13",
+        description="string series, right-bounded range with tail limit",
+        attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
+        step_range=(None, 5),
+        tail_limit=2,
+        expected_values=[(5, "string-1-5"), (4, "string-1-4")],
+    ),
+    # Histogram series - no filters
+    Scenario(
+        id="tc14",
+        description="histogram series, no filters",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        expected_values=[
+            (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
+        ],
+    ),
+    # Histogram series - step ranges
+    Scenario(
+        id="tc15",
+        description="histogram series, step range left-bounded",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        step_range=(1, None),
+        expected_values=[
+            (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+        ],
+    ),
+    Scenario(
+        id="tc16",
+        description="histogram series, step range right-bounded",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        step_range=(None, 2),
+        expected_values=[
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
+        ],
+    ),
+    Scenario(
+        id="tc17",
+        description="histogram series, step range both-bounded",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        step_range=(2, 7),
+        expected_values=[
+            (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+        ],
+    ),
+    Scenario(
+        id="tc18",
+        description="histogram series, step range beyond available",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        step_range=(10, None),
+        expected_values=[],
+    ),
+    # Histogram series - tail limits
+    Scenario(
+        id="tc19",
+        description="histogram series, positive tail limit",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        tail_limit=2,
+        expected_values=[
+            (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+        ],
+    ),
+    Scenario(
+        id="tc20",
+        description="histogram series, zero tail limit",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        tail_limit=0,
+        expected_values=[],
+    ),
+    Scenario(
+        id="tc21",
+        description="histogram series, large tail limit",
+        attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
+        tail_limit=100,
+        expected_values=[
+            (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
+        ],
+    ),
+    # File series - no filters
+    Scenario(
+        id="tc22",
+        description="file series, no filters",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        expected_values=[
+            (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
+        ],
+    ),
+    # File series - step ranges
+    Scenario(
+        id="tc23",
+        description="file series, step range left-bounded",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        step_range=(1, None),
+        expected_values=[
+            (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+        ],
+    ),
+    Scenario(
+        id="tc24",
+        description="file series, step range right-bounded",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        step_range=(None, 1),
+        expected_values=[
+            (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
+        ],
+    ),
+    Scenario(
+        id="tc25",
+        description="file series, step range beyond available",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        step_range=(10, None),
+        expected_values=[],
+    ),
+    # File series - tail limits
+    Scenario(
+        id="tc26",
+        description="file series, positive tail limit",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        tail_limit=2,
+        expected_values=[
+            (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+        ],
+    ),
+    Scenario(
+        id="tc27",
+        description="file series, zero tail limit",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        tail_limit=0,
+        expected_values=[],
+    ),
+    Scenario(
+        id="tc28",
+        description="file series, large tail limit",
+        attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
+        tail_limit=100,
+        expected_values=[
+            (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
+        ],
+    ),
+]
+
+
+@pytest.mark.parametrize("scenario", TEST_SCENARIOS, ids=lambda scenario: scenario.id)
+def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_id, scenario):
     # given
-    run_definition = RunAttributeDefinition(experiment_identifier, AttributeDefinition(attribute_name, attribute_type))
+    run_attribute_definition = RunAttributeDefinition(experiment_1_sys_id, scenario.attribute_definition)
 
-    #  when
+    kwargs = {}
+    if scenario.step_range:
+        kwargs["step_range"] = scenario.step_range
+    if scenario.tail_limit is not None:
+        kwargs["tail_limit"] = scenario.tail_limit
+
+    # when
     series = extract_pages(
         fetch_series_values(
             client,
-            [run_definition],
+            [run_attribute_definition],
             include_inherited=False,
             container_type=ContainerType.EXPERIMENT,
-            tail_limit=tail_limit,
+            **kwargs,
         )
     )
 
     # then
-    if tail_limit == 0:
+    if not scenario.expected_values:
         assert series == []
     else:
-        expected = [
-            (step, value, int((NOW + timedelta(seconds=int(step))).timestamp()) * 1000)
-            for step, value in reversed(list(enumerate(expected_values))[-tail_limit:])
-        ]
-        assert series == [(run_definition, expected)]
+        assert len(series) == 1
+        run_attribute_definition_returned, values = series[0]
+
+        # TODO: PY-309 make fetch_series_values return values sorted by step, descending order
+        # Then we don't need to sort here
+        values = sorted(values, reverse=True)
+
+        assert run_attribute_definition_returned == run_attribute_definition
+        assert_series_matches(values, scenario.expected_values)
+
+
+def assert_series_matches(
+    values: list[tuple[int, object, float]],
+    expected_values: list[tuple[int, object]],
+):
+    assert len(values) == len(expected_values)
+
+    for i, (expected_step, expected_value) in enumerate(expected_values):
+        (step, value, timestamp) = values[i]
+        assert step == expected_step
+        assert value == expected_value
+        assert timestamp == step_to_timestamp(step).timestamp() * 1000.0

@@ -1,16 +1,46 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import (
+    dataclass,
+    field,
+)
+from datetime import (
+    datetime,
+    timezone,
+)
 from pathlib import Path
 from typing import (
     Generator,
+    Iterable,
+    Mapping,
     Optional,
+    TypeVar,
 )
 
 import filelock
 import neptune_scale
+import neptune_scale.types
 from neptune_api import AuthenticatedClient
+
+Histogram = neptune_scale.types.Histogram
+File = neptune_scale.types.File
+
+
+SeriesPoint = TypeVar("SeriesPoint", str, float, Histogram, File)
+
+
+_STEP0_TIMESTAMP = 1_700_000_000.0  # Arbitrary fixed timestamp for ingestion start
+
+
+def step_to_timestamp(step: float) -> datetime:
+    """
+    Converts a step number to a fixed timestamp for testing purposes.
+
+    Don't rely on this. The behavior of this function may change in the future.
+    """
+    return datetime.fromtimestamp(_STEP0_TIMESTAMP + step, tz=timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -19,14 +49,44 @@ class RunData:
     Definition of the data to be ingested for a run in tests.
     """
 
-    experiment_name_base: str
-    run_id_base: str
+    experiment_name_base: str | None = None
+    run_id_base: str | None = None
 
     # run_id_base of the parent run and the fork step
-    fork_point: Optional[tuple[str, float]]
+    fork_point: tuple[str, float] | None = None
 
-    configs: dict[str, int | str]
-    float_series: dict[str, dict[float, float]]
+    configs: dict[str, int | str] | None = field(default_factory=dict)
+    files: dict[str, File] | None = field(default_factory=dict)
+
+    float_series: dict[str, dict[float, float]] = field(default_factory=dict)
+    string_series: dict[str, dict[float, str]] = field(default_factory=dict)
+    histogram_series: dict[str, dict[float, Histogram]] = field(default_factory=dict)
+    file_series: dict[str, dict[float, File]] = field(default_factory=dict)
+
+
+def get_all_steps(run_data: RunData) -> Iterable[float]:
+    # Collect all unique steps
+    all_steps = set()
+    for series in run_data.float_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.string_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.histogram_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.file_series.values():
+        all_steps.update(series.keys())
+
+    return sorted(all_steps)
+
+
+def get_series_by_step(series: dict[str, dict[float, SeriesPoint]]) -> Mapping[float, dict[str, SeriesPoint]]:
+    series_by_step = defaultdict(dict)
+
+    for series_name, series_data in series.items():
+        for step, value in series_data.items():
+            series_by_step[step][series_name] = value
+
+    return series_by_step
 
 
 @dataclass(frozen=True)
@@ -51,6 +111,8 @@ class IngestedRunData:
 
     configs: dict[str, int | str]
     float_series: dict[str, dict[float, float]]
+    string_series: dict[str, dict[float, str]]
+    histogram_series: dict[str, dict[float, Histogram]]
 
 
 @dataclass(frozen=True)
@@ -108,6 +170,8 @@ def ensure_project(
                 run_id=_format_run_id(run_data.run_id_base, unique_key),
                 configs=run_data.configs,
                 float_series=run_data.float_series,
+                string_series=run_data.string_series,
+                histogram_series=run_data.histogram_series,
             )
             for run_data in project_data.runs
         ],
@@ -169,11 +233,30 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
         if run_data.configs:
             run.log_configs(run_data.configs)
 
-        all_float_series_steps = set().union(*(series.keys() for series in run_data.float_series.values()))
-        for step in sorted(all_float_series_steps):
-            run.log_metrics(
+        if run_data.files:
+            run.assign_files(run_data.files)
+
+        all_steps = get_all_steps(run_data)
+        float_series_by_step = get_series_by_step(run_data.float_series)
+        string_series_by_step = get_series_by_step(run_data.string_series)
+        histogram_series_by_step = get_series_by_step(run_data.histogram_series)
+        file_series_by_step = get_series_by_step(run_data.file_series)
+
+        for step in all_steps:
+            timestamp = step_to_timestamp(step)
+            if data := float_series_by_step[step]:
+                run.log_metrics(
+                    step=step,
+                    data=data,
+                    timestamp=timestamp,
+                )
+
+            run._log(
                 step=step,
-                data={attr_name: series[step] for attr_name, series in run_data.float_series.items() if step in series},
+                timestamp=timestamp,
+                string_series=string_series_by_step[step],
+                histograms=histogram_series_by_step[step],
+                file_series=file_series_by_step[step],
             )
 
         runs.append(run)
@@ -204,11 +287,15 @@ def _project_exists(client: AuthenticatedClient, project_identifier: str) -> boo
 
 
 def _format_experiment_name(base_name: str, unique_key: str) -> str:
-    return f"{base_name}__{unique_key}"
+    if base_name:
+        return f"{base_name}__{unique_key}"
+    return None
 
 
 def _format_run_id(base_name: str, unique_key: str) -> str:
-    return f"{base_name}__{unique_key}"
+    if base_name:
+        return f"{base_name}__{unique_key}"
+    return None
 
 
 def _format_project_name(project_name_base: str, unique_key: str) -> str:
