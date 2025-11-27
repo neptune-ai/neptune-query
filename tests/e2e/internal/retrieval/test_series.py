@@ -201,60 +201,67 @@ class Scenario:
         return f"Scenario(id={self.id}, description={self.description})"
 
 
+def range_inclusive(from_, to):
+    if from_ <= to:
+        return range(from_, to + 1)
+    else:
+        return range(from_, to - 1, -1)
+
+
 TEST_SCENARIOS = [
     Scenario(
         id="tc01",
         description="Fetch all string series values without filters",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
-        expected_values=[(i, f"string-1-{i}") for i in range(10)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 0)],
     ),
     Scenario(
         id="tc02",
         description="Fetch all values from a different string series",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
-        expected_values=[(i, f"string-2-{i}") for i in range(10)],
+        expected_values=[(i, f"string-2-{i}") for i in range_inclusive(9, 0)],
     ),
     Scenario(
         id="tc03",
         description="Fetch all values from a string series with explicit step_range=(None, None)",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
         step_range=(None, None),
-        expected_values=[(i, f"string-2-{i}") for i in range(10)],
+        expected_values=[(i, f"string-2-{i}") for i in range_inclusive(9, 0)],
     ),
     Scenario(
         id="tc04",
         description="Fetch string series values from step 1 onwards",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(1, None),
-        expected_values=[(i, f"string-1-{i}") for i in range(1, 10)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 1)],
     ),
     Scenario(
         id="tc05",
         description="Fetch string series values up to step 5",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(None, 5),
-        expected_values=[(i, f"string-1-{i}") for i in range(0, 6)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(5, 0)],
     ),
     Scenario(
         id="tc06",
         description="Fetch string series values in step range 2-7",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(2, 7),
-        expected_values=[(i, f"string-1-{i}") for i in range(2, 8)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(7, 2)],
     ),
     Scenario(
         id="tc07",
         description="Fetch string series values up to step 2",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(None, 2),
-        expected_values=[(i, f"string-1-{i}") for i in range(0, 3)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(2, 0)],
     ),
     Scenario(
         id="tc08",
         description="Fetch string series values from step 5 onwards",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(5, None),
-        expected_values=[(i, f"string-1-{i}") for i in range(5, 10)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 5)],
     ),
     Scenario(
         id="tc09",
@@ -275,7 +282,7 @@ TEST_SCENARIOS = [
         description="Fetch last 3 string series values using tail limit",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         tail_limit=3,
-        expected_values=[(7, "string-1-7"), (8, "string-1-8"), (9, "string-1-9")],
+        expected_values=[(9, "string-1-9"), (8, "string-1-8"), (7, "string-1-7")],
     ),
     Scenario(
         id="tc12",
@@ -283,11 +290,11 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         tail_limit=5,
         expected_values=[
-            (5, "string-1-5"),
-            (6, "string-1-6"),
-            (7, "string-1-7"),
-            (8, "string-1-8"),
             (9, "string-1-9"),
+            (8, "string-1-8"),
+            (7, "string-1-7"),
+            (6, "string-1-6"),
+            (5, "string-1-5"),
         ],
     ),
     Scenario(
@@ -302,12 +309,12 @@ TEST_SCENARIOS = [
         description="Fetch all histogram series values without filters",
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         expected_values=[
-            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
         ],
     ),
     Scenario(
@@ -316,11 +323,11 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         step_range=(1, None),
         expected_values=[
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
         ],
     ),
     Scenario(
@@ -329,12 +336,12 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         step_range=(None, 5),
         expected_values=[
-            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
         ],
     ),
     Scenario(
@@ -343,10 +350,10 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         step_range=(2, 7),
         expected_values=[
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
         ],
     ),
     Scenario(
@@ -355,9 +362,9 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         step_range=(None, 2),
         expected_values=[
-            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
             (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
         ],
     ),
     Scenario(
@@ -375,8 +382,8 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         tail_limit=2,
         expected_values=[
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
         ],
     ),
     Scenario(
@@ -392,8 +399,8 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
         step_range=(1, None),
         expected_values=[
-            (1, FILE_MATCHER_1),
             (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
         ],
     ),
     Scenario(
@@ -402,8 +409,8 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
         step_range=(None, 1),
         expected_values=[
-            (0, FILE_MATCHER_0),
             (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
         ],
     ),
     Scenario(
@@ -411,9 +418,9 @@ TEST_SCENARIOS = [
         description="Fetch all file series values without filters",
         attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
         expected_values=[
-            (0, FILE_MATCHER_0),
-            (1, FILE_MATCHER_1),
             (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
         ],
     ),
     Scenario(
@@ -422,8 +429,8 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
         tail_limit=2,
         expected_values=[
-            (1, FILE_MATCHER_1),
             (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
         ],
     ),
     Scenario(
@@ -470,7 +477,7 @@ TEST_SCENARIOS = [
         description="Fetch string series values from step 8 onwards (second series)",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
         step_range=(8, None),
-        expected_values=[(8, "string-2-8"), (9, "string-2-9")],
+        expected_values=[(9, "string-2-9"), (8, "string-2-8")],
     ),
     Scenario(
         id="tc32",
@@ -492,7 +499,7 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(2, 7),
         tail_limit=2,
-        expected_values=[(6, "string-1-6"), (7, "string-1-7")],
+        expected_values=[(7, "string-1-7"), (6, "string-1-6")],
     ),
     Scenario(
         id="tc35",
@@ -500,7 +507,7 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(1, 5),
         tail_limit=3,
-        expected_values=[(3, "string-1-3"), (4, "string-1-4"), (5, "string-1-5")],
+        expected_values=[(5, "string-1-5"), (4, "string-1-4"), (3, "string-1-3")],
     ),
     Scenario(
         id="tc36",
@@ -508,7 +515,7 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(5, None),
         tail_limit=2,
-        expected_values=[(8, "string-1-8"), (9, "string-1-9")],
+        expected_values=[(9, "string-1-9"), (8, "string-1-8")],
     ),
     Scenario(
         id="tc37",
@@ -516,14 +523,14 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(None, 5),
         tail_limit=2,
-        expected_values=[(4, "string-1-4"), (5, "string-1-5")],
+        expected_values=[(5, "string-1-5"), (4, "string-1-4")],
     ),
     Scenario(
         id="tc38",
         description="Fetch string series with tail limit larger than available data returns all data",
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         tail_limit=100,
-        expected_values=[(i, f"string-1-{i}") for i in range(10)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(9, 0)],
     ),
     Scenario(
         id="tc39",
@@ -531,12 +538,12 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/histograms_1", "histogram_series"),
         tail_limit=100,
         expected_values=[
-            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
-            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
             (5, HistogramMatcher(edges=[17.0, 18.0, 19.0, 20.0], values=[70, 80, 90])),
+            (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
         ],
     ),
     Scenario(
@@ -545,9 +552,9 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("file-series/file_series_1", "file_series"),
         tail_limit=100,
         expected_values=[
-            (0, FILE_MATCHER_0),
-            (1, FILE_MATCHER_1),
             (2, FILE_MATCHER_2),
+            (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
         ],
     ),
     Scenario(
@@ -556,7 +563,7 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_1", "string_series"),
         step_range=(2, 7),
         tail_limit=100,
-        expected_values=[(i, f"string-1-{i}") for i in range(2, 8)],
+        expected_values=[(i, f"string-1-{i}") for i in range_inclusive(7, 2)],
     ),
     Scenario(
         id="tc42",
@@ -565,10 +572,10 @@ TEST_SCENARIOS = [
         step_range=(1, 4),
         tail_limit=100,
         expected_values=[
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
-            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
             (4, HistogramMatcher(edges=[14.0, 15.0, 16.0, 17.0], values=[40, 50, 60])),
+            (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
         ],
     ),
     Scenario(
@@ -578,8 +585,8 @@ TEST_SCENARIOS = [
         step_range=(0, 1),
         tail_limit=100,
         expected_values=[
-            (0, FILE_MATCHER_0),
             (1, FILE_MATCHER_1),
+            (0, FILE_MATCHER_0),
         ],
     ),
     Scenario(
@@ -588,7 +595,7 @@ TEST_SCENARIOS = [
         attribute_definition=AttributeDefinition("metrics/str_foo_bar_2", "string_series"),
         step_range=(7, None),
         tail_limit=100,
-        expected_values=[(7, "string-2-7"), (8, "string-2-8"), (9, "string-2-9")],
+        expected_values=[(9, "string-2-9"), (8, "string-2-8"), (7, "string-2-7")],
     ),
     Scenario(
         id="tc45",
@@ -597,10 +604,10 @@ TEST_SCENARIOS = [
         step_range=(None, 3),
         tail_limit=100,
         expected_values=[
-            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
-            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
-            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
             (3, HistogramMatcher(edges=[11.0, 12.0, 13.0, 14.0], values=[10, 20, 30])),
+            (2, HistogramMatcher(edges=[7.0, 8.0, 9.0, 10.0], values=[70, 80, 90])),
+            (1, HistogramMatcher(edges=[4.0, 5.0, 6.0, 7.0], values=[40, 50, 60])),
+            (0, HistogramMatcher(edges=[1.0, 2.0, 3.0, 4.0], values=[10, 20, 30])),
         ],
     ),
 ]
@@ -623,7 +630,7 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
             client,
             [run_attribute_definition],
             include_inherited=False,
-            container_type=ContainerType.RUN,
+            container_type=ContainerType.EXPERIMENT,
             **kwargs,
         )
     )
@@ -634,6 +641,10 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
     else:
         assert len(series) == 1
         run_attribute_definition_returned, values = series[0]
+
+        # TODO: PY-309 make fetch_series_values return values sorted by step, descending order
+        # Then we don't need to sort here
+        values = sorted(values, reverse=True)
 
         assert run_attribute_definition_returned == run_attribute_definition
         assert_series_matches(values, scenario.expected_values)
@@ -676,8 +687,6 @@ def assert_series_matches(
     values: list[tuple[int, object, float]],
     expected_values: list[tuple[int, object]],
 ):
-    # TODO: with tail_limit, the order of returned values is reversed. Fix that!
-    values = sorted(values)
     assert len(values) == len(expected_values)
 
     for i, (expected_step, expected_value) in enumerate(expected_values):
