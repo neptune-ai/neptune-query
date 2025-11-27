@@ -3,10 +3,16 @@ from dataclasses import dataclass
 
 import pytest
 
+from neptune_query.internal.filters import (
+    _Attribute,
+    _Filter,
+)
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     RunIdentifier,
+    SysId,
 )
+from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_types import File as NQInternalFile
 from neptune_query.internal.retrieval.attribute_types import Histogram as NQInternalHistogram
 from neptune_query.internal.retrieval.search import ContainerType
@@ -23,7 +29,6 @@ from tests.e2e.data_ingestion import (
     RunData,
     ensure_project,
 )
-from tests.e2e.internal.conftest import get_sys_id_for_run
 
 
 @dataclass
@@ -482,3 +487,20 @@ def test_fetch_series_values_single_series(
             assert step == expected_step
             assert value == expected_value
             # Don't check the timestamp
+
+
+def get_sys_id_for_run(client, project_identifier, run_id) -> SysId | None:
+    sys_ids = []
+    for page in search.fetch_run_sys_ids(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=_Filter.eq(_Attribute("sys/custom_run_id", type="string"), run_id),
+    ):
+        for item in page.items:
+            sys_ids.append(item)
+    if len(sys_ids) == 1:
+        return SysId(sys_ids[0])
+    if len(sys_ids) == 0:
+        return None
+
+    raise RuntimeError(f"Expected exactly one sys_id for run_id {run_id}, got {sys_ids}")
