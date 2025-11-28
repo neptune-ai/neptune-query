@@ -500,10 +500,6 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
         assert len(series) == 1
         run_attribute_definition_returned, values = series[0]
 
-        # TODO: PY-309 make fetch_series_values return values sorted by step, descending order
-        # Then we don't need to sort here
-        values = sorted(values, reverse=True)
-
         assert run_attribute_definition_returned == run_attribute_definition
         assert_series_matches(values, scenario.expected_values)
 

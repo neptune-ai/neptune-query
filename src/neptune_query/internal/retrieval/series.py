@@ -86,7 +86,7 @@ def fetch_series_values(
             for request_id, run_definition in request_id_to_run_attr_definition.items()
         ],
         "stepRange": {"from": step_range[0], "to": step_range[1]},
-        "order": "ascending" if tail_limit is None else "descending",
+        "order": "descending",
     }
     if tail_limit is not None:
         params["perSeriesPointsLimit"] = tail_limit
