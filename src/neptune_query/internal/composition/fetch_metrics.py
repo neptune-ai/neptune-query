@@ -154,7 +154,7 @@ def _fetch_metrics(
             sys_ids=sys_ids,
             downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
                 items=split.split_series_attributes(
-                    items=(
+                    items=[
                         identifiers.RunAttributeDefinition(
                             run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
                             attribute_definition=definition,
@@ -162,7 +162,7 @@ def _fetch_metrics(
                         for sys_id in sys_ids_split
                         for definition in definitions_page.items
                         if definition.type == "float_series"
-                    )
+                    ]
                 ),
                 executor=executor,
                 downstream=lambda run_attribute_definitions_split: concurrency.return_value(
