@@ -185,36 +185,29 @@ def test_fetch_string_series_values_retrieval(client, project, experiment_identi
     result = None
     thrown_e = None
     try:
-        result = extract_pages(
-            fetch_series_values(
-                client,
-                attribute_definitions,
-                include_inherited=True,
-                container_type=ContainerType.EXPERIMENT,
-                step_range=(None, None),
-                tail_limit=None,
-            )
+        result = fetch_series_values(
+            client,
+            attribute_definitions,
+            include_inherited=True,
+            container_type=ContainerType.EXPERIMENT,
+            step_range=(None, None),
+            tail_limit=None,
         )
     except (NeptuneRetryError, NeptuneUnexpectedResponseError) as e:
         thrown_e = e
 
     # then
     if success:
-        expected_values = [
-            (
-                RunAttributeDefinition(
-                    run_identifier=exp, attribute_definition=AttributeDefinition(key, "string_series")
-                ),
-                [SeriesValue(1.0, value, int(NOW.timestamp() * 1000))],
-            )
+        expected_result = {
+            RunAttributeDefinition(
+                run_identifier=exp, attribute_definition=AttributeDefinition(key, "string_series")
+            ): [SeriesValue(1.0, value, int(NOW.timestamp() * 1000))]
             for exp in exp_identifiers
             for key, value in attribute_data.items()
-        ]
+        }
 
         assert thrown_e is None
-        assert sorted(result, key=lambda r: (r[0].run_identifier.sys_id, r[0].attribute_definition.name)) == sorted(
-            expected_values, key=lambda r: (r[0].run_identifier.sys_id, r[0].attribute_definition.name)
-        )
+        assert result == expected_result
     else:
         assert result is None
         assert thrown_e is not None

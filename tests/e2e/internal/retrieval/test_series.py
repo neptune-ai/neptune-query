@@ -21,7 +21,6 @@ from neptune_query.internal.retrieval.series import (
     RunAttributeDefinition,
     fetch_series_values,
 )
-from tests.e2e.conftest import extract_pages
 from tests.e2e.data_ingestion import (
     File,
     Histogram,
@@ -179,17 +178,17 @@ def test_fetch_series_values_does_not_exist(client, project_1):
     )
 
     # when
-    series = extract_pages(
-        fetch_series_values(
-            client,
-            [run_definition],
-            include_inherited=False,
-            container_type=ContainerType.EXPERIMENT,
-        )
+    series = fetch_series_values(
+        client,
+        [run_definition],
+        include_inherited=False,
+        container_type=ContainerType.EXPERIMENT,
     )
 
     # then
-    assert series == []
+    assert series == {
+        run_definition: [],
+    }
 
 
 @dataclass
