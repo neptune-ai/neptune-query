@@ -90,7 +90,7 @@ def fetch_multiple_series_values(
             for request_id, run_attribute in request_id_to_attribute.items()
         ],
         "stepRange": {"from": step_range[0], "to": step_range[1]},
-        "order": "ascending" if not tail_limit else "descending",
+        "order": "descending",
     }
 
     results: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {
@@ -110,8 +110,11 @@ def fetch_multiple_series_values(
         initial_params=params,
     ):
         for attribute, values in page_result.items:
-            sorted_values = values if tail_limit else reversed(values)
-            results[attribute].extend(sorted_values)
+            results[attribute].extend(values)
+
+    # Reverse the order of values to maintain ascending order
+    for attribute in results:
+        results[attribute].reverse()
 
     return results
 
