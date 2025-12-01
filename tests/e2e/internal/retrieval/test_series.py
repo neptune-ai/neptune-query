@@ -13,9 +13,7 @@ from neptune_query.internal.identifiers import (
     RunIdentifier,
     SysId,
 )
-from neptune_query.internal.retrieval import (
-    search,
-)
+from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_types import File as NQInternalFile
 from neptune_query.internal.retrieval.attribute_types import Histogram as NQInternalHistogram
 from neptune_query.internal.retrieval.search import ContainerType
@@ -84,7 +82,7 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
         workspace=workspace,
         unique_key=test_execution_id,
         project_data=ProjectData(
-            project_name_base="internal-retrieval-test-series-project_1",
+            project_name_base="internal__retrieval__test-series__project_1",
             runs=[
                 RunData(
                     experiment_name_base="experiment_1",
