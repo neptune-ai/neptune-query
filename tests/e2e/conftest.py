@@ -38,6 +38,7 @@ from tests.e2e.data import (
     TEST_DATA,
 )
 from tests.e2e.data_ingestion import (
+    IngestedProjectData,
     ProjectData,
     ingest_project,
 )
@@ -249,7 +250,18 @@ class EnsureProject:
         self.workspace = workspace
         self.test_execution_id = test_execution_id
 
-    def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> None:
+    def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> IngestedProjectData:
+        """Create a project with the given data or retrieve an existing one.
+
+        Args:
+            project_data: Data to initialize the project with
+            unique_key: [optional] unique identifier for the project
+                        If not provided, the unique test_execution_id will be used
+                        The test_execution_id can be overridden via the NEPTUNE_TEST_EXECUTION_ID environment variable.
+
+        Returns:
+            IngestedProjectData containing information about the created/retrieved project
+        """
         return ingest_project(
             client=self.client,
             api_token=self.api_token,
@@ -261,4 +273,36 @@ class EnsureProject:
 
 @pytest.fixture(scope="session")
 def ensure_project(client, api_token, workspace, test_execution_id) -> EnsureProject:
+    """Returns a function-like object that can be used to create or retrieve projects with specified data.
+
+    Args for the returned callable:
+
+        project_data: Data to initialize the project with
+        unique_key: [optional] unique identifier for the project
+                    If not provided, the unique test_execution_id will be used
+                    The test_execution_id can be overridden via the NEPTUNE_TEST_EXECUTION_ID environment variable.
+
+    Returns:
+        IngestedProjectData containing information about the created/retrieved project
+
+    Example:
+
+        @pytest.fixture
+        def project_gamma(ensure_project):
+            ingested_project = ensure_project(
+                ProjectData(
+                    project_name_base="test_project",
+                    runs=[
+                        RunData(
+                            experiment_name_base="experiment_gamma",
+                            config={"param": "value"},
+                            float_series={"metrics/accuracy": {0: 0.5, 1: 0.75, 2: 0.9}},
+                            string_series={"logs/status": {0: "started", 1: "in_progress", 2: "completed"}},
+                            histogram_series={ ... },
+                            files={ ... },
+                        )
+                        ...
+                    ],
+                ))
+    """
     return EnsureProject(client, api_token, workspace, test_execution_id)
