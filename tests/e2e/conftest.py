@@ -37,6 +37,10 @@ from tests.e2e.data import (
     PATH,
     TEST_DATA,
 )
+from tests.e2e.data_ingestion import (
+    ProjectData,
+    ingest_project,
+)
 
 
 @dataclass
@@ -236,3 +240,25 @@ def temp_dir():
 
 def extract_pages(generator):
     return list(it.chain.from_iterable(i.items for i in generator))
+
+
+class EnsureProject:
+    def __init__(self, client: AuthenticatedClient, api_token: str, workspace: str, test_execution_id: str):
+        self.client = client
+        self.api_token = api_token
+        self.workspace = workspace
+        self.test_execution_id = test_execution_id
+
+    def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> None:
+        return ingest_project(
+            client=self.client,
+            api_token=self.api_token,
+            workspace=self.workspace,
+            unique_key=unique_key or self.test_execution_id,
+            project_data=project_data,
+        )
+
+
+@pytest.fixture(scope="session")
+def ensure_project(client, api_token, workspace, test_execution_id) -> EnsureProject:
+    return EnsureProject(client, api_token, workspace, test_execution_id)

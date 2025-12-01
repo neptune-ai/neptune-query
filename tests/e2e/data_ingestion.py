@@ -125,7 +125,7 @@ class IngestedProjectData:
     ingested_runs: list[IngestedRunData]
 
 
-def ensure_project(
+def ingest_project(
     *,
     client: AuthenticatedClient,
     api_token: str,

@@ -28,7 +28,6 @@ from tests.e2e.data_ingestion import (
     IngestedProjectData,
     ProjectData,
     RunData,
-    ensure_project,
     step_to_timestamp,
 )
 
@@ -76,13 +75,9 @@ class HistogramMatcher:
 
 
 @pytest.fixture(scope="session")
-def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjectData:
+def project_1(ensure_project) -> IngestedProjectData:
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
-        unique_key=test_execution_id,
-        project_data=ProjectData(
+        ProjectData(
             project_name_base="project_404",
             runs=[
                 RunData(

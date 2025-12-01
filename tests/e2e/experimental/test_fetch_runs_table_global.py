@@ -16,7 +16,6 @@ from tests.e2e.data_ingestion import (
     IngestedRunData,
     ProjectData,
     RunData,
-    ensure_project,
 )
 
 pytestmark = pytest.mark.filterwarnings("ignore:.*fetch_.*_table.*:neptune_query.warnings.ExperimentalWarning")
@@ -243,11 +242,8 @@ def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_exe
 
 
 @pytest.fixture(scope="session")
-def project_1(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
+def project_1(ensure_project, unique_execution_module_key) -> IngestedProjectData:
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
         unique_key=unique_execution_module_key,
         project_data=ProjectData(
             project_name_base="project_1",
@@ -298,11 +294,8 @@ def project_1(client, api_token, workspace, unique_execution_module_key) -> Inge
 
 
 @pytest.fixture(scope="session")
-def project_2(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
+def project_2(ensure_project, unique_execution_module_key) -> IngestedProjectData:
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
         unique_key=unique_execution_module_key,
         project_data=ProjectData(
             project_name_base="project_2",
