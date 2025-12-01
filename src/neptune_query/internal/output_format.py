@@ -296,6 +296,7 @@ def create_metrics_dataframe(
 
 def create_series_dataframe(
     series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]],
+    # TODO: PY-310 remove unused parameter project_identifier
     project_identifier: str,
     sys_id_label_mapping: dict[identifiers.SysId, str],
     index_column_name: str,

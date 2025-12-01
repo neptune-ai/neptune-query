@@ -1340,28 +1340,22 @@ def test_create_files_dataframe_index_name_attribute_conflict():
     assert_frame_equal(dataframe, expected_df)
 
 
-@pytest.mark.parametrize("duplicate_variant", [(2, 1, 1), (1, 2, 1), (1, 1, 2), (2, 2, 2)])
 @pytest.mark.parametrize("include_time", [None, "absolute"])
-def test_fetch_series_duplicate_values(duplicate_variant, include_time):
+def test_fetch_series_duplicate_values(include_time):
     #  given
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
     experiments = [ExperimentSysAttrs(sys_id=SysId("sysid0"), sys_name=SysName("irrelevant"))]
     attributes = [AttributeDefinition(name="attribute0", type="irrelevant")]
-    run_attribute_definitions = [
-        RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=experiments[0].sys_id),
-            attribute_definition=attributes[0],
-        )
-    ]
+    run_attribute_definition = RunAttributeDefinition(
+        run_identifier=RunIdentifier(project_identifier=project, sys_id=experiments[0].sys_id),
+        attribute_definition=attributes[0],
+    )
 
-    duped_values, duped_attributes, duped_pages = duplicate_variant
-    series_values = [
-        (
-            run_attribute_definitions[0],
-            [SeriesValue(step=i, value=f"{i}", timestamp_millis=i) for i in range(100)] * duped_values,
-        )
-    ] * duped_attributes
+    # construct duplicate series values
+    series_values = {
+        run_attribute_definition: [SeriesValue(step=i, value=f"{i}", timestamp_millis=i) for i in range(100)] * 3
+    }
 
     # when
     with (
@@ -1375,7 +1369,7 @@ def test_fetch_series_duplicate_values(duplicate_variant, include_time):
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
         fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
-        fetch_series_values.return_value = iter([util.Page(series_values)] * duped_pages)
+        fetch_series_values.return_value = series_values
 
         df = npt.fetch_series(
             project=project,
