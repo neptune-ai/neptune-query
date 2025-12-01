@@ -276,7 +276,6 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
     """Returns a function-like object that can be used to create or retrieve projects with specified data.
 
     Args for the returned callable:
-
         project_data: Data to initialize the project with
         unique_key: [optional] unique identifier for the project
                     If not provided, the unique test_execution_id will be used
@@ -286,7 +285,6 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
         IngestedProjectData containing information about the created/retrieved project
 
     Example:
-
         @pytest.fixture
         def project_gamma(ensure_project):
             ingested_project = ensure_project(
