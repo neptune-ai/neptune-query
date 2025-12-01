@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from concurrent.futures import Executor
 from typing import (
     Generator,
     Literal,
@@ -20,6 +21,7 @@ from typing import (
 )
 
 import pandas as pd
+from neptune_api import AuthenticatedClient
 
 from .. import identifiers
 from ..client import get_client
@@ -50,6 +52,8 @@ from ..retrieval.search import ContainerType
 
 __all__ = ("fetch_series",)
 
+from ..retrieval.series import SeriesValue
+
 
 def fetch_series(
     *,
@@ -66,7 +70,7 @@ def fetch_series(
     validation.validate_step_range(step_range)
     validation.validate_tail_limit(tail_limit)
     validation.validate_include_time(include_time)
-    attributes_restricted = validation.restrict_attribute_filter_type(
+    restricted_attributes = validation.restrict_attribute_filter_type(
         attributes, type_in={"string_series", "histogram_series", "file_series"}
     )
 
@@ -86,13 +90,48 @@ def fetch_series(
         inferred_filter = inference_result.get_result_or_raise()
         inference_result.emit_warnings()
 
+        series_data, sys_id_to_label_mapping = _fetch_series(
+            filter_=inferred_filter,
+            attributes=restricted_attributes,
+            client=client,
+            project_identifier=project_identifier,
+            step_range=step_range,
+            lineage_to_the_root=lineage_to_the_root,
+            tail_limit=tail_limit,
+            executor=executor,
+            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
+            container_type=container_type,
+        )
+
+        df = create_series_dataframe(
+            series_data,
+            project_identifier,
+            sys_id_to_label_mapping,
+            index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
+            timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        )
+
+    return df
+
+def _fetch_series(
+    filter_: Optional[_Filter],
+    attributes: _BaseAttributeFilter,
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    executor: Executor,
+    fetch_attribute_definitions_executor: Executor,
+    step_range: tuple[Optional[float], Optional[float]],
+    lineage_to_the_root: bool,
+    tail_limit: Optional[int],
+    container_type: ContainerType,
+) -> tuple[dict[identifiers.RunAttributeDefinition, list[SeriesValue]], dict[identifiers.SysId, str]]:
         sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
         def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
             for page in search.fetch_sys_id_labels(container_type)(
                 client=client,
                 project_identifier=project_identifier,
-                filter_=inferred_filter,
+                filter_=filter_,
             ):
                 sys_ids = []
                 for item in page.items:
@@ -106,7 +145,7 @@ def fetch_series(
             downstream=lambda sys_ids: _components.fetch_attribute_definitions_split(
                 client=client,
                 project_identifier=project_identifier,
-                attribute_filter=attributes_restricted,
+                attribute_filter=attributes,
                 executor=executor,
                 fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
                 sys_ids=sys_ids,
@@ -151,5 +190,4 @@ def fetch_series(
             project_identifier,
             sys_id_label_mapping,
             index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
-            timestamp_column_name="absolute_time" if include_time == "absolute" else None,
         )
