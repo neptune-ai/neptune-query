@@ -181,7 +181,7 @@ def _fetch_series(
 
     series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
     for result in results:
-        for run_attribute_definition, series_values in result.items:
+        for run_attribute_definition, series_values in result.items():
             series_data.setdefault(run_attribute_definition, []).extend(series_values)
 
     return series_data, sys_id_label_mapping

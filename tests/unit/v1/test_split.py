@@ -224,7 +224,7 @@ def test_fetch_series_patched(sys_id_length, exp_count, attr_name_length, attr_c
         get_client.return_value = None
         fetch_experiment_sys_attrs.return_value = iter([util.Page(experiments)])
         fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
-        fetch_series_values.return_value = iter([])
+        fetch_series_values.return_value = {}
 
         npt.fetch_series(
             project=project,
