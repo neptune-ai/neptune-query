@@ -46,7 +46,6 @@ from ..retrieval import (
     search,
     series,
     split,
-    util,
 )
 from ..retrieval.search import ContainerType
 from ..retrieval.series import SeriesValue
@@ -176,7 +175,9 @@ def _fetch_series(
     )
 
     results: Generator[
-        util.Page[tuple[identifiers.RunAttributeDefinition, list[series.SeriesValue]]], None, None
+        dict[identifiers.RunAttributeDefinition, list[SeriesValue]],
+        None,
+        None,
     ] = concurrency.gather_results(output)
 
     series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
