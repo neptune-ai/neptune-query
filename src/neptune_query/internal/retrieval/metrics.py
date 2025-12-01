@@ -90,6 +90,7 @@ def fetch_multiple_series_values(
             for request_id, run_attribute in request_id_to_attribute.items()
         ],
         "stepRange": {"from": step_range[0], "to": step_range[1]},
+        # Fetch in descending order to enable efficient tail fetching
         "order": "descending",
     }
 
