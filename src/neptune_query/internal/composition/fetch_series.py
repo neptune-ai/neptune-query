@@ -49,10 +49,9 @@ from ..retrieval import (
     util,
 )
 from ..retrieval.search import ContainerType
+from ..retrieval.series import SeriesValue
 
 __all__ = ("fetch_series",)
-
-from ..retrieval.series import SeriesValue
 
 
 def fetch_series(
@@ -113,6 +112,7 @@ def fetch_series(
 
     return df
 
+
 def _fetch_series(
     filter_: Optional[_Filter],
     attributes: _BaseAttributeFilter,
@@ -125,69 +125,63 @@ def _fetch_series(
     tail_limit: Optional[int],
     container_type: ContainerType,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[SeriesValue]], dict[identifiers.SysId, str]]:
-        sys_id_label_mapping: dict[identifiers.SysId, str] = {}
+    sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
-        def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
-            for page in search.fetch_sys_id_labels(container_type)(
-                client=client,
-                project_identifier=project_identifier,
-                filter_=filter_,
-            ):
-                sys_ids = []
-                for item in page.items:
-                    sys_id_label_mapping[item.sys_id] = item.label
-                    sys_ids.append(item.sys_id)
-                yield sys_ids
+    def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
+        for page in search.fetch_sys_id_labels(container_type)(
+            client=client,
+            project_identifier=project_identifier,
+            filter_=filter_,
+        ):
+            sys_ids = []
+            for item in page.items:
+                sys_id_label_mapping[item.sys_id] = item.label
+                sys_ids.append(item.sys_id)
+            yield sys_ids
 
-        output = concurrency.generate_concurrently(
-            items=go_fetch_sys_attrs(),
+    output = concurrency.generate_concurrently(
+        items=go_fetch_sys_attrs(),
+        executor=executor,
+        downstream=lambda sys_ids: _components.fetch_attribute_definitions_split(
+            client=client,
+            project_identifier=project_identifier,
+            attribute_filter=attributes,
             executor=executor,
-            downstream=lambda sys_ids: _components.fetch_attribute_definitions_split(
-                client=client,
-                project_identifier=project_identifier,
-                attribute_filter=attributes,
-                executor=executor,
-                fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-                sys_ids=sys_ids,
-                downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
-                    items=split.split_series_attributes(
-                        items=(
-                            identifiers.RunAttributeDefinition(
-                                run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
-                                attribute_definition=definition,
-                            )
-                            for sys_id in sys_ids_split
-                            for definition in definitions_page.items
-                        ),
+            fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
+            sys_ids=sys_ids,
+            downstream=lambda sys_ids_split, definitions_page: concurrency.generate_concurrently(
+                items=split.split_series_attributes(
+                    items=(
+                        identifiers.RunAttributeDefinition(
+                            run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
+                            attribute_definition=definition,
+                        )
+                        for sys_id in sys_ids_split
+                        for definition in definitions_page.items
                     ),
-                    executor=executor,
-                    downstream=lambda run_attribute_definitions_split: concurrency.generate_concurrently(
-                        items=series.fetch_series_values(
-                            client=client,
-                            run_attribute_definitions=run_attribute_definitions_split,
-                            include_inherited=lineage_to_the_root,
-                            container_type=container_type,
-                            step_range=step_range,
-                            tail_limit=tail_limit,
-                        ),
-                        executor=executor,
-                        downstream=concurrency.return_value,
+                ),
+                executor=executor,
+                downstream=lambda run_attribute_definitions_split: concurrency.return_value(
+                    series.fetch_series_values(
+                        client=client,
+                        run_attribute_definitions=run_attribute_definitions_split,
+                        include_inherited=lineage_to_the_root,
+                        container_type=container_type,
+                        step_range=step_range,
+                        tail_limit=tail_limit,
                     ),
                 ),
             ),
-        )
-        results: Generator[
-            util.Page[tuple[identifiers.RunAttributeDefinition, list[series.SeriesValue]]], None, None
-        ] = concurrency.gather_results(output)
+        ),
+    )
 
-        series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
-        for result in results:
-            for run_attribute_definition, series_values in result.items:
-                series_data.setdefault(run_attribute_definition, []).extend(series_values)
+    results: Generator[
+        util.Page[tuple[identifiers.RunAttributeDefinition, list[series.SeriesValue]]], None, None
+    ] = concurrency.gather_results(output)
 
-        return create_series_dataframe(
-            series_data,
-            project_identifier,
-            sys_id_label_mapping,
-            index_column_name="experiment" if container_type == ContainerType.EXPERIMENT else "run",
-        )
+    series_data: dict[identifiers.RunAttributeDefinition, list[series.SeriesValue]] = {}
+    for result in results:
+        for run_attribute_definition, series_values in result.items:
+            series_data.setdefault(run_attribute_definition, []).extend(series_values)
+
+    return series_data, sys_id_label_mapping

@@ -15,7 +15,6 @@
 import functools as ft
 from typing import (
     Any,
-    Generator,
     Iterable,
     NamedTuple,
     Optional,
@@ -58,10 +57,9 @@ def fetch_series_values(
     container_type: ContainerType,
     step_range: Tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
-) -> Generator[util.Page[tuple[RunAttributeDefinition, list[SeriesValue]]], None, None]:
+) -> dict[RunAttributeDefinition, list[SeriesValue]]:
     if not run_attribute_definitions:
-        yield from []
-        return
+        return {}
 
     run_attribute_definitions = list(run_attribute_definitions)
     width = len(str(len(run_attribute_definitions) - 1))
@@ -86,12 +84,17 @@ def fetch_series_values(
             for request_id, run_definition in request_id_to_run_attr_definition.items()
         ],
         "stepRange": {"from": step_range[0], "to": step_range[1]},
+        # Fetch in descending order to enable efficient tail fetching
         "order": "descending",
     }
     if tail_limit is not None:
         params["perSeriesPointsLimit"] = tail_limit
 
-    yield from util.fetch_pages(
+    results: dict[RunAttributeDefinition, list[SeriesValue]] = {
+        run_attribute: [] for run_attribute in run_attribute_definitions
+    }
+
+    for page_result in util.fetch_pages(
         client=client,
         fetch_page=_fetch_series_page,
         process_page=ft.partial(
@@ -99,7 +102,15 @@ def fetch_series_values(
         ),
         make_new_page_params=_make_new_series_page_params,
         initial_params=params,
-    )
+    ):
+        for attribute, values in page_result.items:
+            results[attribute].extend(values)
+
+    # Reverse the order of values to maintain ascending order
+    for attribute in results:
+        results[attribute].reverse()
+
+    return results
 
 
 def _fetch_series_page(
