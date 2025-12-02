@@ -243,7 +243,11 @@ def extract_pages(generator):
     return list(it.chain.from_iterable(i.items for i in generator))
 
 
-class EnsureProject:
+class EnsureProjectFunction:
+    """
+    See ensure_project fixture docstring for usage details.
+    """
+
     def __init__(self, client: AuthenticatedClient, api_token: str, workspace: str, test_execution_id: str):
         self.client = client
         self.api_token = api_token
@@ -251,17 +255,6 @@ class EnsureProject:
         self.test_execution_id = test_execution_id
 
     def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> IngestedProjectData:
-        """Create a project with the given data or retrieve an existing one.
-
-        Args:
-            project_data: Data to initialize the project with
-            unique_key: [optional] unique identifier for the project
-                        If not provided, the unique test_execution_id will be used
-                        The test_execution_id can be overridden via the NEPTUNE_TEST_EXECUTION_ID environment variable.
-
-        Returns:
-            IngestedProjectData containing information about the created/retrieved project
-        """
         return ingest_project(
             client=self.client,
             api_token=self.api_token,
@@ -272,14 +265,14 @@ class EnsureProject:
 
 
 @pytest.fixture(scope="session")
-def ensure_project(client, api_token, workspace, test_execution_id) -> EnsureProject:
-    """Returns a function-like object that can be used to create or retrieve projects with specified data.
+def ensure_project(client, api_token, workspace, test_execution_id) -> EnsureProjectFunction:
+    """Fixture returning a function-like object that can be used to create or retrieve projects with specified data.
 
-    Args for the returned callable:
+    Arguments for the returned callable:
         project_data: Data to initialize the project with
         unique_key: [optional] A unique identifier for tagging and later filtering projects, experiments, and runs.
-                    Tests spanning multiple projects should provide a unique_key that embeds
-                    the test_execution_id plus any additional context needed for disambiguation (e.g., module name).
+                    Tests spanning multiple projects should provide a unique_key that embeds the test_execution_id
+                    plus any additional context needed for disambiguation (e.g., module name).
                     If not provided, the unique test_execution_id will be used.
 
     Returns:
@@ -304,4 +297,4 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
                     ],
                 ))
     """
-    return EnsureProject(client, api_token, workspace, test_execution_id)
+    return EnsureProjectFunction(client, api_token, workspace, test_execution_id)
