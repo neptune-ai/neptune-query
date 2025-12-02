@@ -277,9 +277,10 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
 
     Args for the returned callable:
         project_data: Data to initialize the project with
-        unique_key: [optional] unique identifier for the project
-                    If not provided, the unique test_execution_id will be used
-                    The test_execution_id can be overridden via the NEPTUNE_TEST_EXECUTION_ID environment variable.
+        unique_key: [optional] A unique identifier for tagging and later filtering projects, experiments, and runs.
+                    Tests spanning multiple projects should provide a unique_key that embeds
+                    the test_execution_id plus any additional context needed for disambiguation (e.g., module name).
+                    If not provided, the unique test_execution_id will be used.
 
     Returns:
         IngestedProjectData containing information about the created/retrieved project
