@@ -86,47 +86,7 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
             runs=[
                 RunData(
                     experiment_name_base="experiment_1",
-                    fork_point=None,
-                    string_series={
-                        "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
-                        "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
-                    },
-                    histogram_series={
-                        "metrics/histograms_1": {
-                            0: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
-                            1: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
-                            2: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
-                            3: Histogram(bin_edges=[11, 12, 13, 14], counts=[10, 20, 30]),
-                            4: Histogram(bin_edges=[14, 15, 16, 17], counts=[40, 50, 60]),
-                            5: Histogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
-                        },
-                        "metrics/histograms_2": {
-                            4: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
-                            5: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
-                            6: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
-                        },
-                    },
-                    file_series={
-                        "file-series/file_series_1": {
-                            0: File(b"file-1-0", mime_type="text/plain"),
-                            1: File(b"<html><title>Hello Neptune</title></html>", mime_type="text/html"),
-                            2: File(b"file-1-2", mime_type="text/plain"),
-                        },
-                        "file-series/file_series_2": {
-                            0: File(b"file-2-0", mime_type="text/plain"),
-                            1: File(b"<html><title>Hello Neptune 2</title></html>", mime_type="text/html"),
-                            2: File(b"file-2-2", mime_type="text/plain"),
-                        },
-                        "file-series/file_series_3": {
-                            10: File(b"file-3-0", mime_type="text/plain"),
-                            11: File(b"file-3-1", mime_type="text/plain"),
-                            12: File(b"file-3-2", mime_type="text/plain"),
-                        },
-                    },
-                ),
-                RunData(
-                    run_id_base="run_two",
-                    fork_point=None,
+                    run_id_base="run_xyz",
                     string_series={
                         "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
                         "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
@@ -170,8 +130,8 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
 
 
 @pytest.fixture(scope="session")
-def run_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
-    run_id = project_1.ingested_runs[1].run_id
+def run_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+    run_id = project_1.ingested_runs[0].run_id
     sys_ids: list[SysId] = []
     for page in search.fetch_run_sys_ids(
         client=client,
@@ -190,7 +150,7 @@ def run_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
 
 
 @pytest.fixture(scope="session")
-def experiment_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+def experiment_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     experiment_name = project_1.ingested_runs[0].experiment_name
     sys_ids: list[SysId] = []
     for page in search.fetch_experiment_sys_ids(
@@ -210,20 +170,31 @@ def experiment_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier
     return RunIdentifier(ProjectIdentifier(project_1.project_identifier), sys_id)
 
 
-def test_fetch_series_values_does_not_exist(client, experiment_1_sys_id):
+def test_fetch_series_values_does_not_exist(client, experiment_1_id):
     # given
     run_attribute_definition = RunAttributeDefinition(
-        experiment_1_sys_id,
+        experiment_1_id,
         AttributeDefinition("does-not-exist", "string"),
     )
 
     # when
-    series = fetch_series_values(
+    series_by_experiment = fetch_series_values(
         client,
         [run_attribute_definition],
         include_inherited=False,
         container_type=ContainerType.EXPERIMENT,
     )
+
+    series_by_run = fetch_series_values(
+        client,
+        [run_attribute_definition],
+        include_inherited=False,
+        container_type=ContainerType.RUN,
+    )
+
+    # container_type should only matter when include_inherited=True
+    assert series_by_experiment == series_by_run
+    series = series_by_experiment
 
     # then
     assert series == {
@@ -504,9 +475,11 @@ TEST_SCENARIOS = [
 
 
 @pytest.mark.parametrize("scenario", TEST_SCENARIOS, ids=lambda scenario: scenario.id)
-def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_id, scenario):
+def test_fetch_series_values_single_series(client, run_1_id, scenario):
+    # both run and experiment have the same sys_id as tested in test_experiment_and_run_have_the_same_sys_id
+
     # given
-    run_attribute_definition = RunAttributeDefinition(experiment_1_sys_id, scenario.attribute_definition)
+    run_attribute_definition = RunAttributeDefinition(run_1_id, scenario.attribute_definition)
 
     kwargs = {}
     if scenario.step_range:
@@ -515,7 +488,7 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
         kwargs["tail_limit"] = scenario.tail_limit
 
     # when
-    series = list(
+    series_by_experiment = list(
         fetch_series_values(
             client,
             [run_attribute_definition],
@@ -525,27 +498,7 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
         ).items()
     )
 
-    # then
-    assert len(series) == 1
-    run_attribute_definition_returned, values = series[0]
-
-    assert run_attribute_definition_returned == run_attribute_definition
-    assert_series_matches(values, scenario.expected_values)
-
-
-@pytest.mark.parametrize("scenario", TEST_SCENARIOS, ids=lambda scenario: scenario.id)
-def test_fetch_series_values_single_series_run(client, run_1_sys_id, scenario):
-    # given
-    run_attribute_definition = RunAttributeDefinition(run_1_sys_id, scenario.attribute_definition)
-
-    kwargs = {}
-    if scenario.step_range:
-        kwargs["step_range"] = scenario.step_range
-    if scenario.tail_limit is not None:
-        kwargs["tail_limit"] = scenario.tail_limit
-
-    # when
-    series = list(
+    series_by_run = list(
         fetch_series_values(
             client,
             [run_attribute_definition],
@@ -555,22 +508,23 @@ def test_fetch_series_values_single_series_run(client, run_1_sys_id, scenario):
         ).items()
     )
 
+    # container_type should only matter when include_inherited=True
+    assert series_by_experiment == series_by_run
+    series = series_by_experiment
+
     # then
     assert len(series) == 1
     run_attribute_definition_returned, values = series[0]
 
     assert run_attribute_definition_returned == run_attribute_definition
-    assert_series_matches(values, scenario.expected_values)
+    assert len(values) == len(scenario.expected_values)
 
-
-def assert_series_matches(
-    values: list[tuple[int, object, float]],
-    expected_values: list[tuple[int, object]],
-):
-    assert len(values) == len(expected_values)
-
-    for i, (expected_step, expected_value) in enumerate(expected_values):
+    for i, (expected_step, expected_value) in enumerate(scenario.expected_values):
         (step, value, timestamp_millis) = values[i]
         assert step == expected_step
         assert value == expected_value
         assert timestamp_millis == step_to_timestamp(step).timestamp() * 1000.0
+
+
+def test_experiment_and_run_have_the_same_sys_id(run_1_id, experiment_1_id):
+    assert run_1_id == experiment_1_id
