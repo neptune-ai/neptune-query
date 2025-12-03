@@ -51,14 +51,14 @@ FILE_MATCHER_0 = FileMatcher(
     size_bytes=8,
 )
 
-FILE_MATCHER_2 = FileMatcher(
-    path_pattern=".*/file-series_file_series_1.*/.*0002_000.*/.*.txt",
-    mime_type="text/plain",
-    size_bytes=8,
+FILE_MATCHER_1 = FileMatcher(
+    path_pattern=".*/file-series_file_series_1.*/.*0001_000.*/.*.html",
+    mime_type="text/html",
+    size_bytes=41,
 )
 
-FILE_MATCHER_1 = FileMatcher(
-    path_pattern=".*/file-series_file_series_1.*/.*0001_000.*/.*.txt",
+FILE_MATCHER_2 = FileMatcher(
+    path_pattern=".*/file-series_file_series_1.*/.*0002_000.*/.*.txt",
     mime_type="text/plain",
     size_bytes=8,
 )
@@ -77,11 +77,11 @@ class HistogramMatcher:
 def project_1(ensure_project) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="project_404",
+            project_name_base="internal__retrieval__test-series__project_1",
             runs=[
                 RunData(
-                    experiment_name_base="experiment_project_1_alpha",
-                    fork_point=None,
+                    experiment_name_base="experiment_1",
+                    run_id_base="run_xyz",
                     string_series={
                         "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
                         "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
@@ -104,12 +104,12 @@ def project_1(ensure_project) -> IngestedProjectData:
                     file_series={
                         "file-series/file_series_1": {
                             0: IngestionFile(b"file-1-0", mime_type="text/plain"),
-                            1: IngestionFile(b"file-1-1", mime_type="text/plain"),
+                            1: IngestionFile(b"<html><title>Hello Neptune</title></html>", mime_type="text/html"),
                             2: IngestionFile(b"file-1-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_2": {
                             0: IngestionFile(b"file-2-0", mime_type="text/plain"),
-                            1: IngestionFile(b"file-2-1", mime_type="text/plain"),
+                            1: IngestionFile(b"<html><title>Hello Neptune 2</title></html>", mime_type="text/html"),
                             2: IngestionFile(b"file-2-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_3": {
@@ -125,7 +125,7 @@ def project_1(ensure_project) -> IngestedProjectData:
 
 
 @pytest.fixture(scope="session")
-def run_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+def run_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     run_id = project_1.ingested_runs[0].run_id
     sys_ids: list[SysId] = []
     for page in search.fetch_run_sys_ids(
@@ -145,7 +145,7 @@ def run_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
 
 
 @pytest.fixture(scope="session")
-def experiment_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier:
+def experiment_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     experiment_name = project_1.ingested_runs[0].experiment_name
     sys_ids: list[SysId] = []
     for page in search.fetch_experiment_sys_ids(
@@ -165,24 +165,35 @@ def experiment_1_sys_id(client, project_1: IngestedProjectData) -> RunIdentifier
     return RunIdentifier(ProjectIdentifier(project_1.project_identifier), sys_id)
 
 
-def test_fetch_series_values_does_not_exist(client, project_1):
+def test_fetch_series_values_does_not_exist(client, experiment_1_id):
     # given
-    run_definition = RunAttributeDefinition(
-        RunIdentifier(project_1.project_identifier, project_1.ingested_runs[0].experiment_name),
+    run_attribute_definition = RunAttributeDefinition(
+        experiment_1_id,
         AttributeDefinition("does-not-exist", "string"),
     )
 
     # when
-    series = fetch_series_values(
+    series_by_experiment = fetch_series_values(
         client,
-        [run_definition],
+        [run_attribute_definition],
         include_inherited=False,
         container_type=ContainerType.EXPERIMENT,
     )
 
+    series_by_run = fetch_series_values(
+        client,
+        [run_attribute_definition],
+        include_inherited=False,
+        container_type=ContainerType.RUN,
+    )
+
+    # container_type should only matter when include_inherited=True
+    assert series_by_experiment == series_by_run
+    series = series_by_experiment
+
     # then
     assert series == {
-        run_definition: [],
+        run_attribute_definition: [],
     }
 
 
@@ -459,9 +470,11 @@ TEST_SCENARIOS = [
 
 
 @pytest.mark.parametrize("scenario", TEST_SCENARIOS, ids=lambda scenario: scenario.id)
-def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_id, scenario):
+def test_fetch_series_values_single_series(client, run_1_id, scenario):
+    # both run and experiment have the same sys_id as tested in test_experiment_and_run_have_the_same_sys_id
+
     # given
-    run_attribute_definition = RunAttributeDefinition(experiment_1_sys_id, scenario.attribute_definition)
+    run_attribute_definition = RunAttributeDefinition(run_1_id, scenario.attribute_definition)
 
     kwargs = {}
     if scenario.step_range:
@@ -470,7 +483,7 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
         kwargs["tail_limit"] = scenario.tail_limit
 
     # when
-    series = list(
+    series_by_experiment = list(
         fetch_series_values(
             client,
             [run_attribute_definition],
@@ -480,22 +493,33 @@ def test_fetch_series_values_single_series_experiment(client, experiment_1_sys_i
         ).items()
     )
 
+    series_by_run = list(
+        fetch_series_values(
+            client,
+            [run_attribute_definition],
+            include_inherited=False,
+            container_type=ContainerType.RUN,
+            **kwargs,
+        ).items()
+    )
+
+    # container_type should only matter when include_inherited=True
+    assert series_by_experiment == series_by_run
+    series = series_by_experiment
+
     # then
     assert len(series) == 1
     run_attribute_definition_returned, values = series[0]
 
     assert run_attribute_definition_returned == run_attribute_definition
-    assert_series_matches(values, scenario.expected_values)
+    assert len(values) == len(scenario.expected_values)
 
-
-def assert_series_matches(
-    values: list[tuple[int, object, float]],
-    expected_values: list[tuple[int, object]],
-):
-    assert len(values) == len(expected_values)
-
-    for i, (expected_step, expected_value) in enumerate(expected_values):
-        (step, value, timestamp) = values[i]
+    for i, (expected_step, expected_value) in enumerate(scenario.expected_values):
+        (step, value, timestamp_millis) = values[i]
         assert step == expected_step
         assert value == expected_value
-        assert timestamp == step_to_timestamp(step).timestamp() * 1000.0
+        assert timestamp_millis == step_to_timestamp(step).timestamp() * 1000.0
+
+
+def test_experiment_and_run_have_the_same_sys_id(run_1_id, experiment_1_id):
+    assert run_1_id == experiment_1_id
