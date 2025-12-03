@@ -103,14 +103,14 @@ def project_1(ensure_project) -> IngestedProjectData:
                     },
                     file_series={
                         "file-series/file_series_1": {
-                            0: File(b"file-1-0", mime_type="text/plain"),
-                            1: File(b"<html><title>Hello Neptune</title></html>", mime_type="text/html"),
-                            2: File(b"file-1-2", mime_type="text/plain"),
+                            0: IngestionFile(b"file-1-0", mime_type="text/plain"),
+                            1: IngestionFile(b"<html><title>Hello Neptune</title></html>", mime_type="text/html"),
+                            2: IngestionFile(b"file-1-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_2": {
-                            0: File(b"file-2-0", mime_type="text/plain"),
-                            1: File(b"<html><title>Hello Neptune 2</title></html>", mime_type="text/html"),
-                            2: File(b"file-2-2", mime_type="text/plain"),
+                            0: IngestionFile(b"file-2-0", mime_type="text/plain"),
+                            1: IngestionFile(b"<html><title>Hello Neptune 2</title></html>", mime_type="text/html"),
+                            2: IngestionFile(b"file-2-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_3": {
                             10: IngestionFile(b"file-3-0", mime_type="text/plain"),
