@@ -16,7 +16,6 @@ from tests.e2e.data_ingestion import (
     IngestedRunData,
     ProjectData,
     RunData,
-    ensure_project,
 )
 
 pytestmark = pytest.mark.filterwarnings("ignore:.*fetch_.*_table.*:neptune_query.warnings.ExperimentalWarning")
@@ -248,7 +247,7 @@ def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, uni
 
 
 @pytest.fixture(scope="session")
-def project_1(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
+def project_1(ensure_project, unique_execution_module_key) -> IngestedProjectData:
     exp_project_1_root = RunData(
         experiment_name_base="exp_project_1",
         run_id_base="run_project_1_root",
@@ -317,9 +316,6 @@ def project_1(client, api_token, workspace, unique_execution_module_key) -> Inge
     )
 
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
         unique_key=unique_execution_module_key,
         project_data=ProjectData(
             project_name_base="global_fetch_experiments_table_project_1",
@@ -335,7 +331,7 @@ def project_1(client, api_token, workspace, unique_execution_module_key) -> Inge
 
 
 @pytest.fixture(scope="session")
-def project_2(client, api_token, workspace, unique_execution_module_key) -> IngestedProjectData:
+def project_2(ensure_project, unique_execution_module_key) -> IngestedProjectData:
     exp_project_2_root = RunData(
         experiment_name_base="exp_project_2",
         run_id_base="run_project_2_root",
@@ -404,9 +400,6 @@ def project_2(client, api_token, workspace, unique_execution_module_key) -> Inge
     )
 
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
         unique_key=unique_execution_module_key,
         project_data=ProjectData(
             project_name_base="global_fetch_experiments_table_project_2",

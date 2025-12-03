@@ -22,12 +22,11 @@ from neptune_query.internal.retrieval.series import (
     fetch_series_values,
 )
 from tests.e2e.data_ingestion import (
-    File,
-    Histogram,
     IngestedProjectData,
+    IngestionFile,
+    IngestionHistogram,
     ProjectData,
     RunData,
-    ensure_project,
     step_to_timestamp,
 )
 
@@ -75,13 +74,9 @@ class HistogramMatcher:
 
 
 @pytest.fixture(scope="session")
-def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjectData:
+def project_1(ensure_project) -> IngestedProjectData:
     return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
-        unique_key=test_execution_id,
-        project_data=ProjectData(
+        ProjectData(
             project_name_base="internal__retrieval__test-series__project_1",
             runs=[
                 RunData(
@@ -93,17 +88,17 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                     },
                     histogram_series={
                         "metrics/histograms_1": {
-                            0: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
-                            1: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
-                            2: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
-                            3: Histogram(bin_edges=[11, 12, 13, 14], counts=[10, 20, 30]),
-                            4: Histogram(bin_edges=[14, 15, 16, 17], counts=[40, 50, 60]),
-                            5: Histogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
+                            0: IngestionHistogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
+                            1: IngestionHistogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
+                            2: IngestionHistogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
+                            3: IngestionHistogram(bin_edges=[11, 12, 13, 14], counts=[10, 20, 30]),
+                            4: IngestionHistogram(bin_edges=[14, 15, 16, 17], counts=[40, 50, 60]),
+                            5: IngestionHistogram(bin_edges=[17, 18, 19, 20], counts=[70, 80, 90]),
                         },
                         "metrics/histograms_2": {
-                            4: Histogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
-                            5: Histogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
-                            6: Histogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
+                            4: IngestionHistogram(bin_edges=[1, 2, 3, 4], counts=[10, 20, 30]),
+                            5: IngestionHistogram(bin_edges=[4, 5, 6, 7], counts=[40, 50, 60]),
+                            6: IngestionHistogram(bin_edges=[7, 8, 9, 10], counts=[70, 80, 90]),
                         },
                     },
                     file_series={
@@ -118,9 +113,9 @@ def project_1(client, api_token, workspace, test_execution_id) -> IngestedProjec
                             2: File(b"file-2-2", mime_type="text/plain"),
                         },
                         "file-series/file_series_3": {
-                            10: File(b"file-3-0", mime_type="text/plain"),
-                            11: File(b"file-3-1", mime_type="text/plain"),
-                            12: File(b"file-3-2", mime_type="text/plain"),
+                            10: IngestionFile(b"file-3-0", mime_type="text/plain"),
+                            11: IngestionFile(b"file-3-1", mime_type="text/plain"),
+                            12: IngestionFile(b"file-3-2", mime_type="text/plain"),
                         },
                     },
                 ),

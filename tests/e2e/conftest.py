@@ -37,6 +37,11 @@ from tests.e2e.data import (
     PATH,
     TEST_DATA,
 )
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    ingest_project,
+)
 
 
 @dataclass
@@ -236,3 +241,60 @@ def temp_dir():
 
 def extract_pages(generator):
     return list(it.chain.from_iterable(i.items for i in generator))
+
+
+class EnsureProjectFunction:
+    """
+    See ensure_project fixture docstring for usage details.
+    """
+
+    def __init__(self, client: AuthenticatedClient, api_token: str, workspace: str, test_execution_id: str):
+        self.client = client
+        self.api_token = api_token
+        self.workspace = workspace
+        self.test_execution_id = test_execution_id
+
+    def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> IngestedProjectData:
+        return ingest_project(
+            client=self.client,
+            api_token=self.api_token,
+            workspace=self.workspace,
+            unique_key=unique_key or self.test_execution_id,
+            project_data=project_data,
+        )
+
+
+@pytest.fixture(scope="session")
+def ensure_project(client, api_token, workspace, test_execution_id) -> EnsureProjectFunction:
+    """Fixture returning a function-like object that can be used to create or retrieve projects with specified data.
+
+    Arguments for the returned callable:
+        project_data: Data to initialize the project with
+        unique_key: [optional] A unique identifier for tagging and later filtering projects, experiments, and runs.
+                    Tests spanning multiple projects should provide a unique_key that embeds the test_execution_id
+                    plus any additional context needed for disambiguation (e.g., module name).
+                    If not provided, the unique test_execution_id will be used.
+
+    Returns:
+        IngestedProjectData containing information about the created/retrieved project
+
+    Example:
+        @pytest.fixture
+        def project_gamma(ensure_project):
+            ingested_project = ensure_project(
+                ProjectData(
+                    project_name_base="test_project",
+                    runs=[
+                        RunData(
+                            experiment_name_base="experiment_gamma",
+                            config={"param": "value"},
+                            float_series={"metrics/accuracy": {0: 0.5, 1: 0.75, 2: 0.9}},
+                            string_series={"logs/status": {0: "started", 1: "in_progress", 2: "completed"}},
+                            histogram_series={ ... },
+                            files={ ... },
+                        )
+                        ...
+                    ],
+                ))
+    """
+    return EnsureProjectFunction(client, api_token, workspace, test_execution_id)

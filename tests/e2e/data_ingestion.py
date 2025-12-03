@@ -24,11 +24,11 @@ import neptune_scale
 import neptune_scale.types
 from neptune_api import AuthenticatedClient
 
-Histogram = neptune_scale.types.Histogram
-File = neptune_scale.types.File
+IngestionHistogram = neptune_scale.types.Histogram
+IngestionFile = neptune_scale.types.File
 
 
-SeriesPoint = TypeVar("SeriesPoint", str, float, Histogram, File)
+SeriesPoint = TypeVar("SeriesPoint", str, float, IngestionHistogram, IngestionFile)
 
 
 _STEP0_TIMESTAMP = 1_700_000_000.0  # Arbitrary fixed timestamp for ingestion start
@@ -56,12 +56,15 @@ class RunData:
     fork_point: tuple[str, float] | None = None
 
     configs: dict[str, int | str] | None = field(default_factory=dict)
-    files: dict[str, File] | None = field(default_factory=dict)
+    files: dict[str, IngestionFile] | None = field(default_factory=dict)
 
     float_series: dict[str, dict[float, float]] = field(default_factory=dict)
     string_series: dict[str, dict[float, str]] = field(default_factory=dict)
-    histogram_series: dict[str, dict[float, Histogram]] = field(default_factory=dict)
-    file_series: dict[str, dict[float, File]] = field(default_factory=dict)
+    histogram_series: dict[str, dict[float, IngestionHistogram]] = field(default_factory=dict)
+    file_series: dict[str, dict[float, IngestionFile]] = field(default_factory=dict)
+
+    # string set attributes (logged as tags)
+    string_sets: dict[str, list[str]] | None = field(default_factory=dict)
 
 
 def get_all_steps(run_data: RunData) -> Iterable[float]:
@@ -112,7 +115,7 @@ class IngestedRunData:
     configs: dict[str, int | str]
     float_series: dict[str, dict[float, float]]
     string_series: dict[str, dict[float, str]]
-    histogram_series: dict[str, dict[float, Histogram]]
+    histogram_series: dict[str, dict[float, IngestionHistogram]]
 
 
 @dataclass(frozen=True)
@@ -125,7 +128,7 @@ class IngestedProjectData:
     ingested_runs: list[IngestedRunData]
 
 
-def ensure_project(
+def ingest_project(
     *,
     client: AuthenticatedClient,
     api_token: str,
@@ -232,6 +235,9 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
 
         if run_data.configs:
             run.log_configs(run_data.configs)
+
+        if run_data.string_sets:
+            run.log(tags_add=run_data.string_sets)
 
         if run_data.files:
             run.assign_files(run_data.files)
