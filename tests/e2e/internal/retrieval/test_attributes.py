@@ -37,7 +37,6 @@ from tests.e2e.data_ingestion import (
     IngestionHistogram,
     ProjectData,
     RunData,
-    ensure_project,
 )
 
 NUMBER_OF_STEPS = 10
@@ -45,7 +44,7 @@ FILE_SERIES_NUMBER_OF_STEPS = 3  # less, since files are heavier to ingest
 
 
 @pytest.fixture(scope="session")
-def project(client, api_token, workspace, test_execution_id):
+def project(ensure_project):
     run_data = RunData(
         experiment_name_base="test_attributes_experiment",
         run_id_base="test_attributes_run",
@@ -109,16 +108,11 @@ def project(client, api_token, workspace, test_execution_id):
         string_sets={"string_set-value": [f"string-0-{j}" for j in range(5)]},
     )
 
-    project_data = ProjectData(
-        project_name_base="project_attributes",
-        runs=[run_data],
-    )
     ingested_project = ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
-        unique_key=test_execution_id,
-        project_data=project_data,
+        ProjectData(
+            project_name_base="project_attributes",
+            runs=[run_data],
+        )
     )
     return ingested_project
 

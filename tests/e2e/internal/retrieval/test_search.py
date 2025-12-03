@@ -24,7 +24,6 @@ from tests.e2e.data_ingestion import (
     IngestionHistogram,
     ProjectData,
     RunData,
-    ensure_project,
 )
 
 try:
@@ -42,7 +41,7 @@ STRING_SERIES_VALUES = ["string-0-0", "string-0-1", "string-0-2", "string-0-3"]
 
 
 @pytest.fixture(scope="module")
-def project(client, api_token, workspace, test_execution_id):
+def project(ensure_project):
     project_data = ProjectData(
         project_name_base="internal__retrieval__test-search__project_1",
         runs=[
@@ -117,13 +116,7 @@ def project(client, api_token, workspace, test_execution_id):
         ],
     )
 
-    return ensure_project(
-        client=client,
-        api_token=api_token,
-        workspace=workspace,
-        unique_key=test_execution_id,
-        project_data=project_data,
-    )
+    return ensure_project(project_data)
 
 
 def _variance(xs):
