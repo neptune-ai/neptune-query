@@ -10,7 +10,14 @@ from datetime import (
 import pytest
 
 import neptune_query.exceptions
-from neptune_query.internal.identifiers import AttributeDefinition
+from neptune_query.internal.filters import _Filter
+from neptune_query.internal.identifiers import (
+    AttributeDefinition,
+    ProjectIdentifier,
+    RunIdentifier,
+    SysId,
+)
+from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_values import fetch_attribute_values
 from neptune_query.internal.retrieval.files import (
     download_file,
@@ -18,44 +25,90 @@ from neptune_query.internal.retrieval.files import (
     fetch_signed_urls,
 )
 from neptune_query.types import File
-from tests.e2e.conftest import extract_pages
-from tests.e2e.data import PATH
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    IngestionFile,
+    ProjectData,
+    RunData,
+)
+
+
+@pytest.fixture(scope="module")
+def project(ensure_project) -> IngestedProjectData:
+    project_data = ProjectData(
+        project_name_base="files-project",
+        runs=[
+            RunData(
+                experiment_name_base="files-experiment",
+                run_id_base="files-run-id",
+                files={
+                    "files/file-value.txt": IngestionFile(b"Text content", mime_type="text/plain"),
+                },
+            )
+        ],
+    )
+
+    return ensure_project(project_data)
+
+
+@pytest.fixture(scope="module")
+def experiment_identifier(client, project) -> RunIdentifier:
+    project_identifier = ProjectIdentifier(project.project_identifier)
+    experiment_name = project.ingested_runs[0].experiment_name
+
+    sys_ids: list[SysId] = []
+    for page in search.fetch_experiment_sys_ids(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=_Filter.name_eq(experiment_name),
+    ):
+        sys_ids.extend(page.items)
+
+    if len(sys_ids) != 1:
+        raise RuntimeError(f"Expected to fetch exactly one sys_id for {experiment_name}, got {sys_ids}")
+
+    return RunIdentifier(project_identifier=project_identifier, sys_id=SysId(sys_ids[0]))
 
 
 @pytest.fixture
 def file_path(client, project, experiment_identifier):
-    project_identifier = project.project_identifier
-    return extract_pages(
-        fetch_attribute_values(
+    project_identifier = ProjectIdentifier(project.project_identifier)
+    attribute_values = [
+        item
+        for page in fetch_attribute_values(
             client,
             project_identifier,
             [experiment_identifier],
-            [AttributeDefinition(name=f"{PATH}/files/file-value.txt", type="file")],
+            [AttributeDefinition(name="files/file-value.txt", type="file")],
         )
-    )[0].value.path
+        for item in page.items
+    ]
+    if not attribute_values:
+        raise RuntimeError("Expected to fetch at least one file attribute value")
+    return attribute_values[0].value.path
 
 
 @pytest.fixture
-def file_object_existing(client, project, file_path):
+def file_object_existing(project, file_path):
     return File(
         project_identifier=project.project_identifier,
-        experiment_name="exp1",
+        experiment_name=project.ingested_runs[0].experiment_name,
         run_id=None,
-        attribute_path=f"{PATH}/files/example-file",
+        attribute_path="files/file-value.txt",
         step=None,
         path=file_path,
-        size_bytes=0,
-        mime_type="application/octet-stream",
+        size_bytes=len(b"Text content"),
+        mime_type="text/plain",
     )
 
 
 @pytest.fixture
-def file_object_non_existing(client, project):
+def file_object_non_existing(project):
     return File(
         project_identifier=project.project_identifier,
-        experiment_name="exp1",
+        experiment_name=project.ingested_runs[0].experiment_name,
         run_id=None,
-        attribute_path=f"{PATH}/files/does-not-exist",
+        attribute_path="files/does-not-exist",
         step=None,
         path="does-not-exist",
         size_bytes=0,
