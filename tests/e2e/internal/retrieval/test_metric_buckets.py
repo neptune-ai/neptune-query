@@ -27,43 +27,32 @@ from tests.e2e.metric_buckets import (
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project, test_execution_id) -> IngestedProjectData:
-    project_data = ProjectData(
-        project_name_base="metric-buckets-project",
-        runs=[
-            RunData(
-                experiment_name_base="metric-buckets-experiment",
-                run_id_base="metric-buckets-run-id",
-                configs={
-                    "configs/int-value": 7,
-                    "configs/string-value": "example-config",
-                },
-                float_series={
-                    "metrics/float-series-value_0": {
-                        0.0: 0.5,
-                        1.0: 1.5,
-                        2.0: 2.5,
-                        3.0: 3.5,
+def project(ensure_project) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            project_name_base="metric-buckets-project",
+            runs=[
+                RunData(
+                    experiment_name_base="metric-buckets-experiment",
+                    run_id_base="metric-buckets-run-id",
+                    float_series={
+                        "metrics/float-series-value_0": {
+                            0.0: 0.5,
+                            1.0: 1.5,
+                            2.0: 2.5,
+                            3.0: 3.5,
+                        },
+                        "metrics/float-series-value_1": {
+                            0.0: 10.0,
+                            1.0: 11.0,
+                            2.0: 12.0,
+                            3.0: 13.0,
+                        },
                     },
-                    "metrics/float-series-value_1": {
-                        0.0: 10.0,
-                        1.0: 11.0,
-                        2.0: 12.0,
-                        3.0: 13.0,
-                    },
-                    "metrics/step": {
-                        0.0: 0.0,
-                        1.0: 1.0,
-                        2.0: 2.0,
-                        3.0: 3.0,
-                    },
-                },
-            )
-        ],
+                )
+            ],
+        )
     )
-
-    unique_key = f"{test_execution_id}__metric_buckets"
-    return ensure_project(project_data, unique_key=unique_key)
 
 
 @pytest.fixture(scope="module")
@@ -118,10 +107,6 @@ def test_fetch_time_series_buckets_single_series(client, project, experiment_ide
     run_definition = RunAttributeDefinition(
         experiment_identifier, AttributeDefinition("metrics/float-series-value_0", "float-series")
     )
-    ingested_run = project.ingested_runs[0]
-    step_values = ingested_run.float_series["metrics/step"]
-    series_values = ingested_run.float_series["metrics/float-series-value_0"]
-    expected_values = [(step_values[step], series_values[step]) for step in sorted(series_values.keys())]
 
     # when
     result = fetch_time_series_buckets(
@@ -136,7 +121,11 @@ def test_fetch_time_series_buckets_single_series(client, project, experiment_ide
     )
 
     # then
-    expected_buckets = _aggregate_metric_buckets(expected_values, limit, x_range)
+    expected_buckets = _aggregate_metric_buckets(
+        series=list(project.ingested_runs[0].float_series["metrics/float-series-value_0"].items()),
+        limit=limit,
+        x_range=x_range,
+    )
     assert result == {run_definition: expected_buckets}
 
 
