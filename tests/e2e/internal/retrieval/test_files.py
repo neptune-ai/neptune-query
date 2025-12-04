@@ -25,6 +25,7 @@ from neptune_query.internal.retrieval.files import (
     fetch_signed_urls,
 )
 from neptune_query.types import File
+from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestionFile,
@@ -34,7 +35,7 @@ from tests.e2e.data_ingestion import (
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project) -> IngestedProjectData:
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(
         project_name_base="files-project",
         runs=[
