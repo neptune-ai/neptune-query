@@ -1,10 +1,4 @@
-import os
-import re
-import time
-from datetime import (
-    datetime,
-    timezone,
-)
+from datetime import datetime
 
 import pytest
 
@@ -15,111 +9,83 @@ from neptune_query.internal.composition.attributes import (
 from neptune_query.internal.filters import (
     _AttributeFilter,
     _AttributeNameFilter,
+    _Filter,
 )
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
+    ProjectIdentifier,
     RunIdentifier,
+    SysId,
 )
+from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
 from tests.e2e.conftest import extract_pages
-
-TEST_DATA_VERSION = "2025-08-22"
-EXPERIMENT_NAME = f"pye2e-query-test-internal-composition-attributes-{TEST_DATA_VERSION}"
-COMMON_PATH = f"test/test-query-internal-composition-attributes-{TEST_DATA_VERSION}"
-DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc)
-FLOAT_SERIES_STEPS = [step * 0.5 for step in range(10)]
-FLOAT_SERIES_VALUES = [float(step**2) for step in range(10)]
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+)
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes(client, api_token, project):
-    import uuid
-
-    from neptune_scale import Run
-
-    from neptune_query.internal import identifiers
-    from neptune_query.internal.filters import _Filter
-    from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
-
-    project_identifier = project.project_identifier
-
-    force_data_generation = os.getenv("NEPTUNE_E2E_FORCE_DATA_GENERATION", "").lower() in ("true", "1", "yes")
-    if not force_data_generation:
-        existing = next(
-            fetch_experiment_sys_attrs(
-                client,
-                identifiers.ProjectIdentifier(project_identifier),
-                _Filter.name_eq(EXPERIMENT_NAME),
-            )
+def project(ensure_project) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            project_name_base="composition-attributes-project",
+            runs=[
+                RunData(
+                    experiment_name_base="composition-attributes-experiment",
+                    run_id_base="composition-attributes-run",
+                    configs={
+                        "int-value": 10,
+                        "float-value": 0.5,
+                        "str-value": "hello",
+                        "bool-value": True,
+                        "datetime-value": datetime(2025, 1, 1, 0, 0, 0, 0),
+                        "int_value_a": 123,
+                        "int_value_b": 456,
+                        "float_value_a": 1.5,
+                        "float_value_b": 2.5,
+                    },
+                    float_series={
+                        "float-series-value": {float(step * 0.5): float(step**2) for step in range(10)},
+                    },
+                    string_sets={"sys/tags": ["string-set-item"]},
+                )
+            ],
         )
-        if existing.items:
-            return
-
-    run_id = str(uuid.uuid4())
-
-    run = Run(
-        api_token=api_token,
-        project=project_identifier,
-        run_id=run_id,
-        experiment_name=EXPERIMENT_NAME,
-        source_tracking_config=None,
     )
-
-    data = {
-        f"{COMMON_PATH}/int-value": 10,
-        f"{COMMON_PATH}/float-value": 0.5,
-        f"{COMMON_PATH}/str-value": "hello",
-        f"{COMMON_PATH}/bool-value": True,
-        f"{COMMON_PATH}/datetime-value": DATETIME_VALUE,
-    }
-    run.log_configs(data)
-
-    path = f"{COMMON_PATH}/float-series-value"
-    for step, value in zip(FLOAT_SERIES_STEPS, FLOAT_SERIES_VALUES):
-        run.log_metrics(data={path: value}, step=step)
-
-    run.add_tags({"string-set-item"})  # the only way to write string-set type. It's implicit path is sys/tags
-
-    now = time.time()
-    data = {
-        f"{COMMON_PATH}/int_value_a": int(now),
-        f"{COMMON_PATH}/int_value_b": int(now),
-        f"{COMMON_PATH}/float_value_a": now,
-        f"{COMMON_PATH}/float_value_b": now,
-    }
-    run.log_configs(data)
-
-    run.close()
-
-    return run
 
 
 @pytest.fixture(scope="module")
-def experiment_identifier(client, project, run_with_attributes) -> RunIdentifier:
-    from neptune_query.internal.filters import _Filter
-    from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
+def experiment_identifier(client, project) -> RunIdentifier:
+    project_identifier = ProjectIdentifier(project.project_identifier)
+    experiment_name = project.ingested_runs[0].experiment_name
 
-    project_identifier = project.project_identifier
+    sys_ids: list[SysId] = []
+    for page in search.fetch_experiment_sys_ids(
+        client=client,
+        project_identifier=project_identifier,
+        filter_=_Filter.name_eq(experiment_name),
+    ):
+        sys_ids.extend(page.items)
 
-    experiment_filter = _Filter.name_eq(EXPERIMENT_NAME)
-    experiment_attrs = extract_pages(
-        fetch_experiment_sys_attrs(client, project_identifier=project_identifier, filter_=experiment_filter)
-    )
-    sys_id = experiment_attrs[0].sys_id
+    if len(sys_ids) != 1:
+        raise RuntimeError(f"Expected to fetch exactly one sys_id for {experiment_name}, got {sys_ids}")
 
-    return RunIdentifier(project_identifier, sys_id)
+    return RunIdentifier(project_identifier, SysId(sys_ids[0]))
 
 
 def test_fetch_attribute_definitions_filter_or(client, executor, project, experiment_identifier):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     attribute_filter_1 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*_value_a$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*_value_a$"])],
         type_in=["int"],
     )
     attribute_filter_2 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*_value_b$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*_value_b$"])],
         type_in=["float"],
     )
 
@@ -139,8 +105,8 @@ def test_fetch_attribute_definitions_filter_or(client, executor, project, experi
     assert_items_equal(
         attributes,
         [
-            AttributeDefinition(f"{COMMON_PATH}/int_value_a", "int"),
-            AttributeDefinition(f"{COMMON_PATH}/float_value_b", "float"),
+            AttributeDefinition("int_value_a", "int"),
+            AttributeDefinition("float_value_b", "float"),
         ],
     )
 
@@ -156,18 +122,18 @@ def test_fetch_attribute_definitions_filter_triple_or(
     client, executor, project, experiment_identifier, make_attribute_filter
 ):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     attribute_filter_1 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*_value_a$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*_value_a$"])],
         type_in=["int"],
     )
     attribute_filter_2 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*_value_b$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*_value_b$"])],
         type_in=["float"],
     )
     attribute_filter_3 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*_value_b$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*_value_b$"])],
         type_in=["int"],
     )
     attribute_filter = make_attribute_filter(attribute_filter_1, attribute_filter_2, attribute_filter_3)
@@ -187,16 +153,16 @@ def test_fetch_attribute_definitions_filter_triple_or(
     assert_items_equal(
         attributes,
         [
-            AttributeDefinition(f"{COMMON_PATH}/int_value_a", "int"),
-            AttributeDefinition(f"{COMMON_PATH}/int_value_b", "int"),
-            AttributeDefinition(f"{COMMON_PATH}/float_value_b", "float"),
+            AttributeDefinition("int_value_a", "int"),
+            AttributeDefinition("int_value_b", "int"),
+            AttributeDefinition("float_value_b", "float"),
         ],
     )
 
 
 def test_fetch_attribute_definitions_paging_executor(client, executor, project, experiment_identifier):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     #  when
     attribute_filter = _AttributeFilter(
@@ -228,7 +194,7 @@ def test_fetch_attribute_definitions_paging_executor(client, executor, project, 
 
 def test_fetch_attribute_definitions_should_deduplicate_items(client, executor, project, experiment_identifier):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     #  when
     attribute_filter_0 = _AttributeFilter(
@@ -275,14 +241,14 @@ def assert_items_equal(a: list[AttributeDefinition], b: list[AttributeDefinition
 
 def test_fetch_attribute_values_filter_or(client, executor, project, experiment_identifier):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     attribute_filter_1 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*-value$"])],
         type_in=["int"],
     )
     attribute_filter_2 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*-value$"])],
         type_in=["float"],
     )
 
@@ -301,25 +267,25 @@ def test_fetch_attribute_values_filter_or(client, executor, project, experiment_
     # then
     assert len(values) == 2
     assert set(values) == {
-        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/int-value", "int"), 10, experiment_identifier),
-        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/float-value", "float"), 0.5, experiment_identifier),
+        AttributeValue(AttributeDefinition("int-value", "int"), 10, experiment_identifier),
+        AttributeValue(AttributeDefinition("float-value", "float"), 0.5, experiment_identifier),
     }
 
 
 def test_fetch_attribute_values_deduplicate(client, executor, project, experiment_identifier):
     # given
-    project_identifier = project.project_identifier
+    project_identifier = ProjectIdentifier(project.project_identifier)
 
     attribute_filter_1 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*-value$"])],
         type_in=["int", "float"],
     )
     attribute_filter_2 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/.*-value$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^.*-value$"])],
         type_in=["float", "string"],
     )
     attribute_filter_3 = _AttributeFilter(
-        must_match_any=[_AttributeNameFilter(must_match_regexes=[f"^{re.escape(COMMON_PATH)}/int-value$"])],
+        must_match_any=[_AttributeNameFilter(must_match_regexes=[r"^int-value$"])],
     )
 
     #  when
@@ -337,7 +303,7 @@ def test_fetch_attribute_values_deduplicate(client, executor, project, experimen
     # then
     assert len(values) == 3
     assert set(values) == {
-        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/int-value", "int"), 10, experiment_identifier),
-        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/float-value", "float"), 0.5, experiment_identifier),
-        AttributeValue(AttributeDefinition(f"{COMMON_PATH}/str-value", "string"), "hello", experiment_identifier),
+        AttributeValue(AttributeDefinition("int-value", "int"), 10, experiment_identifier),
+        AttributeValue(AttributeDefinition("float-value", "float"), 0.5, experiment_identifier),
+        AttributeValue(AttributeDefinition("str-value", "string"), "hello", experiment_identifier),
     }
