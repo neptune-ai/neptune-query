@@ -1,3 +1,5 @@
+import typing
+
 import pytest
 
 import neptune_query as npt
@@ -7,10 +9,15 @@ from neptune_query.exceptions import (
 )
 from neptune_query.filters import AttributeFilter
 from neptune_query.internal import identifiers
+from neptune_query.internal.filters import (
+    _AttributeFilter,
+    _Filter,
+)
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     RunAttributeDefinition,
 )
+from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_definitions import fetch_attribute_definitions_single_filter
 from neptune_query.internal.retrieval.attribute_values import (
     AttributeValue,
@@ -23,15 +30,75 @@ from neptune_query.internal.retrieval.series import (
     fetch_series_values,
 )
 from tests.e2e.conftest import extract_pages
-from tests.e2e.data import (
-    NOW,
-    PATH,
-    TEST_DATA,
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+    step_to_timestamp,
 )
 
-LONG_PATH_CONFIGS = TEST_DATA.experiments[0].long_path_configs
-LONG_PATH_SERIES = TEST_DATA.experiments[0].long_path_series
-LONG_PATH_METRICS = TEST_DATA.experiments[0].long_path_metrics
+MAX_PATH_LENGTH = 1024
+NUM_LONG_ATTRIBUTES = 4000
+STEP = 1.0
+STEP_TIMESTAMP_MS = int(step_to_timestamp(STEP).timestamp() * 1000)
+
+_LONG_CONFIG_PREFIX = "int-value-"
+_LONG_CONFIG_DIGITS = MAX_PATH_LENGTH - len(_LONG_CONFIG_PREFIX)
+LONG_PATH_CONFIGS = {f"{_LONG_CONFIG_PREFIX}{k:0{_LONG_CONFIG_DIGITS}d}": k for k in range(NUM_LONG_ATTRIBUTES)}
+
+_LONG_SERIES_PREFIX = "string-series-"
+_LONG_SERIES_DIGITS = MAX_PATH_LENGTH - len(_LONG_SERIES_PREFIX)
+LONG_PATH_SERIES = {
+    f"{_LONG_SERIES_PREFIX}{k:0{_LONG_SERIES_DIGITS}d}": f"string-{k}" for k in range(NUM_LONG_ATTRIBUTES)
+}
+
+_LONG_METRICS_PREFIX = "float-series-"
+_LONG_METRICS_DIGITS = MAX_PATH_LENGTH - len(_LONG_METRICS_PREFIX)
+LONG_PATH_METRICS = {
+    f"{_LONG_METRICS_PREFIX}{k:0{_LONG_METRICS_DIGITS}d}": float(k) for k in range(NUM_LONG_ATTRIBUTES)
+}
+
+
+@pytest.fixture(scope="module")
+def project(ensure_project) -> IngestedProjectData:
+    project_data = ProjectData(
+        project_name_base="split-project",
+        runs=[
+            RunData(
+                experiment_name_base=f"split-experiment-{index}",
+                run_id_base=f"split-run-{index}",
+                configs={**LONG_PATH_CONFIGS},
+                string_series={path: {STEP: value} for path, value in LONG_PATH_SERIES.items()},
+                float_series={path: {STEP: value} for path, value in LONG_PATH_METRICS.items()},
+            )
+            for index in range(3)
+        ],
+    )
+
+    return ensure_project(project_data)
+
+
+@pytest.fixture(scope="module")
+def experiment_identifiers(client, project):
+    project_identifier = identifiers.ProjectIdentifier(project.project_identifier)
+    experiment_names = [run.experiment_name for run in project.ingested_runs]
+    identifiers_by_name: list[identifiers.RunIdentifier] = []
+
+    for experiment_name in experiment_names:
+        sys_ids: list[identifiers.SysId] = []
+        for page in search.fetch_experiment_sys_ids(
+            client=client,
+            project_identifier=project_identifier,
+            filter_=_Filter.name_eq(experiment_name),
+        ):
+            sys_ids.extend(page.items)
+
+        if len(sys_ids) != 1:
+            raise RuntimeError(f"Expected to fetch exactly one sys_id for {experiment_name}, got {sys_ids}")
+
+        identifiers_by_name.append(identifiers.RunIdentifier(project_identifier, identifiers.SysId(sys_ids[0])))
+
+    return identifiers_by_name
 
 
 @pytest.mark.parametrize(
@@ -46,19 +113,15 @@ def test_fetch_attribute_definitions_retrieval(client, project, experiment_ident
     # given
     exp_identifiers = experiment_identifiers[:exp_limit]
     attribute_paths = list(LONG_PATH_CONFIGS.keys())[:attr_limit]
-    project_identifier = project.project_identifier
+    project_identifier = identifiers.ProjectIdentifier(project.project_identifier)
+    attribute_filter = typing.cast(_AttributeFilter, _attribute_filter("int-value", attr_limit)._to_internal())
 
     #  when
     result = None
     thrown_e = None
     try:
         result = extract_pages(
-            fetch_attribute_definitions_single_filter(
-                client,
-                [project_identifier],
-                exp_identifiers,
-                attribute_filter=_attribute_filter("int-value", attr_limit)._to_internal(),
-            )
+            fetch_attribute_definitions_single_filter(client, [project_identifier], exp_identifiers, attribute_filter)
         )
     except NeptuneUnexpectedResponseError as e:
         thrown_e = e
@@ -82,7 +145,7 @@ def test_fetch_attribute_definitions_retrieval(client, project, experiment_ident
 )
 def test_fetch_attribute_definitions_composition(client, project, experiment_identifiers, exp_limit, attr_limit):
     # given
-    exp_names = TEST_DATA.experiment_names[:exp_limit]
+    exp_names = [run.experiment_name for run in project.ingested_runs][:exp_limit]
     attribute_paths = list(LONG_PATH_CONFIGS.keys())[:attr_limit]
 
     #  when
@@ -108,7 +171,7 @@ def test_fetch_attribute_values_retrieval(client, project, experiment_identifier
     # given
     exp_identifiers = experiment_identifiers[:exp_limit]
     attribute_data = dict(list(LONG_PATH_CONFIGS.items())[:attr_limit])
-    project_identifier = project.project_identifier
+    project_identifier = identifiers.ProjectIdentifier(project.project_identifier)
     attribute_definitions = [AttributeDefinition(key, "int") for key in attribute_data]
 
     #  when
@@ -144,7 +207,7 @@ def test_fetch_attribute_values_retrieval(client, project, experiment_identifier
 )
 def test_fetch_attribute_values_composition(client, project, experiment_identifiers, exp_limit, attr_limit):
     # given
-    exp_names = TEST_DATA.experiment_names[:exp_limit]
+    exp_names = [run.experiment_name for run in project.ingested_runs][:exp_limit]
     attribute_paths = list(LONG_PATH_CONFIGS.keys())[:attr_limit]
 
     #  when
@@ -201,7 +264,7 @@ def test_fetch_string_series_values_retrieval(client, project, experiment_identi
         expected_result = {
             RunAttributeDefinition(
                 run_identifier=exp, attribute_definition=AttributeDefinition(key, "string_series")
-            ): [SeriesValue(1.0, value, int(NOW.timestamp() * 1000))]
+            ): [SeriesValue(STEP, value, STEP_TIMESTAMP_MS)]
             for exp in exp_identifiers
             for key, value in attribute_data.items()
         }
@@ -223,7 +286,7 @@ def test_fetch_string_series_values_retrieval(client, project, experiment_identi
 )
 def test_fetch_string_series_values_composition(client, project, experiment_identifiers, exp_limit, attr_limit):
     #  given
-    exp_names = TEST_DATA.experiment_names[:exp_limit]
+    exp_names = [run.experiment_name for run in project.ingested_runs][:exp_limit]
     attribute_paths = list(LONG_PATH_SERIES.keys())[:attr_limit]
 
     # when
@@ -276,9 +339,9 @@ def test_fetch_float_series_values_retrieval(client, project, experiment_identif
     if success:
         expected_values = {
             RunAttributeDefinition(
-                run_identifier=identifiers.RunIdentifier(project.project_identifier, exp.sys_id),
-                attribute_definition=identifiers.AttributeDefinition(key, "float_series"),
-            ): [(int(NOW.timestamp() * 1000), 1.0, value, False, 1.0)]
+                run_identifier=exp,
+                attribute_definition=AttributeDefinition(key, "float_series"),
+            ): [(STEP_TIMESTAMP_MS, STEP, value, False, STEP)]
             for exp in exp_identifiers
             for key, value in attribute_data.items()
         }
@@ -299,7 +362,7 @@ def test_fetch_float_series_values_retrieval(client, project, experiment_identif
 )
 def test_fetch_float_series_values_composition(client, project, experiment_identifiers, exp_limit, attr_limit):
     #  given
-    exp_names = TEST_DATA.experiment_names[:exp_limit]
+    exp_names = [run.experiment_name for run in project.ingested_runs][:exp_limit]
     attribute_paths = list(LONG_PATH_METRICS.keys())[:attr_limit]
 
     # when
@@ -316,4 +379,4 @@ def test_fetch_float_series_values_composition(client, project, experiment_ident
 
 def _attribute_filter(name, limit):
     id_regex = "|".join(str(n) for n in range(limit))
-    return AttributeFilter(name=f"^{PATH}/long/{name}-0+0({id_regex})$")
+    return AttributeFilter(name=f"^{name}-0+0({id_regex})$")
