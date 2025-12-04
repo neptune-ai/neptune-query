@@ -21,6 +21,7 @@ from neptune_query.internal.retrieval.series import (
     RunAttributeDefinition,
     fetch_series_values,
 )
+from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestionFile,
@@ -74,7 +75,7 @@ class HistogramMatcher:
 
 
 @pytest.fixture(scope="session")
-def project_1(ensure_project) -> IngestedProjectData:
+def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
             project_name_base="internal__retrieval__test-series__project_1",

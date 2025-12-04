@@ -19,7 +19,9 @@ from neptune_query.internal.retrieval.search import (
     ExperimentSysAttrs,
     fetch_experiment_sys_attrs,
 )
+from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
+    IngestedProjectData,
     IngestionFile,
     IngestionHistogram,
     ProjectData,
@@ -41,7 +43,7 @@ STRING_SERIES_VALUES = ["string-0-0", "string-0-1", "string-0-2", "string-0-3"]
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project):
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(
         project_name_base="internal__retrieval__test-search__project_1",
         runs=[

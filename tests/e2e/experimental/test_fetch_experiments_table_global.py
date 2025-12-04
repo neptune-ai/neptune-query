@@ -11,6 +11,7 @@ import pytest
 from neptune_query import filters
 from neptune_query.exceptions import ConflictingAttributeTypes
 from neptune_query.experimental import fetch_experiments_table_global
+from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     IngestedRunData,
@@ -247,7 +248,7 @@ def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, uni
 
 
 @pytest.fixture(scope="session")
-def project_1(ensure_project, unique_execution_module_key) -> IngestedProjectData:
+def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
     exp_project_1_root = RunData(
         experiment_name_base="exp_project_1",
         run_id_base="run_project_1_root",
@@ -331,7 +332,7 @@ def project_1(ensure_project, unique_execution_module_key) -> IngestedProjectDat
 
 
 @pytest.fixture(scope="session")
-def project_2(ensure_project, unique_execution_module_key) -> IngestedProjectData:
+def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
     exp_project_2_root = RunData(
         experiment_name_base="exp_project_2",
         run_id_base="run_project_2_root",

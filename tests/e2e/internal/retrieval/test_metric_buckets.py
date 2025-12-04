@@ -14,6 +14,7 @@ from neptune_query.internal.retrieval.metric_buckets import (
     fetch_time_series_buckets,
 )
 from neptune_query.internal.retrieval.search import ContainerType
+from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     ProjectData,
@@ -27,7 +28,7 @@ from tests.e2e.metric_buckets import (
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project) -> IngestedProjectData:
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
             project_name_base="metric-buckets-project",

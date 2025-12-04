@@ -31,8 +31,12 @@ from neptune_query.internal.retrieval.attribute_values import (
     AttributeValue,
     fetch_attribute_values,
 )
-from tests.e2e.conftest import extract_pages
+from tests.e2e.conftest import (
+    EnsureProjectFunction,
+    extract_pages,
+)
 from tests.e2e.data_ingestion import (
+    IngestedProjectData,
     IngestionFile,
     IngestionHistogram,
     ProjectData,
@@ -44,7 +48,7 @@ FILE_SERIES_NUMBER_OF_STEPS = 3  # less, since files are heavier to ingest
 
 
 @pytest.fixture(scope="session")
-def project(ensure_project):
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     run_data = RunData(
         experiment_name_base="test_attributes_experiment",
         run_id_base="test_attributes_run",
