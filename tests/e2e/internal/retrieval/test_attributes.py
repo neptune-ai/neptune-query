@@ -50,8 +50,8 @@ FILE_SERIES_NUMBER_OF_STEPS = 3  # less, since files are heavier to ingest
 @pytest.fixture(scope="session")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     run_data = RunData(
-        experiment_name_base="test_attributes_experiment",
-        run_id_base="test_attributes_run",
+        experiment_name="test_attributes_experiment",
+        run_id="test_attributes_run",
         configs={
             "int-value": 0,
             "float-value": 0.0,
@@ -112,12 +112,7 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
         string_sets={"string_set-value": [f"string-0-{j}" for j in range(5)]},
     )
 
-    ingested_project = ensure_project(
-        ProjectData(
-            project_name_base="project_attributes",
-            runs=[run_data],
-        )
-    )
+    ingested_project = ensure_project(ProjectData(runs=[run_data]))
     return ingested_project
 
 

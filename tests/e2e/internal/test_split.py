@@ -62,11 +62,10 @@ LONG_PATH_METRICS = {
 @pytest.fixture(scope="module")
 def project(ensure_project) -> IngestedProjectData:
     project_data = ProjectData(
-        project_name_base="split-project",
         runs=[
             RunData(
-                experiment_name_base=f"split-experiment-{index}",
-                run_id_base=f"split-run-{index}",
+                experiment_name=f"split-experiment-{index}",
+                run_id=f"split-run-{index}",
                 configs={**LONG_PATH_CONFIGS},
                 string_series={path: {STEP: value} for path, value in LONG_PATH_SERIES.items()},
                 float_series={path: {STEP: value} for path, value in LONG_PATH_METRICS.items()},

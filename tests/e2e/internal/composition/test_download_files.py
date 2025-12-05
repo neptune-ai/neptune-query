@@ -28,11 +28,10 @@ FILE_SERIES_PATHS = ["file-series-value_0", "file-series-value_1"]
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="composition-download-files-project",
             runs=[
                 RunData(
-                    experiment_name_base="composition-download-files-experiment",
-                    run_id_base="composition-download-files-run",
+                    experiment_name="composition-download-files-experiment",
+                    run_id="composition-download-files-run",
                     files={
                         "file-value": b"Binary content",
                         "file-value.txt": IngestionFile(b"Text content", mime_type="text/plain"),

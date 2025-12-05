@@ -78,11 +78,10 @@ class HistogramMatcher:
 def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="internal__retrieval__test-series__project_1",
             runs=[
                 RunData(
-                    experiment_name_base="experiment_1",
-                    run_id_base="run_xyz",
+                    experiment_name="experiment_1",
+                    run_id="run_xyz",
                     string_series={
                         "metrics/str_foo_bar_1": {i: f"string-1-{i}" for i in range(10)},
                         "metrics/str_foo_bar_2": {i: f"string-2-{i}" for i in range(5, 15)},
@@ -120,7 +119,7 @@ def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                         },
                     },
                 ),
-            ],
+            ]
         ),
     )
 

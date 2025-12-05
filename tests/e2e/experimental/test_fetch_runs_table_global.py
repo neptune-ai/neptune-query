@@ -24,24 +24,28 @@ pytestmark = pytest.mark.filterwarnings("ignore:.*fetch_.*_table.*:neptune_query
 CONFLICTING_ATTRIBUTE_PATH = "conflict/shared"
 
 
+# This test is for a function that searches across multiple projects.
+#
+# We cannot specify the project names (or a match pattern) in the function call, so we'll use a magic string
+# containing the test_execution_id and use that in run ids and experiment names to isolate the test data.
+#
+# The magic string also contains the module name to avoid potential collisions with other tests.
+
+
+@pytest.fixture(scope="session")
+def unique_magic_string(test_execution_id) -> str:
+    return f"__{test_execution_id}_{__name__}__"
+
+
 @dataclass(frozen=True)
 class Column:
     name: str
     type: Literal["config", "float_series"]
 
 
-@pytest.fixture(scope="session")
-def unique_execution_module_key(test_execution_id) -> str:
-    """
-    This fixture provides a key that is unique for this module in the current test execution.
-    It can be used to create unique project names, experiment names, etc.
-    """
-    return f"{test_execution_id}_{__name__}"
-
-
-def test_fetch_runs_table_returns_all_runs(project_1, project_2, unique_execution_module_key):
+def test_fetch_runs_table_returns_all_runs(project_1, project_2, unique_magic_string):
     dataframe = fetch_runs_table_global(
-        runs=f"{unique_execution_module_key}",
+        runs=unique_magic_string,
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -60,10 +64,10 @@ def test_fetch_runs_table_returns_all_runs(project_1, project_2, unique_executio
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])
 def test_fetch_runs_table_respects_sort_direction(
-    project_1, project_2, unique_execution_module_key, sort_direction: Literal["asc", "desc"]
+    project_1, project_2, unique_magic_string, sort_direction: Literal["asc", "desc"]
 ):
     dataframe = fetch_runs_table_global(
-        runs=f"{unique_execution_module_key}",
+        runs=unique_magic_string,
         attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction=sort_direction,
@@ -83,8 +87,8 @@ def test_fetch_runs_table_respects_sort_direction(
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_runs_table_filters_by_regex(project_1, project_2, unique_execution_module_key):
-    pattern = rf"run_project_1_.*__{unique_execution_module_key}"
+def test_fetch_runs_table_filters_by_regex(project_1, project_2, unique_magic_string):
+    pattern = f"^run_{unique_magic_string}_project_1_"
     dataframe = fetch_runs_table_global(
         runs=pattern,
         attributes=["config/int", "config/string"],
@@ -103,7 +107,7 @@ def test_fetch_runs_table_filters_by_regex(project_1, project_2, unique_executio
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_runs_table_filters_by_name_list(project_1, project_2, unique_execution_module_key):
+def test_fetch_runs_table_filters_by_name_list(project_1, project_2, unique_magic_string):
     selected_runs = [project_1.ingested_runs[1], project_2.ingested_runs[2]]
     dataframe = fetch_runs_table_global(
         runs=[run.run_id for run in selected_runs],
@@ -143,10 +147,10 @@ def test_fetch_runs_table_filters_by_attribute_filter(project_1, project_2):
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_runs_table_applies_limit(project_1, project_2, unique_execution_module_key):
+def test_fetch_runs_table_applies_limit(project_1, project_2, unique_magic_string):
     limit = 4
     dataframe = fetch_runs_table_global(
-        runs=f"{unique_execution_module_key}",
+        runs=f"{unique_magic_string}",
         attributes=["config/int", "config/string"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -164,10 +168,10 @@ def test_fetch_runs_table_applies_limit(project_1, project_2, unique_execution_m
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_runs_table_with_type_suffix(project_1, project_2, unique_execution_module_key):
+def test_fetch_runs_table_with_type_suffix(project_1, project_2, unique_magic_string):
     dataframe = fetch_runs_table_global(
-        runs=f"{unique_execution_module_key}",
-        attributes=r"config/(int|string)",
+        runs=unique_magic_string,
+        attributes="config/(int|string)",
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
         limit=None,
@@ -225,9 +229,9 @@ def test_fetch_runs_table_conflicting_attributes_without_type_suffix(project_1, 
         )
 
 
-def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_execution_module_key):
+def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_magic_string):
     dataframe = fetch_runs_table_global(
-        runs=f"{unique_execution_module_key}",
+        runs=f"{unique_magic_string}",
         attributes=[],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -243,15 +247,13 @@ def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_exe
 
 
 @pytest.fixture(scope="session")
-def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
+def project_1(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     return ensure_project(
-        unique_key=unique_execution_module_key,
         project_data=ProjectData(
-            project_name_base="project_1",
             runs=[
                 RunData(
-                    experiment_name_base="exp_project_1_alpha",
-                    run_id_base="run_project_1_alpha",
+                    experiment_name=f"exp_{unique_magic_string}_project_1_alpha",
+                    run_id=f"run_{unique_magic_string}_project_1_alpha",
                     fork_point=None,
                     configs={
                         "config/int": 1,
@@ -264,8 +266,8 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
                     },
                 ),
                 RunData(
-                    experiment_name_base="exp_project_1_beta",
-                    run_id_base="run_project_1_beta",
+                    experiment_name=f"exp_{unique_magic_string}_project_1_beta",
+                    run_id=f"run_{unique_magic_string}_project_1_beta",
                     fork_point=None,
                     configs={
                         "config/int": 3,
@@ -277,8 +279,8 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
                     },
                 ),
                 RunData(
-                    experiment_name_base="exp_project_1_gamma",
-                    run_id_base="run_project_1_gamma",
+                    experiment_name=f"exp_{unique_magic_string}_project_1_gamma",
+                    run_id=f"run_{unique_magic_string}_project_1_gamma",
                     fork_point=None,
                     configs={
                         "config/int": 5,
@@ -289,21 +291,19 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
                         "metrics/accuracy": {0: 0.2, 1: 0.3, 2: 0.4},
                     },
                 ),
-            ],
+            ]
         ),
     )
 
 
 @pytest.fixture(scope="session")
-def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
+def project_2(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     return ensure_project(
-        unique_key=unique_execution_module_key,
         project_data=ProjectData(
-            project_name_base="project_2",
             runs=[
                 RunData(
-                    experiment_name_base="exp_project_2_alpha",
-                    run_id_base="run_project_2_alpha",
+                    experiment_name=f"exp_{unique_magic_string}_project_2_alpha",
+                    run_id=f"run_{unique_magic_string}_project_2_alpha",
                     fork_point=None,
                     configs={
                         "config/int": 2,
@@ -316,8 +316,8 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
                     },
                 ),
                 RunData(
-                    experiment_name_base="exp_project_2_beta",
-                    run_id_base="run_project_2_beta",
+                    experiment_name=f"exp_{unique_magic_string}_project_2_beta",
+                    run_id=f"run_{unique_magic_string}_project_2_beta",
                     fork_point=None,
                     configs={
                         "config/int": 4,
@@ -329,8 +329,8 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
                     },
                 ),
                 RunData(
-                    experiment_name_base="exp_project_2_gamma",
-                    run_id_base="run_project_2_gamma",
+                    experiment_name=f"exp_{unique_magic_string}_project_2_gamma",
+                    run_id=f"run_{unique_magic_string}_project_2_gamma",
                     fork_point=None,
                     configs={
                         "config/int": 6,
@@ -342,8 +342,9 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
                     },
                 ),
                 RunData(
-                    experiment_name_base="exp_aardvark",  # Named to sort first alphabetically across projects
-                    run_id_base="run_project_2_aardvark",
+                    # Named to sort first alphabetically across projects
+                    experiment_name=f"exp_{unique_magic_string}__aardvark",
+                    run_id=f"run_{unique_magic_string}_project_2_aardvark",
                     fork_point=None,
                     configs={
                         "config/int": 0,
@@ -354,7 +355,7 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
                         "metrics/accuracy": {0: 0.55, 1: 0.65},
                     },
                 ),
-            ],
+            ]
         ),
     )
 

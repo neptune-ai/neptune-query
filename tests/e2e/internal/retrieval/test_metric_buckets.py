@@ -31,11 +31,10 @@ from tests.e2e.metric_buckets import (
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="metric-buckets-project",
             runs=[
                 RunData(
-                    experiment_name_base="metric-buckets-experiment",
-                    run_id_base="metric-buckets-run-id",
+                    experiment_name="metric-buckets-experiment",
+                    run_id="metric-buckets-run-id",
                     float_series={
                         "metrics/float-series-value_0": {
                             0.0: 0.5,
