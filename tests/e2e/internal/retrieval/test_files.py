@@ -37,11 +37,10 @@ from tests.e2e.data_ingestion import (
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(
-        project_name_base="files-project",
         runs=[
             RunData(
-                experiment_name_base="files-experiment",
-                run_id_base="files-run-id",
+                experiment_name="files-experiment",
+                run_id="files-run-id",
                 files={
                     "files/file-value.txt": IngestionFile(b"Text content", mime_type="text/plain"),
                 },

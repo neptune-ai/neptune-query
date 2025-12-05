@@ -49,10 +49,10 @@ class RunData:
     Definition of the data to be ingested for a run in tests.
     """
 
-    experiment_name_base: str | None = None
-    run_id_base: str | None = None
+    experiment_name: str | None = None
+    run_id: str | None = None
 
-    # run_id_base of the parent run and the fork step
+    # run_id of the parent run and the fork step
     fork_point: tuple[str, float] | None = None
 
     configs: dict[str, int | str] | None = field(default_factory=dict)
@@ -67,38 +67,12 @@ class RunData:
     string_sets: dict[str, list[str]] | None = field(default_factory=dict)
 
 
-def get_all_steps(run_data: RunData) -> Iterable[float]:
-    # Collect all unique steps
-    all_steps = set()
-    for series in run_data.float_series.values():
-        all_steps.update(series.keys())
-    for series in run_data.string_series.values():
-        all_steps.update(series.keys())
-    for series in run_data.histogram_series.values():
-        all_steps.update(series.keys())
-    for series in run_data.file_series.values():
-        all_steps.update(series.keys())
-
-    return sorted(all_steps)
-
-
-def get_series_by_step(series: dict[str, dict[float, SeriesPoint]]) -> Mapping[float, dict[str, SeriesPoint]]:
-    series_by_step = defaultdict(dict)
-
-    for series_name, series_data in series.items():
-        for step, value in series_data.items():
-            series_by_step[step][series_name] = value
-
-    return series_by_step
-
-
 @dataclass(frozen=True)
 class ProjectData:
     """
     Definition of the data to be ingested for a project in tests.
     """
 
-    project_name_base: str
     runs: list[RunData]
 
 
@@ -133,7 +107,7 @@ def ingest_project(
     client: AuthenticatedClient,
     api_token: str,
     workspace: str,
-    unique_key: str,
+    project_name: str,
     project_data: ProjectData,
 ) -> IngestedProjectData:
     """
@@ -142,9 +116,7 @@ def ingest_project(
     Uses a file lock to prevent concurrent creation/ingestion of the same project.
 
     workspace: The Neptune workspace/organization name where the project should be created.
-    unique_key: A unique key to append to project and run names/IDs to allow cross-project search tests.
     """
-    project_name = _format_project_name(project_data.project_name_base, unique_key)
     project_identifier = f"{workspace}/{project_name}"
 
     lock_path = Path(tempfile.gettempdir()) / f"neptune_e2e__{workspace}__{project_name}.lock"
@@ -159,9 +131,8 @@ def ingest_project(
 
             _ingest_project_data(
                 api_token=api_token,
-                workspace=workspace,
+                project_identifier=project_identifier,
                 project_data=project_data,
-                unique_key=unique_key,
             )
 
     return IngestedProjectData(
@@ -169,8 +140,8 @@ def ingest_project(
         ingested_runs=[
             IngestedRunData(
                 project_identifier=project_identifier,
-                experiment_name=_format_experiment_name(run_data.experiment_name_base, unique_key),
-                run_id=_format_run_id(run_data.run_id_base, unique_key),
+                experiment_name=run_data.experiment_name,
+                run_id=run_data.run_id,
                 configs=run_data.configs,
                 float_series=run_data.float_series,
                 string_series=run_data.string_series,
@@ -181,53 +152,25 @@ def ingest_project(
     )
 
 
-def _ingest_project_data(api_token: str, workspace: str, project_data: ProjectData, unique_key: str) -> None:
-    project_name = _format_project_name(project_name_base=project_data.project_name_base, unique_key=unique_key)
-    project_identifier = f"{workspace}/{project_name}"
-
+def _ingest_project_data(api_token: str, project_identifier, project_data: ProjectData) -> None:
     batches = _group_runs_by_execution_order(project_data.runs)
     for batch in batches:
         _ingest_runs(
             runs_data=batch,
             api_token=api_token,
             project_identifier=project_identifier,
-            unique_key=unique_key,
         )
 
 
-def _group_runs_by_execution_order(runs_data: list[RunData]) -> Generator[list[RunData], None, None]:
-    if not runs_data:
-        return
-
-    def parent_id(run: RunData) -> str | None:
-        if run.fork_point is not None:
-            return run.fork_point[0]
-        return None
-
-    remaining: list[RunData] = list(runs_data)
-    resolved: set[Optional[str]] = {None}  # None represents a parent of root runs
-
-    while remaining:
-        ready_batch = [run for run in remaining if parent_id(run) in resolved]
-        if not ready_batch:
-            raise ValueError("Detected cyclic or unresolved fork dependencies among runs to ingest.")
-
-        for run in ready_batch:
-            remaining.remove(run)
-            resolved.add(run.run_id_base)
-
-        yield ready_batch
-
-
-def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: str, unique_key: str) -> None:
+def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: str) -> None:
     runs = []
     for run_data in runs_data:
         run = neptune_scale.Run(
             api_token=api_token,
             project=project_identifier,
-            experiment_name=_format_experiment_name(run_data.experiment_name_base, unique_key),
-            run_id=_format_run_id(run_data.run_id_base, unique_key),
-            fork_run_id=_format_run_id(run_data.fork_point[0], unique_key) if run_data.fork_point else None,
+            experiment_name=run_data.experiment_name,
+            run_id=run_data.run_id,
+            fork_run_id=run_data.fork_point[0] if run_data.fork_point else None,
             fork_step=run_data.fork_point[1] if run_data.fork_point else None,
             enable_console_log_capture=False,
             source_tracking_config=None,
@@ -242,11 +185,11 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
         if run_data.files:
             run.assign_files(run_data.files)
 
-        all_steps = get_all_steps(run_data)
-        float_series_by_step = get_series_by_step(run_data.float_series)
-        string_series_by_step = get_series_by_step(run_data.string_series)
-        histogram_series_by_step = get_series_by_step(run_data.histogram_series)
-        file_series_by_step = get_series_by_step(run_data.file_series)
+        all_steps = _get_all_steps(run_data)
+        float_series_by_step = _get_series_by_step(run_data.float_series)
+        string_series_by_step = _get_series_by_step(run_data.string_series)
+        histogram_series_by_step = _get_series_by_step(run_data.histogram_series)
+        file_series_by_step = _get_series_by_step(run_data.file_series)
 
         for step in all_steps:
             timestamp = step_to_timestamp(step)
@@ -271,6 +214,55 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
         run.close()
 
 
+def _get_all_steps(run_data: RunData) -> Iterable[float]:
+    # Collect all unique steps
+    all_steps = set()
+    for series in run_data.float_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.string_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.histogram_series.values():
+        all_steps.update(series.keys())
+    for series in run_data.file_series.values():
+        all_steps.update(series.keys())
+
+    return sorted(all_steps)
+
+
+def _get_series_by_step(series: dict[str, dict[float, SeriesPoint]]) -> Mapping[float, dict[str, SeriesPoint]]:
+    series_by_step = defaultdict(dict)
+
+    for series_name, series_data in series.items():
+        for step, value in series_data.items():
+            series_by_step[step][series_name] = value
+
+    return series_by_step
+
+
+def _group_runs_by_execution_order(runs_data: list[RunData]) -> Generator[list[RunData], None, None]:
+    if not runs_data:
+        return
+
+    def parent_id(run: RunData) -> str | None:
+        if run.fork_point is not None:
+            return run.fork_point[0]
+        return None
+
+    remaining: list[RunData] = list(runs_data)
+    resolved: set[Optional[str]] = {None}  # None represents a parent of root runs
+
+    while remaining:
+        ready_batch = [run for run in remaining if parent_id(run) in resolved]
+        if not ready_batch:
+            raise ValueError("Detected cyclic or unresolved fork dependencies among runs to ingest.")
+
+        for run in ready_batch:
+            remaining.remove(run)
+            resolved.add(run.run_id)
+
+        yield ready_batch
+
+
 def _project_exists(client: AuthenticatedClient, project_identifier: str) -> bool:
     """
     This is a very simplified check to see if a project exists.
@@ -290,19 +282,3 @@ def _project_exists(client: AuthenticatedClient, project_identifier: str) -> boo
         return True
     except Exception:
         return False
-
-
-def _format_experiment_name(base_name: str, unique_key: str) -> str:
-    if base_name:
-        return f"{base_name}__{unique_key}"
-    return None
-
-
-def _format_run_id(base_name: str, unique_key: str) -> str:
-    if base_name:
-        return f"{base_name}__{unique_key}"
-    return None
-
-
-def _format_project_name(project_name_base: str, unique_key: str) -> str:
-    return f"py-e2e__{unique_key}__{project_name_base}"

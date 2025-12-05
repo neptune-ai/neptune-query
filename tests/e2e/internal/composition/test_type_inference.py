@@ -25,11 +25,10 @@ DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0)
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="composition-type-inference-project",
             runs=[
                 RunData(
-                    experiment_name_base="composition-type-inference-a",
-                    run_id_base="composition-type-inference-run-a",
+                    experiment_name="composition-type-inference-a",
+                    run_id="composition-type-inference-run-a",
                     configs={
                         "int-value": 10,
                         "float-value": 0.5,
@@ -42,8 +41,8 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                     float_series={"float-series-value": {float(step * 0.5): float(step**2) for step in range(10)}},
                 ),
                 RunData(
-                    experiment_name_base="composition-type-inference-b",
-                    run_id_base="composition-type-inference-run-b",
+                    experiment_name="composition-type-inference-b",
+                    run_id="composition-type-inference-run-b",
                     configs={
                         "int-value": 10,
                         "float-value": 0.5,
