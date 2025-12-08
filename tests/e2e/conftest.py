@@ -67,7 +67,7 @@ def pytest_configure(config):
         # Controller (no xdist or before workers spawn): generate once
         execution_id = os.getenv("NEPTUNE_TEST_EXECUTION_ID")
         if execution_id is None:
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
             execution_id = f"{timestamp}_{random_suffix}"
         config.neptune_test_execution_id = execution_id
@@ -259,14 +259,13 @@ class EnsureProjectFunction:
         caller_frame = inspect.currentframe().f_back
         caller_module = inspect.getmodule(caller_frame)
         caller_module_name = caller_module.__name__
-
-        random_name = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        caller_fn_name = caller_frame.f_code.co_name
 
         return ingest_project(
             client=self.client,
             api_token=self.api_token,
             workspace=self.workspace,
-            project_name=f"pye2e__{self.test_execution_id}__{caller_module_name}__{random_name}",
+            project_name=f"pye2e__{self.test_execution_id}__{caller_module_name}.{caller_fn_name}",
             project_data=project_data,
         )
 
