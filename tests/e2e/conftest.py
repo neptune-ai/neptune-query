@@ -1,3 +1,4 @@
+import inspect
 import itertools as it
 import os
 import pathlib
@@ -66,7 +67,7 @@ def pytest_configure(config):
         # Controller (no xdist or before workers spawn): generate once
         execution_id = os.getenv("NEPTUNE_TEST_EXECUTION_ID")
         if execution_id is None:
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
             execution_id = f"{timestamp}_{random_suffix}"
         config.neptune_test_execution_id = execution_id
@@ -254,12 +255,17 @@ class EnsureProjectFunction:
         self.workspace = workspace
         self.test_execution_id = test_execution_id
 
-    def __call__(self, project_data: ProjectData, unique_key: str | None = None) -> IngestedProjectData:
+    def __call__(self, project_data: ProjectData) -> IngestedProjectData:
+        caller_frame = inspect.currentframe().f_back
+        caller_module = inspect.getmodule(caller_frame)
+        caller_module_name = caller_module.__name__
+        caller_fn_name = caller_frame.f_code.co_name
+
         return ingest_project(
             client=self.client,
             api_token=self.api_token,
             workspace=self.workspace,
-            unique_key=unique_key or self.test_execution_id,
+            project_name=f"pye2e__{self.test_execution_id}__{caller_module_name}.{caller_fn_name}",
             project_data=project_data,
         )
 
@@ -270,10 +276,6 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
 
     Arguments for the returned callable:
         project_data: Data to initialize the project with
-        unique_key: [optional] A unique identifier for tagging and later filtering projects, experiments, and runs.
-                    Tests spanning multiple projects should provide a unique_key that embeds the test_execution_id
-                    plus any additional context needed for disambiguation (e.g., module name).
-                    If not provided, the unique test_execution_id will be used.
 
     Returns:
         IngestedProjectData containing information about the created/retrieved project
@@ -283,10 +285,9 @@ def ensure_project(client, api_token, workspace, test_execution_id) -> EnsurePro
         def project_gamma(ensure_project):
             ingested_project = ensure_project(
                 ProjectData(
-                    project_name_base="test_project",
                     runs=[
                         RunData(
-                            experiment_name_base="experiment_gamma",
+                            experiment_name="experiment_gamma",
                             config={"param": "value"},
                             float_series={"metrics/accuracy": {0: 0.5, 1: 0.75, 2: 0.9}},
                             string_series={"logs/status": {0: "started", 1: "in_progress", 2: "completed"}},

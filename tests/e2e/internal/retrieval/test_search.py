@@ -45,11 +45,10 @@ STRING_SERIES_VALUES = ["string-0-0", "string-0-1", "string-0-2", "string-0-3"]
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(
-        project_name_base="internal__retrieval__test-search__project_1",
         runs=[
             RunData(
-                experiment_name_base="test_search_primary",
-                run_id_base="test_search_primary",
+                experiment_name="test_search_primary",
+                run_id="test_search_primary",
                 configs={
                     "configs/int-value": 0,
                     "configs/float-value": 0.0,
@@ -88,8 +87,8 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 },
             ),
             RunData(
-                experiment_name_base="test_search_secondary",
-                run_id_base="test_search_secondary",
+                experiment_name="test_search_secondary",
+                run_id="test_search_secondary",
                 configs={
                     "configs/int-value": 1,
                     "configs/float-value": 0.1,
@@ -115,7 +114,7 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                     }
                 },
             ),
-        ],
+        ]
     )
 
     return ensure_project(project_data)

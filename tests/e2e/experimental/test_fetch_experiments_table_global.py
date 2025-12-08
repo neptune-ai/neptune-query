@@ -24,24 +24,28 @@ pytestmark = pytest.mark.filterwarnings("ignore:.*fetch_.*_table.*:neptune_query
 CONFLICTING_ATTRIBUTE_PATH = "conflict/shared"
 
 
+# This test is for a function that searches across multiple projects.
+#
+# We cannot specify the project names (or a match pattern) in the function call, so we'll use a magic string
+# containing the test_execution_id and use that in run ids and experiment names to isolate the test data.
+#
+# The magic string also contains the module name to avoid potential collisions with other tests.
+
+
+@pytest.fixture(scope="session")
+def unique_magic_string(test_execution_id) -> str:
+    return f"__{test_execution_id}_{__name__}__"
+
+
 @dataclass(frozen=True)
 class Column:
     name: str
     type: Literal["config", "float_series"]
 
 
-@pytest.fixture(scope="session")
-def unique_execution_module_key(test_execution_id) -> str:
-    """
-    This fixture provides a key that is unique for this module in the current test execution.
-    It can be used to create unique project names, experiment names, etc.
-    """
-    return f"{test_execution_id}_{__name__}"
-
-
-def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, unique_execution_module_key):
+def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, unique_magic_string):
     dataframe = fetch_experiments_table_global(
-        experiments=f"{unique_execution_module_key}",
+        experiments=unique_magic_string,
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -62,10 +66,10 @@ def test_fetch_experiments_table_returns_all_experiments(project_1, project_2, u
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])
 def test_fetch_experiments_table_respects_sort_direction(
-    project_1, project_2, unique_execution_module_key, sort_direction: Literal["asc", "desc"]
+    project_1, project_2, unique_magic_string, sort_direction: Literal["asc", "desc"]
 ):
     dataframe = fetch_experiments_table_global(
-        experiments=f"{unique_execution_module_key}",
+        experiments=unique_magic_string,
         attributes=["config/int"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction=sort_direction,
@@ -84,9 +88,9 @@ def test_fetch_experiments_table_respects_sort_direction(
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_filters_by_regex(project_1, unique_execution_module_key):
+def test_fetch_experiments_table_filters_by_regex(project_1, unique_magic_string):
     dataframe = fetch_experiments_table_global(
-        experiments=rf"^exp_project_1 & {unique_execution_module_key}",
+        experiments=rf"^exp_.*project_1 & {unique_magic_string}",
         attributes=["config/int", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -103,10 +107,10 @@ def test_fetch_experiments_table_filters_by_regex(project_1, unique_execution_mo
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, unique_execution_module_key):
+def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, unique_magic_string):
     selected_experiments = [
-        _experiment_head_by_name(project_1, "exp_project_1_alt"),
-        _experiment_head_by_name(project_2, "exp_project_2_alt"),
+        _experiment_head_by_name(project_1, f"exp_{unique_magic_string}_project_1_alt"),
+        _experiment_head_by_name(project_2, f"exp_{unique_magic_string}_project_2_alt"),
     ]
 
     dataframe = fetch_experiments_table_global(
@@ -127,8 +131,8 @@ def test_fetch_experiments_table_filters_by_name_list(project_1, project_2, uniq
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
-    target_experiment = _experiment_head_by_name(project_2, "exp_project_2")
+def test_fetch_experiments_table_filters_by_attribute_filter(project_2, unique_magic_string):
+    target_experiment = _experiment_head_by_name(project_2, f"exp_{unique_magic_string}_project_2")
 
     dataframe = fetch_experiments_table_global(
         experiments=filters.Filter.eq(filters.Attribute("sys/name", type="string"), target_experiment.experiment_name),
@@ -148,10 +152,10 @@ def test_fetch_experiments_table_filters_by_attribute_filter(project_2):
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_execution_module_key):
+def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_magic_string):
     limit = 2
     dataframe = fetch_experiments_table_global(
-        experiments=f"{unique_execution_module_key}",
+        experiments=unique_magic_string,
         attributes=["config/int", "config/string", "metrics/loss"],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -171,9 +175,9 @@ def test_fetch_experiments_table_applies_limit(project_1, project_2, unique_exec
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_with_type_suffix(project_1, project_2, unique_execution_module_key):
+def test_fetch_experiments_table_with_type_suffix(project_1, project_2, unique_magic_string):
     dataframe = fetch_experiments_table_global(
-        experiments=f"{unique_execution_module_key}",
+        experiments=unique_magic_string,
         attributes=r"(config/(int|string)|metrics/loss)",
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -193,10 +197,10 @@ def test_fetch_experiments_table_with_type_suffix(project_1, project_2, unique_e
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_conflicting_attributes_with_type_suffix(project_1, project_2):
+def test_fetch_experiments_table_conflicting_attributes_with_type_suffix(project_1, project_2, unique_magic_string):
     experiments_with_conflict = [
-        _experiment_head_by_name(project_1, "exp_project_1"),
-        _experiment_head_by_name(project_2, "exp_project_2"),
+        _experiment_head_by_name(project_1, f"exp_{unique_magic_string}_project_1"),
+        _experiment_head_by_name(project_2, f"exp_{unique_magic_string}_project_2"),
     ]
 
     dataframe = fetch_experiments_table_global(
@@ -218,10 +222,10 @@ def test_fetch_experiments_table_conflicting_attributes_with_type_suffix(project
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(project_1, project_2):
+def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(project_1, project_2, unique_magic_string):
     experiments_with_conflict = [
-        _experiment_head_by_name(project_1, "exp_project_1"),
-        _experiment_head_by_name(project_2, "exp_project_2"),
+        _experiment_head_by_name(project_1, f"exp_{unique_magic_string}_project_1"),
+        _experiment_head_by_name(project_2, f"exp_{unique_magic_string}_project_2"),
     ]
 
     with pytest.raises(ConflictingAttributeTypes):
@@ -233,9 +237,9 @@ def test_fetch_experiments_table_conflicting_attributes_without_type_suffix(proj
         )
 
 
-def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, unique_execution_module_key):
+def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, unique_magic_string):
     dataframe = fetch_experiments_table_global(
-        experiments=f"{unique_execution_module_key}",
+        experiments=unique_magic_string,
         attributes=[],
         sort_by=filters.Attribute("sys/name", type="string"),
         sort_direction="asc",
@@ -248,10 +252,10 @@ def test_fetch_experiments_table_with_empty_attributes(project_1, project_2, uni
 
 
 @pytest.fixture(scope="session")
-def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
+def project_1(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     exp_project_1_root = RunData(
-        experiment_name_base="exp_project_1",
-        run_id_base="run_project_1_root",
+        experiment_name=f"exp_{unique_magic_string}_project_1",
+        run_id=f"run_{unique_magic_string}_project_1_root",
         fork_point=None,
         configs={
             "config/int": 1,
@@ -263,9 +267,9 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_1_branch_a = RunData(
-        experiment_name_base="exp_project_1",
-        run_id_base="run_project_1_branch_a",
-        fork_point=("run_project_1_root", 1.0),
+        experiment_name=f"exp_{unique_magic_string}_project_1",
+        run_id=f"run_{unique_magic_string}_project_1_branch_a",
+        fork_point=(f"run_{unique_magic_string}_project_1_root", 1.0),
         configs={
             "config/int": 3,
             "config/string": "project-1-branch-a",
@@ -276,9 +280,9 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_1_branch_b = RunData(
-        experiment_name_base="exp_project_1",
-        run_id_base="run_project_1_branch_b",
-        fork_point=("run_project_1_branch_a", 2.0),
+        experiment_name=f"exp_{unique_magic_string}_project_1",
+        run_id=f"run_{unique_magic_string}_project_1_branch_b",
+        fork_point=(f"run_{unique_magic_string}_project_1_branch_a", 2.0),
         configs={
             "config/int": 5,
             "config/string": "project-1-branch-b",
@@ -290,8 +294,8 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_1_alt_root = RunData(
-        experiment_name_base="exp_project_1_alt",
-        run_id_base="run_project_1_alt_root",
+        experiment_name=f"exp_{unique_magic_string}_project_1_alt",
+        run_id=f"run_{unique_magic_string}_project_1_alt_root",
         fork_point=None,
         configs={
             "config/int": 7,
@@ -303,9 +307,9 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_1_alt_branch = RunData(
-        experiment_name_base="exp_project_1_alt",
-        run_id_base="run_project_1_alt_branch",
-        fork_point=("run_project_1_alt_root", 1.0),
+        experiment_name=f"exp_{unique_magic_string}_project_1_alt",
+        run_id=f"run_{unique_magic_string}_project_1_alt_branch",
+        fork_point=(f"run_{unique_magic_string}_project_1_alt_root", 1.0),
         configs={
             "config/int": 9,
             "config/string": "project-1-alt-branch",
@@ -317,25 +321,23 @@ def project_1(ensure_project: EnsureProjectFunction, unique_execution_module_key
     )
 
     return ensure_project(
-        unique_key=unique_execution_module_key,
         project_data=ProjectData(
-            project_name_base="global_fetch_experiments_table_project_1",
             runs=[
                 exp_project_1_root,
                 exp_project_1_branch_a,
                 exp_project_1_branch_b,
                 exp_project_1_alt_root,
                 exp_project_1_alt_branch,
-            ],
+            ]
         ),
     )
 
 
 @pytest.fixture(scope="session")
-def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key) -> IngestedProjectData:
+def project_2(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     exp_project_2_root = RunData(
-        experiment_name_base="exp_project_2",
-        run_id_base="run_project_2_root",
+        experiment_name=f"exp_{unique_magic_string}_project_2",
+        run_id=f"run_{unique_magic_string}_project_2_root",
         fork_point=None,
         configs={
             "config/int": 2,
@@ -347,9 +349,9 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_2_branch = RunData(
-        experiment_name_base="exp_project_2",
-        run_id_base="run_project_2_branch",
-        fork_point=("run_project_2_root", 1.0),
+        experiment_name=f"exp_{unique_magic_string}_project_2",
+        run_id=f"run_{unique_magic_string}_project_2_branch",
+        fork_point=(f"run_{unique_magic_string}_project_2_root", 1.0),
         configs={
             "config/int": 4,
             "config/string": "project-2-branch",
@@ -360,9 +362,9 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_2_branch_deep = RunData(
-        experiment_name_base="exp_project_2",
-        run_id_base="run_project_2_branch_deep",
-        fork_point=("run_project_2_branch", 2.0),
+        experiment_name=f"exp_{unique_magic_string}_project_2",
+        run_id=f"run_{unique_magic_string}_project_2_branch_deep",
+        fork_point=(f"run_{unique_magic_string}_project_2_branch", 2.0),
         configs={
             "config/int": 6,
             "config/string": "project-2-branch-deep",
@@ -374,8 +376,8 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_2_alt_root = RunData(
-        experiment_name_base="exp_project_2_alt",
-        run_id_base="run_project_2_alt_root",
+        experiment_name=f"exp_{unique_magic_string}_project_2_alt",
+        run_id=f"run_{unique_magic_string}_project_2_alt_root",
         fork_point=None,
         configs={
             "config/int": 8,
@@ -387,8 +389,8 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
         },
     )
     exp_project_2_aardvark = RunData(
-        experiment_name_base="exp_aardvark",  # Named to sort first alphabetically across projects
-        run_id_base="run_project_2_aardvark",
+        experiment_name=f"exp_{unique_magic_string}_aardvark",  # Named to sort first alphabetically across projects
+        run_id=f"run_{unique_magic_string}_project_2_aardvark",
         fork_point=None,
         configs={
             "config/int": 0,
@@ -401,16 +403,14 @@ def project_2(ensure_project: EnsureProjectFunction, unique_execution_module_key
     )
 
     return ensure_project(
-        unique_key=unique_execution_module_key,
         project_data=ProjectData(
-            project_name_base="global_fetch_experiments_table_project_2",
             runs=[
                 exp_project_2_root,
                 exp_project_2_branch,
                 exp_project_2_branch_deep,
                 exp_project_2_alt_root,
                 exp_project_2_aardvark,
-            ],
+            ]
         ),
     )
 
@@ -435,7 +435,7 @@ def _experiment_base_name(experiment_name: str) -> str:
 def _experiment_head_by_name(project: IngestedProjectData, experiment_base_name: str) -> IngestedRunData:
     head: IngestedRunData | None = None
     for run in project.ingested_runs:
-        if _experiment_base_name(run.experiment_name) == experiment_base_name:
+        if run.experiment_name == experiment_base_name:
             head = run
     if head is None:
         raise ValueError(

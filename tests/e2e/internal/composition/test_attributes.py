@@ -31,11 +31,10 @@ from tests.e2e.data_ingestion import (
 def project(ensure_project) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
-            project_name_base="composition-attributes-project",
             runs=[
                 RunData(
-                    experiment_name_base="composition-attributes-experiment",
-                    run_id_base="composition-attributes-run",
+                    experiment_name="composition-attributes-experiment",
+                    run_id="composition-attributes-run",
                     configs={
                         "int-value": 10,
                         "float-value": 0.5,
