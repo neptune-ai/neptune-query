@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 import neptune_query.runs as runs
@@ -7,12 +5,60 @@ from neptune_query.filters import (
     Attribute,
     Filter,
 )
-from tests.e2e.v1.generator import (
-    ALL_STATIC_RUNS,
-    LINEAR_HISTORY_TREE,
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
+RUNS_IN_EXPERIMENT_A = [
+    "experiment_a_run1",
+    "experiment_a_run2",
+]
+RUNS_IN_EXPERIMENT_B = [
+    "experiment_b_run1",
+    "experiment_b_run2",
+]
+ALL_RUN_IDS = RUNS_IN_EXPERIMENT_A + RUNS_IN_EXPERIMENT_B
+
+
+# TODO: remove once all e2e tests use the ensure_project framework
+@pytest.fixture(scope="module", autouse=True)
+def run_with_attributes_autouse():
+    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
+    return None
+
+
+@pytest.fixture(scope="module")
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    runs_data = [
+        RunData(
+            experiment_name="experiment_a",
+            run_id="experiment_a_run1",
+            configs={"group": "a"},
+            string_sets={"tags": ["group_a"]},
+        ),
+        RunData(
+            experiment_name="experiment_a",
+            run_id="experiment_a_run2",
+            configs={"group": "a"},
+            string_sets={"tags": ["group_a"]},
+        ),
+        RunData(
+            experiment_name="experiment_b",
+            run_id="experiment_b_run1",
+            configs={"group": "b"},
+            string_sets={"tags": ["group_b"]},
+        ),
+        RunData(
+            experiment_name="experiment_b",
+            run_id="experiment_b_run2",
+            configs={"group": "b"},
+        ),
+    ]
+
+    return ensure_project(ProjectData(runs=runs_data))
 
 
 @pytest.mark.parametrize(
@@ -20,41 +66,41 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
     [
         ".*",
         None,
-        [run.custom_run_id for run in ALL_STATIC_RUNS],
-        Filter.name([run.experiment_name for run in ALL_STATIC_RUNS]),
-        Filter.name(" | ".join(run.experiment_name for run in ALL_STATIC_RUNS)),
+        ALL_RUN_IDS,
+        Filter.name(["experiment_a", "experiment_b"]),
+        Filter.name("experiment_a | experiment_b"),
+        Filter.eq("group", "a") | Filter.eq("group", "b"),
     ],
 )
-def test_list_all_runs(new_project_id, arg_runs):
+def test_list_all_runs(project: IngestedProjectData, arg_runs):
     result = runs.list_runs(
-        project=new_project_id,
+        project=project.project_identifier,
         runs=arg_runs,
     )
-    assert len(result) == len(ALL_STATIC_RUNS)
-    assert set(result) == {run.custom_run_id for run in ALL_STATIC_RUNS}
+    assert len(result) == len(ALL_RUN_IDS)
+    assert set(result) == set(ALL_RUN_IDS)
 
 
 @pytest.mark.parametrize(
     "arg_runs",
     [
-        "linear.*",
-        [run.custom_run_id for run in LINEAR_HISTORY_TREE],
-        Filter.name([run.experiment_name for run in LINEAR_HISTORY_TREE]),
-        Filter.name(" | ".join(run.experiment_name for run in LINEAR_HISTORY_TREE)),
-        Filter.eq("linear-history", True),
-        Filter.eq(Attribute(name="linear-history", type="bool"), True),
-        Filter.eq(Attribute(name="linear-history"), True),
-        # TODO string set filter
-        # Filter.eq(Attribute(name="sys/tags", type="string_set"), ["linear"]),
+        "experiment_a.*",
+        RUNS_IN_EXPERIMENT_A,
+        Filter.name(["experiment_a"]),
+        Filter.name("experiment_a"),
+        Filter.eq("group", "a"),
+        Filter.eq(Attribute(name="group", type="string"), "a"),
+        Filter.eq(Attribute(name="group"), "a"),
+        Filter.contains_all(Attribute(name="tags", type="string_set"), ["group_a"]),
     ],
 )
-def test_list_linear_history_runs(new_project_id, arg_runs):
+def test_list_experiment_a_runs(project: IngestedProjectData, arg_runs):
     result = runs.list_runs(
-        project=new_project_id,
+        project=project.project_identifier,
         runs=arg_runs,
     )
-    assert len(result) == len(LINEAR_HISTORY_TREE)
-    assert set(result) == {run.custom_run_id for run in LINEAR_HISTORY_TREE}
+    assert len(result) == len(RUNS_IN_EXPERIMENT_A)
+    assert set(result) == set(RUNS_IN_EXPERIMENT_A)
 
 
 @pytest.mark.parametrize(
@@ -65,9 +111,9 @@ def test_list_linear_history_runs(new_project_id, arg_runs):
         Filter.eq(Attribute(name="non-existent", type="bool"), True),
     ],
 )
-def test_list_runs_empty_filter(new_project_id, arg_runs):
+def test_list_runs_empty_filter(project: IngestedProjectData, arg_runs):
     result = runs.list_runs(
-        project=new_project_id,
+        project=project.project_identifier,
         runs=arg_runs,
     )
 
