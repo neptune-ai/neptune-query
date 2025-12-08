@@ -1,8 +1,4 @@
-import os
-from datetime import (
-    datetime,
-    timezone,
-)
+from datetime import datetime
 
 import pytest
 
@@ -15,116 +11,55 @@ from neptune_query.internal.filters import (
     _Attribute,
     _Filter,
 )
-from neptune_query.internal.retrieval.search import fetch_experiment_sys_attrs
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+)
 
-TEST_DATA_VERSION = "2025-08-22"
-EXPERIMENT_NAME = f"pye2e-query-test-internal-composition-type-inference-a-{TEST_DATA_VERSION}"
-EXPERIMENT_NAME_B = f"pye2e-query-test-internal-composition-type-inference-b-{TEST_DATA_VERSION}"
-PATH = f"test/test-query-internal-infer-{TEST_DATA_VERSION}"
-DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc)
-FLOAT_SERIES_STEPS = [step * 0.5 for step in range(10)]
-FLOAT_SERIES_VALUES = [float(step**2) for step in range(10)]
-
-
-@pytest.fixture(scope="module")
-def run_with_attributes(client, api_token, project):
-    import uuid
-
-    from neptune_scale import Run
-
-    from neptune_query.internal import identifiers
-
-    project_identifier = project.project_identifier
-
-    force_data_generation = os.getenv("NEPTUNE_E2E_FORCE_DATA_GENERATION", "").lower() in ("true", "1", "yes")
-    if not force_data_generation:
-        existing = next(
-            fetch_experiment_sys_attrs(
-                client,
-                identifiers.ProjectIdentifier(project_identifier),
-                _Filter.name_eq(EXPERIMENT_NAME),
-            )
-        )
-        if existing.items:
-            return
-
-    run_id = str(uuid.uuid4())
-
-    run = Run(
-        api_token=api_token,
-        project=project_identifier,
-        run_id=run_id,
-        experiment_name=EXPERIMENT_NAME,
-        source_tracking_config=None,
-    )
-
-    data = {
-        f"{PATH}/int-value": 10,
-        f"{PATH}/float-value": 0.5,
-        f"{PATH}/str-value": "hello",
-        f"{PATH}/bool-value": True,
-        f"{PATH}/datetime-value": DATETIME_VALUE,
-        f"{PATH}/conflicting-type-int-str-value": 10,
-        f"{PATH}/conflicting-type-int-float-value": 3,
-    }
-    run.log_configs(data)
-
-    path = f"{PATH}/float-series-value"
-    for step, value in zip(FLOAT_SERIES_STEPS, FLOAT_SERIES_VALUES):
-        run.log_metrics(data={path: value}, step=step)
-
-    run.close()
-
-    return run
+DATETIME_VALUE = datetime(2025, 1, 1, 0, 0, 0, 0)
 
 
 @pytest.fixture(scope="module")
-def run_with_attributes_b(client, api_token, project):
-    import uuid
-
-    from neptune_scale import Run
-
-    from neptune_query.internal import identifiers
-
-    project_identifier = project.project_identifier
-
-    existing = next(
-        fetch_experiment_sys_attrs(
-            client,
-            identifiers.ProjectIdentifier(project_identifier),
-            _Filter.name_eq(EXPERIMENT_NAME_B),
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            project_name_base="composition-type-inference-project",
+            runs=[
+                RunData(
+                    experiment_name_base="composition-type-inference-a",
+                    run_id_base="composition-type-inference-run-a",
+                    configs={
+                        "int-value": 10,
+                        "float-value": 0.5,
+                        "str-value": "hello",
+                        "bool-value": True,
+                        "datetime-value": DATETIME_VALUE,
+                        "conflicting-type-int-str-value": 10,
+                        "conflicting-type-int-float-value": 3,
+                    },
+                    float_series={"float-series-value": {float(step * 0.5): float(step**2) for step in range(10)}},
+                ),
+                RunData(
+                    experiment_name_base="composition-type-inference-b",
+                    run_id_base="composition-type-inference-run-b",
+                    configs={
+                        "int-value": 10,
+                        "float-value": 0.5,
+                        "str-value": "hello",
+                        "bool-value": True,
+                        "datetime-value": DATETIME_VALUE,
+                        "conflicting-type-int-str-value": "hello",
+                        "conflicting-type-int-float-value": 0.3,
+                    },
+                ),
+            ],
         )
     )
-    if existing.items:
-        return
-
-    run_id = str(uuid.uuid4())
-
-    run = Run(
-        api_token=api_token,
-        project=project_identifier,
-        run_id=run_id,
-        experiment_name=EXPERIMENT_NAME_B,
-        source_tracking_config=None,
-    )
-
-    data = {
-        f"{PATH}/int-value": 10,
-        f"{PATH}/float-value": 0.5,
-        f"{PATH}/str-value": "hello",
-        f"{PATH}/bool-value": True,
-        f"{PATH}/datetime-value": DATETIME_VALUE,
-        f"{PATH}/conflicting-type-int-str-value": "hello",
-        f"{PATH}/conflicting-type-int-float-value": 0.3,
-    }
-    run.log_configs(data)
-
-    run.close()
-
-    return run
 
 
-def test_infer_attribute_types_in_filter_no_filter(client, executor, project, run_with_attributes):
+def test_infer_attribute_types_in_filter_no_filter(client, executor, project):
     # given
     project_identifier = project.project_identifier
 
@@ -139,35 +74,21 @@ def test_infer_attribute_types_in_filter_no_filter(client, executor, project, ru
 @pytest.mark.parametrize(
     "filter_before, filter_after",
     [
+        (_Filter.eq("int-value", 10), _Filter.eq(_Attribute("int-value", type="int"), 10)),
+        (_Filter.eq("float-value", 0.5), _Filter.eq(_Attribute("float-value", type="float"), 0.5)),
+        (_Filter.eq("str-value", "hello"), _Filter.eq(_Attribute("str-value", type="string"), "hello")),
+        (_Filter.eq("bool-value", True), _Filter.eq(_Attribute("bool-value", type="bool"), True)),
         (
-            _Filter.eq(f"{PATH}/int-value", 10),
-            _Filter.eq(_Attribute(f"{PATH}/int-value", type="int"), 10),
+            _Filter.eq("datetime-value", DATETIME_VALUE),
+            _Filter.eq(_Attribute("datetime-value", type="datetime"), DATETIME_VALUE),
         ),
         (
-            _Filter.eq(f"{PATH}/float-value", 0.5),
-            _Filter.eq(_Attribute(f"{PATH}/float-value", type="float"), 0.5),
-        ),
-        (
-            _Filter.eq(f"{PATH}/str-value", "hello"),
-            _Filter.eq(_Attribute(f"{PATH}/str-value", type="string"), "hello"),
-        ),
-        (
-            _Filter.eq(f"{PATH}/bool-value", True),
-            _Filter.eq(_Attribute(f"{PATH}/bool-value", type="bool"), True),
-        ),
-        (
-            _Filter.eq(f"{PATH}/datetime-value", DATETIME_VALUE),
-            _Filter.eq(_Attribute(f"{PATH}/datetime-value", type="datetime"), DATETIME_VALUE),
-        ),
-        (
-            _Filter.eq(f"{PATH}/float-series-value", FLOAT_SERIES_VALUES[-1]),
-            _Filter.eq(_Attribute(f"{PATH}/float-series-value", type="float_series"), FLOAT_SERIES_VALUES[-1]),
+            _Filter.eq("float-series-value", float(9**2)),
+            _Filter.eq(_Attribute("float-series-value", type="float_series"), float(9**2)),
         ),
     ],
 )
-def test_infer_attribute_types_in_filter_single(
-    client, executor, project, run_with_attributes, filter_before, filter_after
-):
+def test_infer_attribute_types_in_filter_single(client, executor, project, filter_before, filter_after):
     # given
     project_identifier = project.project_identifier
 
@@ -225,9 +146,7 @@ def test_infer_attribute_types_in_filter_single(
         ),
     ],
 )
-def test_infer_attribute_types_in_filter_sys(
-    client, executor, project, run_with_attributes, filter_before, filter_after
-):
+def test_infer_attribute_types_in_filter_sys(client, executor, project, filter_before, filter_after):
     # given
     project_identifier = project.project_identifier
 
@@ -249,17 +168,15 @@ def test_infer_attribute_types_in_filter_sys(
 @pytest.mark.parametrize(
     "attribute_before, attribute_after",
     [
-        (_Attribute(f"{PATH}/int-value"), _Attribute(f"{PATH}/int-value", type="int")),
-        (_Attribute(f"{PATH}/float-value"), _Attribute(f"{PATH}/float-value", type="float")),
-        (_Attribute(f"{PATH}/str-value"), _Attribute(f"{PATH}/str-value", type="string")),
-        (_Attribute(f"{PATH}/bool-value"), _Attribute(f"{PATH}/bool-value", type="bool")),
-        (_Attribute(f"{PATH}/datetime-value"), _Attribute(f"{PATH}/datetime-value", type="datetime")),
-        (_Attribute(f"{PATH}/float-series-value"), _Attribute(f"{PATH}/float-series-value", type="float_series")),
+        (_Attribute("int-value"), _Attribute("int-value", type="int")),
+        (_Attribute("float-value"), _Attribute("float-value", type="float")),
+        (_Attribute("str-value"), _Attribute("str-value", type="string")),
+        (_Attribute("bool-value"), _Attribute("bool-value", type="bool")),
+        (_Attribute("datetime-value"), _Attribute("datetime-value", type="datetime")),
+        (_Attribute("float-series-value"), _Attribute("float-series-value", type="float_series")),
     ],
 )
-def test_infer_attribute_types_in_sort_by_single(
-    client, executor, project, run_with_attributes, attribute_before, attribute_after
-):
+def test_infer_attribute_types_in_sort_by_single(client, executor, project, attribute_before, attribute_after):
     # given
     project_identifier = project.project_identifier
 
@@ -274,15 +191,10 @@ def test_infer_attribute_types_in_sort_by_single(
     result.raise_if_incomplete()  # doesn't raise
 
 
-@pytest.mark.parametrize(
-    "filter_before",
-    [
-        _Filter.eq(f"{PATH}/does-not-exist", 10),
-    ],
-)
-def test_infer_attribute_types_in_filter_missing(client, executor, project, filter_before):
+def test_infer_attribute_types_in_filter_missing(client, executor, project):
     # given
     project_identifier = project.project_identifier
+    filter_before = _Filter.eq("does-not-exist", 10)
 
     #  when
     result = infer_attribute_types_in_filter(
@@ -294,16 +206,10 @@ def test_infer_attribute_types_in_filter_missing(client, executor, project, filt
     assert result.result.attribute.type == "string"
 
 
-@pytest.mark.parametrize(
-    "attribute,experiment_filter",
-    [
-        (_Attribute(f"{PATH}/does-not-exist"), None),
-        (_Attribute(f"{PATH}/does-not-exist"), _Filter.name_eq(EXPERIMENT_NAME)),
-    ],
-)
-def test_infer_attribute_types_in_sort_by_missing_attribute(client, executor, project, attribute, experiment_filter):
+def test_infer_attribute_types_in_sort_by_missing_attribute(client, executor, project):
     # given
     project_identifier = project.project_identifier
+    attribute = _Attribute("does-not-exist")
 
     #  when
     result = infer_attribute_types_in_sort_by(
@@ -315,40 +221,10 @@ def test_infer_attribute_types_in_sort_by_missing_attribute(client, executor, pr
     assert result.result.type == "string"
 
 
-@pytest.mark.parametrize(
-    "attribute,experiment_filter,expected_type",
-    [
-        (_Attribute(f"{PATH}/does-not-exist"), _Filter.name_eq(EXPERIMENT_NAME + "does-not-exist"), "string"),
-        (_Attribute(f"{PATH}/int-value"), _Filter.name_eq(EXPERIMENT_NAME + "does-not-exist"), "int"),
-    ],
-)
-def test_infer_attribute_types_in_sort_by_missing_experiment(
-    client, executor, project, attribute, experiment_filter, expected_type
-):
+def test_infer_attribute_types_in_filter_conflicting_types_int_string(client, executor, project):
     # given
     project_identifier = project.project_identifier
-
-    #  when
-    result = infer_attribute_types_in_sort_by(
-        client, project_identifier, sort_by=attribute, fetch_attribute_definitions_executor=executor
-    )
-
-    # then
-    result.raise_if_incomplete()  # doesn't raise
-    assert result.result.type == expected_type
-
-
-@pytest.mark.parametrize(
-    "filter_before",
-    [
-        _Filter.eq(f"{PATH}/conflicting-type-int-str-value", 10),
-    ],
-)
-def test_infer_attribute_types_in_filter_conflicting_types_int_string(
-    client, executor, project, run_with_attributes, run_with_attributes_b, filter_before
-):
-    # given
-    project_identifier = project.project_identifier
+    filter_before = _Filter.eq("conflicting-type-int-str-value", 10)
 
     #  when
     result = infer_attribute_types_in_filter(
@@ -366,17 +242,10 @@ def test_infer_attribute_types_in_filter_conflicting_types_int_string(
 @pytest.mark.skip(
     reason="Backend inconsistently skips one of the two records (int/float). Merge with the test above when fixed"
 )
-@pytest.mark.parametrize(
-    "filter_before",
-    [
-        _Filter.eq(f"{PATH}/conflicting-type-int-float-value", 0.5),
-    ],
-)
-def test_infer_attribute_types_in_filter_conflicting_types_int_float(
-    client, executor, project, run_with_attributes, run_with_attributes_b, filter_before
-):
+def test_infer_attribute_types_in_filter_conflicting_types_int_float(client, executor, project):
     # given
     project_identifier = project.project_identifier
+    filter_before = _Filter.eq("conflicting-type-int-float-value", 0.5)
 
     #  when
     result = infer_attribute_types_in_filter(
@@ -391,21 +260,10 @@ def test_infer_attribute_types_in_filter_conflicting_types_int_float(
     )
 
 
-@pytest.mark.parametrize(
-    "attribute_before,experiment_filter",
-    [
-        (_Attribute(f"{PATH}/conflicting-type-int-str-value"), None),
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-str-value"),
-            _Filter.any([_Filter.name_eq(EXPERIMENT_NAME), _Filter.name_eq(EXPERIMENT_NAME_B)]),
-        ),
-    ],
-)
-def test_infer_attribute_types_in_sort_by_conflicting_types_int_string(
-    client, executor, project, run_with_attributes, run_with_attributes_b, attribute_before, experiment_filter
-):
+def test_infer_attribute_types_in_sort_by_conflicting_types_int_string(client, executor, project):
     # given
     project_identifier = project.project_identifier
+    attribute_before = _Attribute("conflicting-type-int-str-value")
 
     #  when
     result = infer_attribute_types_in_sort_by(
@@ -414,6 +272,7 @@ def test_infer_attribute_types_in_sort_by_conflicting_types_int_string(
 
     # then
     result.raise_if_incomplete()  # doesn't raise
+    assert result.result.type == "string"
 
     with pytest.warns(
         UserWarning,
@@ -422,21 +281,10 @@ def test_infer_attribute_types_in_sort_by_conflicting_types_int_string(
         result.emit_warnings()
 
 
-@pytest.mark.parametrize(
-    "attribute_before,experiment_filter",
-    [
-        (_Attribute(f"{PATH}/conflicting-type-int-float-value"), None),
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-float-value"),
-            _Filter.any([_Filter.name_eq(EXPERIMENT_NAME), _Filter.name_eq(EXPERIMENT_NAME_B)]),
-        ),
-    ],
-)
-def test_infer_attribute_types_in_sort_by_conflicting_types_int_float(
-    client, executor, project, run_with_attributes, run_with_attributes_b, attribute_before, experiment_filter
-):
+def test_infer_attribute_types_in_sort_by_conflicting_types_int_float(client, executor, project):
     # given
     project_identifier = project.project_identifier
+    attribute_before = _Attribute("conflicting-type-int-float-value")
 
     #  when
     result = infer_attribute_types_in_sort_by(
@@ -445,58 +293,7 @@ def test_infer_attribute_types_in_sort_by_conflicting_types_int_float(
 
     # then
     result.raise_if_incomplete()  # doesn't raise
-    with pytest.warns(
-        UserWarning,
-        match="found the attribute name in multiple runs and experiments across the project with conflicting types",
-    ):
-        result.emit_warnings()
-
-
-@pytest.mark.parametrize(
-    "attribute_before,experiment_filter,attribute_after",
-    [
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-str-value"),
-            _Filter.name_eq(EXPERIMENT_NAME),
-            _Attribute(f"{PATH}/conflicting-type-int-str-value", type="int"),
-        ),
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-str-value"),
-            _Filter.name_eq(EXPERIMENT_NAME_B),
-            _Attribute(f"{PATH}/conflicting-type-int-str-value", type="string"),
-        ),
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-float-value"),
-            _Filter.name_eq(EXPERIMENT_NAME),
-            _Attribute(f"{PATH}/conflicting-type-int-float-value", type="int"),
-        ),
-        (
-            _Attribute(f"{PATH}/conflicting-type-int-float-value"),
-            _Filter.name_eq(EXPERIMENT_NAME_B),
-            _Attribute(f"{PATH}/conflicting-type-int-float-value", type="float"),
-        ),
-    ],
-)
-def test_infer_attribute_types_in_sort_by_conflicting_types_with_filter(
-    client,
-    executor,
-    project,
-    run_with_attributes,
-    run_with_attributes_b,
-    attribute_before,
-    experiment_filter,
-    attribute_after,
-):
-    # given
-    project_identifier = project.project_identifier
-
-    #  when
-    result = infer_attribute_types_in_sort_by(
-        client, project_identifier, sort_by=attribute_before, fetch_attribute_definitions_executor=executor
-    )
-
-    # then
-    result.raise_if_incomplete()  # doesn't raise
+    assert result.result.type == "string"
     with pytest.warns(
         UserWarning,
         match="found the attribute name in multiple runs and experiments across the project with conflicting types",
