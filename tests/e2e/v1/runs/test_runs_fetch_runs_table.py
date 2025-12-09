@@ -1,4 +1,3 @@
-import os
 from datetime import (
     datetime,
     timezone,
@@ -13,8 +12,114 @@ from neptune_query.filters import (
     AttributeFilter,
     Filter,
 )
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+)
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
+
+# TODO: remove once all e2e tests use the ensure_project framework
+@pytest.fixture(scope="module", autouse=True)
+def run_with_attributes_autouse():
+    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
+    return None
+
+
+@pytest.fixture(scope="module")
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    # root (level: None)
+    #   └── fork1 (level: 1, fork_point: 4)
+    #         └── fork2 (level: 2, fork_point: 8)
+    linear_history_tree = [
+        RunData(
+            experiment_name="exp_with_linear_history",
+            run_id="linear_history_root",
+            float_series={
+                "foo0": {float(step): float(step * 0.1) for step in range(10)},
+                "foo1": {float(step): float(step * 0.2) for step in range(10)},
+            },
+            configs={
+                "int-value": 1,
+                "float-value": 1.0,
+                "str-value": "hello_1",
+                "bool-value": False,
+                "datetime-value": datetime(2025, 1, 1, 1, 0, 0, 0, timezone.utc),
+            },
+        ),
+        RunData(
+            experiment_name="exp_with_linear_history",
+            run_id="linear_history_fork1",
+            fork_point=("linear_history_root", 4.0),
+            configs={
+                "int-value": 2,
+                "float-value": 2.0,
+                "str-value": "hello_2",
+                "bool-value": True,
+                "datetime-value": datetime(2025, 1, 1, 2, 0, 0, 0, timezone.utc),
+            },
+        ),
+        RunData(
+            experiment_name="exp_with_linear_history",
+            run_id="linear_history_fork2",
+            fork_point=("linear_history_fork1", 8.0),
+            float_series={
+                "foo0": {float(step): float(step * 0.7) for step in range(9, 20)},
+            },
+            configs={
+                "int-value": 3,
+                "float-value": 3.0,
+                "str-value": "hello_3",
+                "bool-value": False,
+                "datetime-value": datetime(2025, 1, 1, 3, 0, 0, 0, timezone.utc),
+            },
+        ),
+    ]
+
+    # forked_history_tree:
+    # root (level: None)
+    #   ├── fork1 (level: 1, fork_point: 4)
+    #   └── fork2 (level: 1, fork_point: 8)
+    forked_history_tree = [
+        RunData(
+            experiment_name="epx_with_forked_history",
+            run_id="forked_history_root",
+            configs={
+                "int-value": 1,
+                "float-value": 1.0,
+                "str-value": "hello_1",
+                "bool-value": False,
+                "datetime-value": datetime(2025, 1, 1, 1, 0, 0, 0, timezone.utc),
+            },
+        ),
+        RunData(
+            experiment_name="epx_with_forked_history",
+            run_id="forked_history_fork1",
+            fork_point=("forked_history_root", 4.0),
+            configs={
+                "int-value": 2,
+                "float-value": 2.0,
+                "str-value": "hello_2",
+                "bool-value": True,
+                "datetime-value": datetime(2025, 1, 1, 2, 0, 0, 0, timezone.utc),
+            },
+        ),
+        RunData(
+            experiment_name="epx_with_forked_history",
+            run_id="forked_history_fork2",
+            fork_point=("forked_history_root", 8.0),
+            configs={
+                "int-value": 3,
+                "float-value": 3.0,
+                "str-value": "hello_3",
+                "bool-value": False,
+                "datetime-value": datetime(2025, 1, 1, 3, 0, 0, 0, timezone.utc),
+            },
+        ),
+    ]
+
+    return ensure_project(ProjectData(runs=linear_history_tree + forked_history_tree))
 
 
 @pytest.mark.parametrize(
@@ -169,14 +274,14 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 )
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 def test_fetch_runs_table(
-    new_project_id,
+    project: IngestedProjectData,
     runs_filter,
     attributes_filter,
     expected_attributes,
     type_suffix_in_column_names: bool,
 ):
     df = runs.fetch_runs_table(
-        project=new_project_id,
+        project=project.project_identifier,
         runs=runs_filter,
         attributes=attributes_filter,
         sort_by=Attribute("sys/custom_run_id", type="string"),
