@@ -51,13 +51,15 @@ def test__download_files_from_table(project, temp_dir):
     files = fetch_experiments_table(
         project=project.project_identifier,
         experiments="experiment-with-files",
-        attributes="files/",
+        attributes="files/file-value.txt",
     )
     assert not files.empty
     result_df = download_files(
         files=files,
         destination=temp_dir,
     )
+
+    print(files)
 
     # then
     expected_path = (temp_dir / "experiment-with-files" / "files/file-value_txt.txt").resolve()
