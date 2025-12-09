@@ -8,25 +8,50 @@ from neptune_query import (
     fetch_experiments_table,
     fetch_series,
 )
-from tests.e2e.data import (
-    FILE_SERIES_PATHS,
-    PATH,
-    TEST_DATA,
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    IngestionFile,
+    ProjectData,
+    RunData,
 )
 
-EXPERIMENT_NAME = TEST_DATA.experiment_names[0]
+
+@pytest.fixture(scope="module")
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            runs=[
+                RunData(
+                    experiment_name="experiment-with-files",
+                    files={
+                        "files/file-value.txt": IngestionFile(
+                            source=b"Text content",
+                            mime_type="text/plain",  # .txt file
+                        )
+                    },
+                    file_series={
+                        "files/file-series-value_0": {
+                            i: IngestionFile(
+                                source=f"file-0-{i}".encode("utf-8"),
+                                mime_type="application/octet-stream",  # .bin file
+                            )
+                            for i in range(3)
+                        },
+                    },
+                ),
+            ]
+        )
+    )
 
 
 @pytest.mark.files
 def test__download_files_from_table(project, temp_dir):
-    # given
-    attribute = f"{PATH}/files/file-value.txt"
-
     # when
     files = fetch_experiments_table(
         project=project.project_identifier,
-        experiments=EXPERIMENT_NAME,
-        attributes=attribute,
+        experiments="experiment-with-files",
+        attributes="files/file-value.txt",
     )
     assert not files.empty
     result_df = download_files(
@@ -35,20 +60,20 @@ def test__download_files_from_table(project, temp_dir):
     )
 
     # then
-    expected_path = (temp_dir / EXPERIMENT_NAME / f"{PATH}/files/file-value_txt.txt").resolve()
+    expected_path = (temp_dir / "experiment-with-files" / "files/file-value_txt.txt").resolve()
     expected_df = pd.DataFrame(
         [
             {
-                "experiment": EXPERIMENT_NAME,
+                "experiment": "experiment-with-files",
                 "step": None,
-                f"{PATH}/files/file-value.txt": str(expected_path),
+                "files/file-value.txt": str(expected_path),
             }
         ]
     ).set_index(["experiment", "step"])
     expected_df.columns.names = ["attribute"]
     pd.testing.assert_frame_equal(result_df, expected_df)
 
-    target_path = result_df.loc[(EXPERIMENT_NAME, None), f"{PATH}/files/file-value.txt"]
+    target_path = result_df.loc[("experiment-with-files", None), "files/file-value.txt"]
     assert pathlib.Path(target_path).exists()
     with open(target_path, "rb") as file:
         content = file.read()
@@ -57,14 +82,11 @@ def test__download_files_from_table(project, temp_dir):
 
 @pytest.mark.files
 def test__download_files_from_file_series(project, temp_dir):
-    # given
-    attribute = FILE_SERIES_PATHS[0]
-
     # when
     file_series = fetch_series(
         project=project.project_identifier,
-        experiments=EXPERIMENT_NAME,
-        attributes=attribute,
+        experiments="experiment-with-files",
+        attributes="files/file-series-value_0",
     )
     assert not file_series.empty
     result_df = download_files(
@@ -76,11 +98,11 @@ def test__download_files_from_file_series(project, temp_dir):
     expected_df = pd.DataFrame(
         [
             {
-                "experiment": EXPERIMENT_NAME,
+                "experiment": "experiment-with-files",
                 "step": step,
-                f"{PATH}/files/file-series-value_0": str(
+                "files/file-series-value_0": str(
                     (
-                        temp_dir / EXPERIMENT_NAME / f"{PATH}/files/file-series-value_0/step_{int(step)}_000000.bin"
+                        temp_dir / "experiment-with-files" / f"files/file-series-value_0/step_{int(step)}_000000.bin"
                     ).resolve()
                 ),
             }
@@ -91,7 +113,7 @@ def test__download_files_from_file_series(project, temp_dir):
     pd.testing.assert_frame_equal(result_df, expected_df)
 
     for step in (0.0, 1.0, 2.0):
-        target_path = result_df.loc[(EXPERIMENT_NAME, step), f"{PATH}/files/file-series-value_0"]
+        target_path = result_df.loc[("experiment-with-files", step), "files/file-series-value_0"]
         with open(target_path, "rb") as file:
             content = file.read()
             expected_content = f"file-0-{int(step)}".encode("utf-8")
