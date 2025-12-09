@@ -24,9 +24,20 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
             runs=[
                 RunData(
                     experiment_name="experiment-with-files",
-                    files={"files/file-value.txt": IngestionFile(source=b"Text content", mime_type="text/plain")},
+                    files={
+                        "files/file-value.txt": IngestionFile(
+                            source=b"Text content",
+                            mime_type="text/plain",  # .txt file
+                        )
+                    },
                     file_series={
-                        "files/file-series-value_0": {i: f"file-0-{i}".encode("utf-8") for i in range(3)},
+                        "files/file-series-value_0": {
+                            i: IngestionFile(
+                                source=f"file-0-{i}".encode("utf-8"),
+                                mime_type="application/octet-stream",  # .bin file
+                            )
+                            for i in range(3)
+                        },
                     },
                 ),
             ]
