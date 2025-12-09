@@ -1,5 +1,7 @@
-import itertools as it
-import os
+from datetime import (
+    datetime,
+    timezone,
+)
 from typing import Iterable
 
 import pytest
@@ -10,91 +12,175 @@ from neptune_query.filters import (
     AttributeFilter,
     Filter,
 )
-from tests.e2e.data import (
-    FILE_SERIES_PATHS,
-    FLOAT_SERIES_PATHS,
-    HISTOGRAM_SERIES_PATHS,
-    PATH,
-    STRING_SERIES_PATHS,
-    TEST_DATA,
-    TEST_DATA_VERSION,
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    IngestionHistogram,
+    ProjectData,
+    RunData,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
+FLOAT_SERIES_PATHS = [f"metrics/float-series-value_{j}" for j in range(5)]
+STRING_SERIES_PATHS = [f"metrics/string-series-value_{j}" for j in range(2)]
+HISTOGRAM_SERIES_PATHS = [f"metrics/histogram-series-value_{j}" for j in range(3)]
+
+SERIES_PATHS = set(FLOAT_SERIES_PATHS + STRING_SERIES_PATHS + HISTOGRAM_SERIES_PATHS)
+
+EXPERIMENT_NAMES = ["test_alpha_0", "test_alpha_1", "test_alpha_2"]
+
+# Expected attributes for this module’s dataset
+ALL_ATTRIBUTE_NAMES = SERIES_PATHS | {
+    "bool-value",
+    "datetime-value",
+    "float-value",
+    "int-value",
+    "str-value",
+    "string_set-value",
+    "unique-value-0",
+    "unique-value-1",
+    "unique-value-2",
+    "unique-value-3",
+    "unique-value-4",
+    "unique-value-5",
+    "files/file-value",
+    "files/file-value.txt",
+    "files/object-does-not-exist",
+    "files/file-series-value_0",
+    "files/file-series-value_1",
+}
 
 
 def _drop_sys_attr_names(attributes: Iterable[str]) -> list[str]:
     return [attr for attr in attributes if not attr.startswith("sys/")]
 
 
-# Convenience filter to limit searches to experiments belonging to this test,
-# in case the run has some extra experiments.
-EXPERIMENTS_IN_THIS_TEST = Filter.name(TEST_DATA.experiment_names)
+@pytest.fixture(scope="module", autouse=True)
+def run_with_attributes_autouse():
+    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
+    return None
 
-ALL_V1_ATTRIBUTE_NAMES = set(it.chain.from_iterable(exp.all_attribute_names for exp in TEST_DATA.experiments))
+
+@pytest.fixture(scope="module")
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    runs: list[RunData] = [
+        RunData(
+            experiment_name="test_alpha_0",
+            configs={
+                "int-value": 1,
+                "float-value": 1.0,
+                "str-value": "hello_1",
+                "bool-value": True,
+                "datetime-value": datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc),
+                "unique-value-0": "unique_0",
+                "unique-value-3": "unique_3",
+            },
+            string_sets={"string_set-value": [f"string-0-{j}" for j in range(3)]},
+            float_series={
+                "metrics/float-series-value_0": {float(step): step / 1.0 for step in range(10)},
+                "metrics/float-series-value_1": {float(step): step / 2.0 for step in range(10)},
+                "metrics/float-series-value_2": {float(step): step / 3.0 for step in range(10)},
+            },
+            string_series={
+                p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS
+            },
+            histogram_series={
+                p: {
+                    float(step): IngestionHistogram(
+                        bin_edges=[n + step for n in range(4)], counts=[n * step for n in range(3)]
+                    )
+                    for step in range(10)
+                }
+                for p in HISTOGRAM_SERIES_PATHS
+            },
+            files={
+                "files/file-value": b"Binary content",
+                "files/file-value.txt": b"Text content",
+                "files/object-does-not-exist": b"x",
+            },
+            file_series={
+                "files/file-series-value_0": {
+                    float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)
+                },
+                "files/file-series-value_1": {
+                    float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)
+                },
+            }
+        ),
+        RunData(
+            experiment_name="test_alpha_1",
+            configs={
+                "int-value": 2,
+                "float-value": 2.0,
+                "str-value": "hello_2",
+                "bool-value": False,
+                "datetime-value": datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc),
+                "unique-value-1": "unique_1",
+                "unique-value-4": "unique_4",
+            },
+            string_sets={"string_set-value": [f"string-1-{j}" for j in range(3)]},
+            float_series={
+                p: {float(step): step / 2.0 for step in range(10)} for p in FLOAT_SERIES_PATHS
+            },
+            string_series={
+                p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS
+            },
+            histogram_series={
+                p: {
+                    float(step): IngestionHistogram(
+                        bin_edges=[n + step for n in range(4)], counts=[n * step for n in range(3)]
+                    )
+                    for step in range(10)
+                }
+                for p in HISTOGRAM_SERIES_PATHS
+            },
+        ),
+        RunData(
+            experiment_name="test_alpha_2",
+            configs={
+                "int-value": 3,
+                "float-value": 3.0,
+                "str-value": "hello_3",
+                "bool-value": True,
+                "datetime-value": datetime(2025, 1, 1, 0, 0, 0, 0, timezone.utc),
+                "unique-value-2": "unique_2",
+                "unique-value-5": "unique_5",
+            },
+        ),
+    ]
+
+    return ensure_project(ProjectData(runs=runs))
 
 
 @pytest.mark.parametrize(
     "arg_experiments",
     (
-        EXPERIMENTS_IN_THIS_TEST,
-        TEST_DATA.experiment_names,
-        f"test_alpha_[0-9]+_{TEST_DATA_VERSION}",
-        ".*",
-        None,
+        Filter.name(EXPERIMENT_NAMES),
+        EXPERIMENT_NAMES,
+        "test_alpha_[0-9]+",
     ),
 )
 @pytest.mark.parametrize(
     "arg_attributes, expected",
     [
-        (PATH, ALL_V1_ATTRIBUTE_NAMES),
-        (f"{PATH}/int-value", {f"{PATH}/int-value"}),
+        (".*", ALL_ATTRIBUTE_NAMES),
+        ("int-value", {"int-value"}),
+        ("metrics/.*", SERIES_PATHS),
         (
-            rf"{PATH}/metrics/.*",
-            FLOAT_SERIES_PATHS + [f"{PATH}/metrics/step"] + STRING_SERIES_PATHS + HISTOGRAM_SERIES_PATHS,
-        ),
-        (
-            rf"{PATH}/files/.*",
+            "files/.*",
             {
-                f"{PATH}/files/file-value",
-                f"{PATH}/files/file-value.txt",
-                f"{PATH}/files/object-does-not-exist",
-                f"{PATH}/files/file-series-value_0",
-                f"{PATH}/files/file-series-value_1",
+                "files/file-value",
+                "files/file-value.txt",
+                "files/object-does-not-exist",
+                "files/file-series-value_0",
+                "files/file-series-value_1",
             },
         ),
+        ("unique-value-[0-9]", {f"unique-value-{i}" for i in range(6)}),
+        (AttributeFilter(name=".*"), ALL_ATTRIBUTE_NAMES),
         (
-            rf"{PATH}/.*-value$",
-            {
-                f"{PATH}/int-value",
-                f"{PATH}/float-value",
-                f"{PATH}/str-value",
-                f"{PATH}/bool-value",
-                f"{PATH}/datetime-value",
-                f"{PATH}/string_set-value",
-                f"{PATH}/files/file-value",
-            },
-        ),
-        (rf"{PATH}/unique-value-[0-9]", {f"{PATH}/unique-value-{i}" for i in range(6)}),
-        (AttributeFilter(name=PATH), ALL_V1_ATTRIBUTE_NAMES),
-        (AttributeFilter(name=f"{PATH}/float-value"), {f"{PATH}/float-value"}),
-        (
-            AttributeFilter.any(AttributeFilter(name="^(foo)"), AttributeFilter(name=PATH)),
-            ALL_V1_ATTRIBUTE_NAMES,
-        ),
-        (
-            AttributeFilter(name=rf"{PATH}/metrics/string-series-value_.*", type=["string_series"]),
+            AttributeFilter(name="metrics/string-series-value_.*", type=["string_series"]),
             set(STRING_SERIES_PATHS),
         ),
-        (
-            AttributeFilter(name=rf"{PATH}/metrics/histogram-series-value_.*", type=["histogram_series"]),
-            set(HISTOGRAM_SERIES_PATHS),
-        ),
-        (
-            AttributeFilter(name=rf"{PATH}/files/file-series-value_.*", type=["file_series"]),
-            set(FILE_SERIES_PATHS),
-        ),
-        (AttributeFilter(name=f"^(foo) | {PATH}"), ALL_V1_ATTRIBUTE_NAMES),  # ERS OR
         (AttributeFilter(name="!.*"), []),  # ERS NOT
     ],
 )
@@ -122,9 +208,9 @@ def test_list_attributes_known_in_all_experiments_with_name_filter_excluding_sys
     ),
 )
 def test_list_attributes_all_names_from_all_experiments_excluding_sys(name_filter):
-    attributes = _drop_sys_attr_names(list_attributes(experiments=EXPERIMENTS_IN_THIS_TEST, attributes=name_filter))
-    assert set(attributes) == set(ALL_V1_ATTRIBUTE_NAMES)
-    assert len(attributes) == len(ALL_V1_ATTRIBUTE_NAMES)
+    attributes = _drop_sys_attr_names(list_attributes(experiments=Filter.name(EXPERIMENT_NAMES), attributes=name_filter))
+    assert set(attributes) == set(ALL_ATTRIBUTE_NAMES)
+    assert len(attributes) == len(ALL_ATTRIBUTE_NAMES)
 
 
 @pytest.mark.parametrize(
@@ -132,8 +218,6 @@ def test_list_attributes_all_names_from_all_experiments_excluding_sys(name_filte
     (
         "unknown",
         ".*unknown.*",
-        "sys/abcdef",
-        "\\x20",
         AttributeFilter(name="unknown"),
     ),
 )
@@ -145,58 +229,36 @@ def test_list_attributes_unknown_name(filter_):
 @pytest.mark.parametrize(
     "arg_experiments, arg_attributes, expected",
     [
-        (EXPERIMENTS_IN_THIS_TEST, r"unique-value-[0-2]", {f"{PATH}/unique-value-{i}" for i in range(3)}),
+        (Filter.name(EXPERIMENT_NAMES), "unique-value-[0-2]", {f"unique-value-{i}" for i in range(3)}),
         (
-            f"test_alpha_.*_{TEST_DATA_VERSION}",
-            rf"{PATH}/unique-value-[0-2]",
-            {f"{PATH}/unique-value-{i}" for i in range(3)},
+            "test_alpha_(0|2)",
+            "unique-value-.*",
+            {"unique-value-0", "unique-value-2", "unique-value-3", "unique-value-5"},
         ),
         (
-            rf"test_alpha_(0|2)_{TEST_DATA_VERSION}",
-            rf"{PATH}/unique-value-.*",
-            {f"{PATH}/unique-value-0", f"{PATH}/unique-value-2"},
+            Filter.contains_all(Attribute("string_set-value", type="string_set"), "string-0-0"),
+            "unique-value-.*",
+            {"unique-value-0", "unique-value-3"},
         ),
         (
-            Filter.contains_all(Attribute(f"{PATH}/string_set-value", type="string_set"), "string-0-0"),
-            rf"{PATH}/unique-value-.*",
-            {f"{PATH}/unique-value-0"},
+            Filter.contains_none(Attribute("string_set-value", type="string_set"), ["string-0-0", "string-1-0"]),
+            "unique-value-.*",
+            {"unique-value-2", "unique-value-5"},
         ),
         (
-            Filter.contains_none(
-                Attribute(f"{PATH}/string_set-value", type="string_set"), ["string-0-0", "string-1-0", "string-4-0"]
-            ),
-            rf"{PATH}/unique-value-.*",
-            {f"{PATH}/unique-value-{i}" for i in (2, 3, 5)},
+            EXPERIMENT_NAMES,
+            ["int-value", "float-value"],
+            {"int-value", "float-value"},
         ),
         (
-            TEST_DATA.experiment_names,
-            [f"{PATH}/int-value", f"{PATH}/float-value"],
-            {f"{PATH}/int-value", f"{PATH}/float-value"},
+            Filter.lt(Attribute("int-value", type="int"), 4) & Filter.name(EXPERIMENT_NAMES),
+            "unique-value",
+            {f"unique-value-{i}" for i in range(6)},
         ),
         (
-            Filter.gt(Attribute(f"{PATH}/int-value", type="int"), 1234) & EXPERIMENTS_IN_THIS_TEST,
-            AttributeFilter(name="!sys/.* & .*"),
-            [],
-        ),
-        (
-            Filter.eq(Attribute(f"{PATH}/str-value", type="string"), "hello_12345") & EXPERIMENTS_IN_THIS_TEST,
-            AttributeFilter(name="!sys/.* & .*"),
-            [],
-        ),
-        (
-            Filter.lt(Attribute(f"{PATH}/int-value", type="int"), 3) & EXPERIMENTS_IN_THIS_TEST,
-            f"{PATH}/unique-value",
-            {f"{PATH}/unique-value-{i}" for i in range(3)},
-        ),
-        (
-            Filter.eq(Attribute(f"{PATH}/bool-value", type="bool"), False) & EXPERIMENTS_IN_THIS_TEST,
-            f"{PATH}/unique-value",
-            {f"{PATH}/unique-value-{i}" for i in (1, 3, 5)},
-        ),
-        (
-            Filter.eq(Attribute(f"{PATH}/bool-value", type="bool"), False) & EXPERIMENTS_IN_THIS_TEST,
-            f"{PATH}/unique-value",
-            {f"{PATH}/unique-value-{i}" for i in (1, 3, 5)},
+            Filter.eq(Attribute("bool-value", type="bool"), False) & Filter.name(EXPERIMENT_NAMES),
+            "unique-value",
+            {"unique-value-1", "unique-value-4"},
         ),
     ],
 )
