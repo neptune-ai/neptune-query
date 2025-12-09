@@ -90,6 +90,7 @@ class IngestedRunData:
     float_series: dict[str, dict[float, float]]
     string_series: dict[str, dict[float, str]]
     histogram_series: dict[str, dict[float, IngestionHistogram]]
+    file_series: dict[str, dict[float, IngestionFile]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,7 @@ def ingest_project(
                 float_series=run_data.float_series,
                 string_series=run_data.string_series,
                 histogram_series=run_data.histogram_series,
+                file_series=run_data.file_series,
             )
             for run_data in project_data.runs
         ],
