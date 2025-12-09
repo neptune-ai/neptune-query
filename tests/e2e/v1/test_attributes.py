@@ -158,6 +158,8 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
         Filter.name(EXPERIMENT_NAMES),
         EXPERIMENT_NAMES,
         "test_alpha_[0-9]+",
+        ".*",
+        None,
     ),
 )
 @pytest.mark.parametrize(
