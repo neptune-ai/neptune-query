@@ -30,6 +30,7 @@ jobs:
     runs-on: tools-gha-runners
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         include:
           - env: "AZURE"
