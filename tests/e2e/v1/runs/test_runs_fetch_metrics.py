@@ -1,17 +1,100 @@
-import os
-
 import pandas as pd
 import pytest
 
 import neptune_query.runs as runs
-from neptune_query.internal import identifiers
+from neptune_query.internal.identifiers import (
+    AttributeDefinition,
+    ProjectIdentifier,
+    RunAttributeDefinition,
+    RunIdentifier,
+    SysId,
+)
 from neptune_query.internal.output_format import create_metrics_dataframe
-from tests.e2e.v1.generator import (
-    RUN_BY_ID,
-    timestamp_for_step,
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
+    step_to_timestamp,
 )
 
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
+METRICS: dict[str, dict[str, list[tuple[float, float]]]] = {
+    "linear_history_root": {
+        "foo0": [(float(step), float(step * 0.1)) for step in range(10)],
+        "foo1": [(float(step), float(step * 0.2)) for step in range(10)],
+        "unique1/0": [(float(step), float(step * 0.3)) for step in range(10)],
+    },
+    "linear_history_fork1": {
+        "foo0": [(float(step), float(step * 0.4)) for step in range(5, 10)],
+        "foo1": [(float(step), float(step * 0.5)) for step in range(5, 10)],
+        "unique2/0": [(float(step), float(step * 0.6)) for step in range(5, 10)],
+    },
+    "forked_history_root": {
+        "foo0": [(float(step), float(step * 0.1)) for step in range(1, 5)],
+        "foo1": [(float(step), float(step * 0.2)) for step in range(1, 5)],
+    },
+    "forked_history_fork1": {
+        "foo0": [(float(step), float(step * 0.4)) for step in range(5, 9)],
+        "foo1": [(float(step), float(step * 0.5)) for step in range(5, 9)],
+    },
+    "forked_history_fork2": {
+        "foo0": [(float(step), float(step * 0.7)) for step in range(9, 20)],
+        "foo1": [(float(step), float(step * 0.8)) for step in range(9, 20)],
+    },
+}
+
+
+# TODO: remove once all e2e tests use the ensure_project framework
+@pytest.fixture(scope="module", autouse=True)
+def run_with_attributes_autouse():
+    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
+    return None
+
+
+@pytest.fixture(scope="module")
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    # root (level: None)
+    #   └── fork1 (level: 1, fork_point: 4)
+    #         └── fork2 (level: 2, fork_point: 8)
+    linear_history_tree = [
+        RunData(
+            experiment_name="linear-history",
+            run_id="linear_history_root",
+            float_series={name: dict(series) for name, series in METRICS["linear_history_root"].items()},
+        ),
+        RunData(
+            experiment_name="linear-history",
+            run_id="linear_history_fork1",
+            fork_point=("linear_history_root", 4.0),
+            float_series={name: dict(series) for name, series in METRICS["linear_history_fork1"].items()},
+        ),
+    ]
+
+    # forked_history_tree:
+    # root (level: None)
+    #   ├── fork1 (level: 1, fork_point: 4)
+    #   └── fork2 (level: 1, fork_point: 8)
+    forked_history_tree = [
+        RunData(
+            experiment_name="forked-history",
+            run_id="forked_history_root",
+            float_series={name: dict(series) for name, series in METRICS["forked_history_root"].items()},
+        ),
+        RunData(
+            experiment_name="forked-history",
+            run_id="forked_history_fork1",
+            fork_point=("forked_history_root", 4.0),
+            float_series={name: dict(series) for name, series in METRICS["forked_history_fork1"].items()},
+        ),
+        RunData(
+            experiment_name="forked-history",
+            run_id="forked_history_fork2",
+            fork_point=("forked_history_root", 8.0),
+            float_series={name: dict(series) for name, series in METRICS["forked_history_fork2"].items()},
+        ),
+    ]
+
+    return ensure_project(ProjectData(runs=linear_history_tree + forked_history_tree))
 
 
 @pytest.mark.parametrize(
@@ -37,7 +120,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^linear_history_root$",
             r"^foo0$",
             {
-                ("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0"),
+                ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"],
             },
             None,
             (None, None),
@@ -46,7 +129,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
         (
             r"^linear_history_root$",
             r"^foo0$",
-            {("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[-3:]},
+            {("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][-3:]},
             3,
             (None, None),
             True,
@@ -54,7 +137,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
         (
             r"^linear_history_root$",
             r"^foo0$",
-            {("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[0:7]},
+            {("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][0:7]},
             None,
             (0, 6),
             True,
@@ -62,7 +145,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
         (
             r"^linear_history_root$",
             r"^foo0$",
-            {("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[4:7]},
+            {("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][4:7]},
             3,
             (0, 6),
             True,
@@ -71,10 +154,10 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^linear_history_(root|fork1)$",
             r"foo.*",
             {
-                ("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[2:5],
-                ("linear_history_root", "foo1"): RUN_BY_ID["linear_history_root"].metrics_values("foo1")[2:5],
-                ("linear_history_fork1", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[2:5],
-                ("linear_history_fork1", "foo1"): RUN_BY_ID["linear_history_root"].metrics_values("foo1")[2:5],
+                ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][2:5],
+                ("linear_history_root", "foo1"): METRICS["linear_history_root"]["foo1"][2:5],
+                ("linear_history_fork1", "foo0"): METRICS["linear_history_root"]["foo0"][2:5],
+                ("linear_history_fork1", "foo1"): METRICS["linear_history_root"]["foo1"][2:5],
             },
             3,
             (0, 4),
@@ -84,10 +167,10 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^linear_history_(root|fork1)$",
             r"foo.*",
             {
-                ("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[2:5],
-                ("linear_history_root", "foo1"): RUN_BY_ID["linear_history_root"].metrics_values("foo1")[2:5],
-                ("linear_history_fork1", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[2:5],
-                ("linear_history_fork1", "foo1"): RUN_BY_ID["linear_history_root"].metrics_values("foo1")[2:5],
+                ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][2:5],
+                ("linear_history_root", "foo1"): METRICS["linear_history_root"]["foo1"][2:5],
+                ("linear_history_fork1", "foo0"): METRICS["linear_history_root"]["foo0"][2:5],
+                ("linear_history_fork1", "foo1"): METRICS["linear_history_root"]["foo1"][2:5],
             },
             3,
             (None, 4),
@@ -97,8 +180,8 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^linear_history_(root|fork1)$",
             r"foo.*",
             {
-                ("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[2:5],
-                ("linear_history_root", "foo1"): RUN_BY_ID["linear_history_root"].metrics_values("foo1")[2:5],
+                ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][2:5],
+                ("linear_history_root", "foo1"): METRICS["linear_history_root"]["foo1"][2:5],
             },
             3,
             (0, 4),
@@ -108,8 +191,8 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             ["linear_history_root", "linear_history_fork1"],
             r"unique.*",
             {
-                ("linear_history_root", "unique1/0"): RUN_BY_ID["linear_history_root"].metrics_values("unique1/0"),
-                ("linear_history_fork1", "unique2/0"): RUN_BY_ID["linear_history_fork1"].metrics_values("unique2/0"),
+                ("linear_history_root", "unique1/0"): METRICS["linear_history_root"]["unique1/0"],
+                ("linear_history_fork1", "unique2/0"): METRICS["linear_history_fork1"]["unique2/0"],
             },
             None,
             (None, None),
@@ -119,8 +202,8 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^linear_history_(root|fork1)$",
             r"unique.*",
             {
-                ("linear_history_root", "unique1/0"): RUN_BY_ID["linear_history_root"].metrics_values("unique1/0"),
-                ("linear_history_fork1", "unique2/0"): RUN_BY_ID["linear_history_fork1"].metrics_values("unique2/0"),
+                ("linear_history_root", "unique1/0"): METRICS["linear_history_root"]["unique1/0"],
+                ("linear_history_fork1", "unique2/0"): METRICS["linear_history_fork1"]["unique2/0"],
             },
             None,
             (None, None),
@@ -130,8 +213,8 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^forked_history_fork1$",
             r"foo.*",
             {
-                ("forked_history_fork1", "foo0"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo0")[1:4],
-                ("forked_history_fork1", "foo1"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo1")[1:4],
+                ("forked_history_fork1", "foo0"): METRICS["forked_history_fork1"]["foo0"][1:4],
+                ("forked_history_fork1", "foo1"): METRICS["forked_history_fork1"]["foo1"][1:4],
             },
             3,
             (5, 10),
@@ -141,8 +224,8 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^forked_history_fork1$",
             r"foo.*",
             {
-                ("forked_history_fork1", "foo0"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo0")[0:4],
-                ("forked_history_fork1", "foo1"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo1")[0:4],
+                ("forked_history_fork1", "foo0"): METRICS["forked_history_fork1"]["foo0"][0:4],
+                ("forked_history_fork1", "foo1"): METRICS["forked_history_fork1"]["foo1"][0:4],
             },
             10,
             (None, None),
@@ -151,7 +234,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
         (
             r"^linear_history_root$",
             r"^foo0$",
-            {("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")[5:6]},
+            {("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"][5:6]},
             None,
             (5, 5),
             True,
@@ -167,7 +250,7 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
         (
             r"^linear_history_root$",
             r"^foo0$",
-            {("linear_history_root", "foo0"): RUN_BY_ID["linear_history_root"].metrics_values("foo0")},
+            {("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"]},
             None,
             (0, 20),
             True,
@@ -177,12 +260,12 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
             r"^forked_history_.*$",
             r"foo.*",
             {
-                ("forked_history_root", "foo0"): RUN_BY_ID["forked_history_root"].metrics_values("foo0")[-1:],
-                ("forked_history_root", "foo1"): RUN_BY_ID["forked_history_root"].metrics_values("foo1")[-1:],
-                ("forked_history_fork1", "foo0"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo0")[-1:],
-                ("forked_history_fork1", "foo1"): RUN_BY_ID["forked_history_fork1"].metrics_values("foo1")[-1:],
-                ("forked_history_fork2", "foo0"): RUN_BY_ID["forked_history_fork2"].metrics_values("foo0")[-1:],
-                ("forked_history_fork2", "foo1"): RUN_BY_ID["forked_history_fork2"].metrics_values("foo1")[-1:],
+                ("forked_history_root", "foo0"): METRICS["forked_history_root"]["foo0"][-1:],
+                ("forked_history_root", "foo1"): METRICS["forked_history_root"]["foo1"][-1:],
+                ("forked_history_fork1", "foo0"): METRICS["forked_history_fork1"]["foo0"][-1:],
+                ("forked_history_fork1", "foo1"): METRICS["forked_history_fork1"]["foo1"][-1:],
+                ("forked_history_fork2", "foo0"): METRICS["forked_history_fork2"]["foo0"][-1:],
+                ("forked_history_fork2", "foo1"): METRICS["forked_history_fork2"]["foo1"][-1:],
             },
             1,
             (None, None),
@@ -193,18 +276,18 @@ NEPTUNE_PROJECT = os.getenv("NEPTUNE_E2E_PROJECT")
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
 @pytest.mark.parametrize("include_time", ["absolute", None])
 def test_fetch_run_metrics(
-    new_project_id,
+    project: IngestedProjectData,
     runs_filter,
     attributes_filter,
     expected_metrics,
     type_suffix_in_column_names: bool,
-    include_time: str,
-    tail_limit: int,
-    step_range: tuple[float, float],
+    include_time: str | None,
+    tail_limit: int | None,
+    step_range: tuple[float | None, float | None],
     lineage_to_the_root: bool,
 ):
     df = runs.fetch_metrics(
-        project=new_project_id,
+        project=project.project_identifier,
         runs=runs_filter,
         attributes=attributes_filter,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -214,8 +297,8 @@ def test_fetch_run_metrics(
         lineage_to_the_root=lineage_to_the_root,
     )
 
-    expected_df = create_expected_data(
-        new_project_id,
+    expected_df = build_expected_dataframe(
+        project,
         expected_metrics,
         include_time=include_time,
         type_suffix_in_column_names=type_suffix_in_column_names,
@@ -224,23 +307,33 @@ def test_fetch_run_metrics(
     pd.testing.assert_frame_equal(df, expected_df, check_dtype=False)
 
 
-def create_expected_data(project, expected_metrics, include_time: str, type_suffix_in_column_names):
-    data = {}
-    for (run, metric_name), values in expected_metrics.items():
-        attribute_run = identifiers.RunAttributeDefinition(
-            run_identifier=identifiers.RunIdentifier(project_identifier=project, sys_id=identifiers.SysId(run)),
-            attribute_definition=identifiers.AttributeDefinition(name=metric_name, type="float_series"),
+def build_expected_dataframe(
+    project: IngestedProjectData,
+    expected_metrics: dict[tuple[str, str], list[tuple[float, float]]],
+    include_time: str | None,
+    type_suffix_in_column_names: bool,
+):
+    metrics_data = {}
+    sys_id_to_run_id = {}
+    for (run_id, metric_name), values in expected_metrics.items():
+        # the run_ids are changed by the ingestion logic; resolve them here
+        sys_id = SysId(f"PROJECT-{hash(run_id)}")  # sys_id doesn't matter here, it's just a unique string
+        sys_id_to_run_id[sys_id] = run_id
+
+        run_attribute_definition = RunAttributeDefinition(
+            run_identifier=RunIdentifier(
+                project_identifier=ProjectIdentifier(project.project_identifier), sys_id=sys_id
+            ),
+            attribute_definition=AttributeDefinition(name=metric_name, type="float_series"),
         )
-        rows = data.setdefault(attribute_run, [])
 
-        for step, value in values:
-            rows.append((int(timestamp_for_step(step).timestamp() * 1000), step, value, False, 1.0))
-
-    sys_id_label_mapping = {identifiers.SysId(run): run for run, _ in expected_metrics.keys()}
+        metrics_data[run_attribute_definition] = [
+            (int(step_to_timestamp(step).timestamp() * 1000), step, value, False, 1.0) for step, value in values
+        ]
 
     return create_metrics_dataframe(
-        metrics_data=data,
-        sys_id_label_mapping=sys_id_label_mapping,
+        metrics_data=metrics_data,
+        sys_id_label_mapping=sys_id_to_run_id,
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_point_previews=False,
         timestamp_column_name="absolute_time" if include_time == "absolute" else None,
