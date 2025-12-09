@@ -15,6 +15,7 @@ from neptune_query.filters import (
 from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
+    IngestionFile,
     IngestionHistogram,
     ProjectData,
     RunData,
@@ -91,13 +92,23 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 for p in HISTOGRAM_SERIES_PATHS
             },
             files={
-                "files/file-value": b"Binary content",
-                "files/file-value.txt": b"Text content",
-                "files/object-does-not-exist": b"x",
+                "files/file-value": IngestionFile(source=b"Binary content", mime_type="application/octet-stream"),
+                "files/file-value.txt": IngestionFile(source=b"Text content", mime_type="text/plain"),
+                "files/object-does-not-exist": IngestionFile(source=b"x", mime_type="application/octet-stream"),
             },
             file_series={
-                "files/file-series-value_0": {float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)},
-                "files/file-series-value_1": {float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)},
+                "files/file-series-value_0": {
+                    float(step): IngestionFile(
+                        source=f"file-{int(step)}".encode("utf-8"), mime_type="application/octet-stream"
+                    )
+                    for step in range(3)
+                },
+                "files/file-series-value_1": {
+                    float(step): IngestionFile(
+                        source=f"file-{int(step)}".encode("utf-8"), mime_type="application/octet-stream"
+                    )
+                    for step in range(3)
+                },
             },
         ),
         RunData(
