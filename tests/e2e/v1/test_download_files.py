@@ -59,8 +59,6 @@ def test__download_files_from_table(project, temp_dir):
         destination=temp_dir,
     )
 
-    print(files)
-
     # then
     expected_path = (temp_dir / "experiment-with-files" / "files/file-value_txt.txt").resolve()
     expected_df = pd.DataFrame(
