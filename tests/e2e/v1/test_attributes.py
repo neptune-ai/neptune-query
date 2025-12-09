@@ -80,9 +80,7 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 "metrics/float-series-value_1": {float(step): step / 2.0 for step in range(10)},
                 "metrics/float-series-value_2": {float(step): step / 3.0 for step in range(10)},
             },
-            string_series={
-                p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS
-            },
+            string_series={p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS},
             histogram_series={
                 p: {
                     float(step): IngestionHistogram(
@@ -98,13 +96,9 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 "files/object-does-not-exist": b"x",
             },
             file_series={
-                "files/file-series-value_0": {
-                    float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)
-                },
-                "files/file-series-value_1": {
-                    float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)
-                },
-            }
+                "files/file-series-value_0": {float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)},
+                "files/file-series-value_1": {float(step): f"file-{int(step)}".encode("utf-8") for step in range(3)},
+            },
         ),
         RunData(
             experiment_name="test_alpha_1",
@@ -118,12 +112,8 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 "unique-value-4": "unique_4",
             },
             string_sets={"string_set-value": [f"string-1-{j}" for j in range(3)]},
-            float_series={
-                p: {float(step): step / 2.0 for step in range(10)} for p in FLOAT_SERIES_PATHS
-            },
-            string_series={
-                p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS
-            },
+            float_series={p: {float(step): step / 2.0 for step in range(10)} for p in FLOAT_SERIES_PATHS},
+            string_series={p: {float(step): f"string-{int(step)}" for step in range(10)} for p in STRING_SERIES_PATHS},
             histogram_series={
                 p: {
                     float(step): IngestionHistogram(
@@ -208,7 +198,9 @@ def test_list_attributes_known_in_all_experiments_with_name_filter_excluding_sys
     ),
 )
 def test_list_attributes_all_names_from_all_experiments_excluding_sys(name_filter):
-    attributes = _drop_sys_attr_names(list_attributes(experiments=Filter.name(EXPERIMENT_NAMES), attributes=name_filter))
+    attributes = _drop_sys_attr_names(
+        list_attributes(experiments=Filter.name(EXPERIMENT_NAMES), attributes=name_filter)
+    )
     assert set(attributes) == set(ALL_ATTRIBUTE_NAMES)
     assert len(attributes) == len(ALL_ATTRIBUTE_NAMES)
 
@@ -275,10 +267,10 @@ def test_list_attributes_depending_on_values_in_experiments(arg_experiments, arg
     "attribute_filter, expected",
     [
         (
-            r"sys/(name|id)",
+            "sys/(name|id)",
             {"sys/name", "sys/id"},
         ),
-        (r"sys/.*id$", {"sys/custom_run_id", "sys/id", "sys/diagnostics/project_uuid", "sys/diagnostics/run_uuid"}),
+        ("sys/.*id$", {"sys/custom_run_id", "sys/id", "sys/diagnostics/project_uuid", "sys/diagnostics/run_uuid"}),
         (AttributeFilter(name="sys/(name|id)"), {"sys/name", "sys/id"}),
         (AttributeFilter(name="sys/name | sys/id"), {"sys/name", "sys/id"}),  # ERS
     ],
