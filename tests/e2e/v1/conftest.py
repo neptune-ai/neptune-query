@@ -103,8 +103,3 @@ def data_hash(data: Any):
     node = platform.node()
     date = datetime.now().date().isoformat()
     return hashlib.md5((date + node + str(data)).encode()).hexdigest()
-
-
-@fixture(scope="module", autouse=True)
-def run_with_attributes_autouse(run_with_attributes):
-    pass
