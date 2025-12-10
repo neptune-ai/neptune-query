@@ -289,10 +289,10 @@ def create_expected_data_string_series(
 @pytest.mark.parametrize(
     "arg_experiments",
     [
-        Filter.name(EXPERIMENT_NAMES[:3]),
+        Filter.name(EXPERIMENT_NAMES),
         f"{EXPERIMENT_NAMES[0]}|{EXPERIMENT_NAMES[1]}|{EXPERIMENT_NAMES[2]}",
         f"{EXPERIMENT_NAMES[0]} | {EXPERIMENT_NAMES[1]} | {EXPERIMENT_NAMES[2]}",
-        EXPERIMENT_NAMES[:3],
+        EXPERIMENT_NAMES,
     ],
 )
 @pytest.mark.parametrize(
@@ -337,7 +337,7 @@ def test__fetch_string_series__filter_variants(
     "arg_experiments,arg_attributes,type_suffix_in_column_names,include_time",
     [
         (
-            Filter.name(EXPERIMENT_NAMES[:3]),
+            Filter.name(EXPERIMENT_NAMES),
             AttributeFilter(name="^series/.*", type=["string_series"]),
             True,
             None,
@@ -349,7 +349,7 @@ def test__fetch_string_series__filter_variants(
             "absolute",
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name="^series/.*", type=["string_series"]) | AttributeFilter(name=".*/int-value"),
             True,
             None,
@@ -389,7 +389,7 @@ def test__fetch_string_series__step_variants(
     "arg_experiments,arg_attributes,step_range,tail_limit",
     [
         (
-            Filter.name(EXPERIMENT_NAMES[:3]),
+            Filter.name(EXPERIMENT_NAMES),
             AttributeFilter(name="^series/.*", type=["string_series"]),
             (0.0, 5),
             None,
@@ -401,7 +401,7 @@ def test__fetch_string_series__step_variants(
             3,
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name="^series/.*", type=["string_series"]) | AttributeFilter(name=".*/int-value"),
             (None, 5),
             5,
@@ -503,7 +503,7 @@ def create_expected_data_histogram_series(
     "arg_experiments",
     [
         f"{EXPERIMENT_NAMES[0]}|{EXPERIMENT_NAMES[1]}|{EXPERIMENT_NAMES[2]}",
-        EXPERIMENT_NAMES[:3],
+        EXPERIMENT_NAMES,
     ],
 )
 @pytest.mark.parametrize(
@@ -556,7 +556,7 @@ def test__fetch_histogram_series__filter_variants(
             None,
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name="^series/.*", type=["histogram_series"]) | AttributeFilter(name=".*/int-value"),
             False,
             "absolute",
@@ -604,7 +604,7 @@ def test__fetch_histogram_series__step_variants(
             None,
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name="^series/.*", type=["histogram_series"]) | AttributeFilter(name=".*/int-value"),
             (0, None),
             3,
