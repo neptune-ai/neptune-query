@@ -198,10 +198,10 @@ def create_expected_data(
 @pytest.mark.parametrize(
     "arg_experiments",
     [
-        Filter.name(EXPERIMENT_NAMES[:3]),
+        Filter.name(EXPERIMENT_NAMES),
         f"{EXPERIMENT_NAMES[0]}|{EXPERIMENT_NAMES[1]}|{EXPERIMENT_NAMES[2]}",
         f"{EXPERIMENT_NAMES[0]} | {EXPERIMENT_NAMES[1]} | {EXPERIMENT_NAMES[2]}",  # ERS
-        EXPERIMENT_NAMES[:3],
+        EXPERIMENT_NAMES,
     ],
 )
 @pytest.mark.parametrize(
@@ -240,7 +240,7 @@ def test__fetch_metrics_unique__filter_variants(
     type_suffix_in_column_names,
     include_time,
 ):
-    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES[:3]]
+    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES]
 
     with patch("neptune_query.internal.retrieval.metrics.TOTAL_POINT_LIMIT", page_point_limit):
         result = fetch_metrics(
@@ -270,7 +270,7 @@ def test__fetch_metrics_unique__filter_variants(
     "arg_experiments,arg_attributes,type_suffix_in_column_names,include_time",
     [
         (
-            Filter.name(EXPERIMENT_NAMES[:3]),
+            Filter.name(EXPERIMENT_NAMES),
             AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
             True,
             None,
@@ -282,7 +282,7 @@ def test__fetch_metrics_unique__filter_variants(
             "absolute",
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name=r".*/metrics/.*", type=["float_series"])
             | AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
             True,
@@ -300,7 +300,7 @@ def test__fetch_metrics_unique__step_variants(
     type_suffix_in_column_names,
     include_time,
 ):
-    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES[:3]]
+    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES]
 
     with patch("neptune_query.internal.retrieval.metrics.TOTAL_POINT_LIMIT", page_point_limit):
         result = fetch_metrics(
@@ -329,7 +329,7 @@ def test__fetch_metrics_unique__step_variants(
     "arg_experiments,arg_attributes,step_range,tail_limit,page_point_limit",
     [
         (
-            Filter.name(EXPERIMENT_NAMES[:3]),
+            Filter.name(EXPERIMENT_NAMES),
             AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
             (0, 5),
             None,
@@ -343,7 +343,7 @@ def test__fetch_metrics_unique__step_variants(
             1_000_000,
         ),
         (
-            EXPERIMENT_NAMES[:3],
+            EXPERIMENT_NAMES,
             AttributeFilter(name=r".*/metrics/.*", type=["float_series"])
             | AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
             (None, 5),
@@ -362,7 +362,7 @@ def test__fetch_metrics_unique__output_format_variants(
     tail_limit,
     page_point_limit,
 ):
-    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES[:3]]
+    runs = [run for run in project.ingested_runs if run.experiment_name in EXPERIMENT_NAMES]
 
     with patch("neptune_query.internal.retrieval.metrics.TOTAL_POINT_LIMIT", page_point_limit):
         result = fetch_metrics(
