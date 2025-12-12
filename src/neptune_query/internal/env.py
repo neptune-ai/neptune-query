@@ -89,6 +89,7 @@ def _map_logging_level(value: str) -> str:
 NEPTUNE_API_TOKEN = EnvVariable[str]("NEPTUNE_API_TOKEN", _map_str)
 NEPTUNE_ENABLE_COLORS = EnvVariable[bool]("NEPTUNE_ENABLE_COLORS", _map_bool, True)
 NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS = EnvVariable[int]("NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS", int, 60)
+NEPTUNE_LOGGER_LEVEL = EnvVariable[str]("NEPTUNE_LOGGER_LEVEL", _map_logging_level, "WARN")
 NEPTUNE_PROJECT = EnvVariable[str]("NEPTUNE_PROJECT", _map_str)
 NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE = EnvVariable[int](
     "NEPTUNE_QUERY_ATTRIBUTE_DEFINITIONS_BATCH_SIZE", int, 10_000
@@ -97,11 +98,15 @@ NEPTUNE_QUERY_ATTRIBUTE_VALUES_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_ATTR
 NEPTUNE_QUERY_FILES_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_FILES_BATCH_SIZE", int, 200)
 NEPTUNE_QUERY_FILES_MAX_CONCURRENCY = EnvVariable[int]("NEPTUNE_QUERY_FILES_MAX_CONCURRENCY", int, 1)
 NEPTUNE_QUERY_FILES_TIMEOUT = EnvVariable[Optional[int]]("NEPTUNE_QUERY_FILES_TIMEOUT", _lift_optional(int), None)
-NEPTUNE_QUERY_MAX_REQUEST_SIZE = EnvVariable[int]("NEPTUNE_QUERY_MAX_REQUEST_SIZE", int, 220_000)
 NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE = EnvVariable[int](
     "NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE", int, 60_000
 )  # 120_000 bytes seems to be the hard limit, but let's be safe
+NEPTUNE_QUERY_MAX_REQUEST_SIZE = EnvVariable[int]("NEPTUNE_QUERY_MAX_REQUEST_SIZE", int, 220_000)
 NEPTUNE_QUERY_MAX_WORKERS = EnvVariable[int]("NEPTUNE_QUERY_MAX_WORKERS", int, 32)
+# Metadata to be attached to each query for tracking purposes (e.g. user info, experiment context, etc.)
+# This can be a plain string or JSON-encoded string.
+# The length limit is 82 characters after converting to JSON.
+NEPTUNE_QUERY_METADATA = EnvVariable[str]("NEPTUNE_QUERY_METADATA", _map_str, "")
 NEPTUNE_QUERY_RETRY_HARD_TIMEOUT = EnvVariable[Optional[int]](
     "NEPTUNE_QUERY_RETRY_HARD_TIMEOUT", _lift_optional(int), 3600
 )
@@ -111,4 +116,3 @@ NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT = EnvVariable[Optional[int]](
 NEPTUNE_QUERY_SERIES_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_SERIES_BATCH_SIZE", int, 10_000)
 NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE = EnvVariable[int]("NEPTUNE_QUERY_EXPERIMENT_SYS_ATTRS_BATCH_SIZE", int, 10_000)
 NEPTUNE_VERIFY_SSL = EnvVariable[bool]("NEPTUNE_VERIFY_SSL", _map_bool, True)
-NEPTUNE_LOGGER_LEVEL = EnvVariable[str]("NEPTUNE_LOGGER_LEVEL", _map_logging_level, "WARN")
