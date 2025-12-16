@@ -100,3 +100,14 @@ def test_infer_attribute_types_in_sort_by_local_inference():
     )
     assert result.result.type == "bool"
     assert result.is_complete()
+
+
+def test_ensure_attribute_types_provided_in_filter_raises_on_missing_type():
+    filter_ = _Filter.eq("foo", 1)
+    with pytest.raises(AttributeTypeInferenceError):
+        type_inference.ensure_attribute_types_provided_in_filter(filter_)
+
+
+def test_ensure_attribute_types_provided_in_filter_accepts_typed():
+    filter_ = _Filter.eq(_Attribute("foo", type="int"), 1)
+    type_inference.ensure_attribute_types_provided_in_filter(filter_)
