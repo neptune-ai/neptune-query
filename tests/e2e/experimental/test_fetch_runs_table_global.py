@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import (
+    datetime,
+    timezone,
+)
 from typing import Literal
 
 import numpy as np
@@ -9,7 +13,10 @@ import pandas as pd
 import pytest
 
 from neptune_query import filters
-from neptune_query.exceptions import ConflictingAttributeTypes
+from neptune_query.exceptions import (
+    AttributeTypeInferenceError,
+    ConflictingAttributeTypes,
+)
 from neptune_query.experimental import fetch_runs_table_global
 from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
@@ -241,6 +248,44 @@ def test_fetch_runs_table_with_empty_attributes(project_1, project_2, unique_mag
     expected_dataframe = _expected_dataframe(
         runs=_all_runs_sorted_by_name([project_1, project_2]),
         columns=[],
+    )
+
+    pd.testing.assert_frame_equal(dataframe, expected_dataframe)
+
+
+def test_fetch_runs_table_requires_typed_filter(unique_magic_string):
+    with pytest.raises(AttributeTypeInferenceError):
+        fetch_runs_table_global(
+            runs=filters.Filter.eq("config/int", 1),
+            attributes=[],
+            sort_by=filters.Attribute("sys/name", type="string"),
+            sort_direction="asc",
+        )
+
+
+def test_fetch_runs_table_complex_filter(project_2, unique_magic_string):
+    target_run = project_2.ingested_runs[1]
+    runs_filter = filters.Filter.eq(
+        filters.Attribute("sys/custom_run_id", type="string"),
+        target_run.run_id,
+    ) & filters.Filter.gt(
+        filters.Attribute("sys/creation_time", type="datetime"),
+        datetime.fromtimestamp(0, tz=timezone.utc),
+    )
+
+    dataframe = fetch_runs_table_global(
+        runs=runs_filter,
+        attributes=["config/int", "config/string"],
+        sort_by=filters.Attribute("sys/name", type="string"),
+        sort_direction="asc",
+    )
+
+    expected_dataframe = _expected_dataframe(
+        runs=[target_run],
+        columns=[
+            Column(name="config/int", type="config"),
+            Column(name="config/string", type="config"),
+        ],
     )
 
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
