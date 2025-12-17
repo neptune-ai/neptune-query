@@ -216,6 +216,23 @@ def infer_attribute_types_in_sort_by(
     return state
 
 
+def ensure_attribute_types_provided_in_filter(
+    filter_: Optional[filters._Filter],
+) -> None:
+    if filter_ is None:
+        return
+
+    untyped_attributes = InferenceState.from_filter(filter_).incomplete_attributes()
+    if untyped_attributes:
+        raise AttributeTypeInferenceError(
+            attribute_names=[attr_state.attribute.name for attr_state in untyped_attributes],
+            details=[
+                f"{attr_state.attribute.name}: type not provided; global queries require an explicit type"
+                for attr_state in untyped_attributes
+            ],
+        )
+
+
 _KNOWN_SYS_ATTRIBUTES: dict[str, ATTRIBUTE_LITERAL] = {
     "sys/archived": "bool",
     "sys/creation_time": "datetime",

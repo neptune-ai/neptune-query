@@ -169,6 +169,8 @@ def fetch_table_global(
             "Cannot resolve sort_by attribute type. Please pass filters.Attribute with an explicit type."
         )
 
+    type_inference.ensure_attribute_types_provided_in_filter(filter_)
+
     valid_context = _context.validate_context(context or _context.get_context())
     client = _client.get_client(context=valid_context)
 
