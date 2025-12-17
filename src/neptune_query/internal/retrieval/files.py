@@ -35,8 +35,6 @@ from neptune_api.models import (
     Provider,
 )
 
-from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
-
 from ...exceptions import NeptuneFileDownloadError
 from ...types import File
 from .. import (
@@ -72,7 +70,8 @@ def fetch_signed_urls(
 
     logger.debug(f"Calling signed_url_generic with body: {body}")
 
-    call_api = retry.handle_errors_default(with_neptune_client_metadata(signed_url_generic.sync_detailed))
+    # skip with_neptune_client_metadata - storage bridge API doesn't support it
+    call_api = retry.handle_errors_default(signed_url_generic.sync_detailed)
     response = call_api(client=client, body=body)
 
     logger.debug(

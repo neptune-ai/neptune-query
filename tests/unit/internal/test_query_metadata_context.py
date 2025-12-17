@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+from base64 import b64decode
 from unittest.mock import Mock
 
 import mock
@@ -30,14 +31,18 @@ from neptune_query.internal.query_metadata_context import (
 
 def test_query_metadata_truncation() -> None:
     # given
-    long_string = "a" * 100
-    metadata = QueryMetadata(api_function=long_string, client_version=long_string)
+    metadata = QueryMetadata(
+        api_function="a" * 100,
+        client_version="b" * 100,
+        nq_query_id="c" * 100,
+        user_data=None,
+    )
 
     # then
-    assert len(metadata.api_function) == 50
-    assert len(metadata.client_version) == 50
-    assert metadata.api_function == "a" * 50
-    assert metadata.client_version == "a" * 50
+    assert len(metadata.to_json()) < 200
+    assert metadata.api_function == "a" * 32
+    assert metadata.client_version == "b" * 24
+    assert metadata.nq_query_id == "c" * 8
 
 
 def test_use_query_metadata() -> None:
@@ -74,7 +79,15 @@ def test_with_neptune_client_metadata_with_context() -> None:
     # when
     with (
         mock.patch("neptune_query.internal.query_metadata_context.ADD_QUERY_METADATA", True),
-        mock.patch("neptune_query.internal.query_metadata_context.get_client_version", return_value="1.2.3"),
+        mock.patch("neptune_query.internal.query_metadata_context._get_client_version", return_value="1.2.3"),
+        mock.patch(
+            "neptune_query.internal.query_metadata_context.secrets.token_bytes",
+            return_value=b64decode("abcd1234"),
+        ),
+        mock.patch(
+            "neptune_query.internal.query_metadata_context.env.NEPTUNE_QUERY_METADATA.get",
+            return_value='{"magic_number": 42, "names": ["John", "Larry"]}',
+        ),
     ):
         decorated_call = with_neptune_client_metadata(mock_api_call)
         with use_query_metadata(api_function="test_api"):
@@ -84,5 +97,7 @@ def test_with_neptune_client_metadata_with_context() -> None:
     mock_api_call.assert_called_once()
     _, kwargs = mock_api_call.call_args
     assert "x_neptune_client_metadata" in kwargs
-    expected_json = json.dumps({"api_function": "test_api", "client_version": "1.2.3"})
+    expected_json = json.dumps(
+        {"fn": "test_api", "v": "1.2.3", "qid": "abcd1234", "ud": {"magic_number": 42, "names": ["John", "Larry"]}}
+    )
     assert kwargs["x_neptune_client_metadata"] == expected_json
