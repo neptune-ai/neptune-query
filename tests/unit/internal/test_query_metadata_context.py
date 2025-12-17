@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+from base64 import b64decode
 from unittest.mock import Mock
 
 import mock
@@ -78,8 +79,11 @@ def test_with_neptune_client_metadata_with_context() -> None:
     # when
     with (
         mock.patch("neptune_query.internal.query_metadata_context.ADD_QUERY_METADATA", True),
-        mock.patch("neptune_query.internal.query_metadata_context.get_client_version", return_value="1.2.3"),
-        mock.patch("neptune_query.internal.query_metadata_context.random.choices", return_value="abcd1234"),
+        mock.patch("neptune_query.internal.query_metadata_context._get_client_version", return_value="1.2.3"),
+        mock.patch(
+            "neptune_query.internal.query_metadata_context.secrets.token_bytes",
+            return_value=b64decode("abcd1234"),
+        ),
         mock.patch(
             "neptune_query.internal.query_metadata_context.env.NEPTUNE_QUERY_METADATA.get",
             return_value='{"magic_number": 42, "names": ["John", "Larry"]}',

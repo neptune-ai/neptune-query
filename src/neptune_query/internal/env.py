@@ -103,9 +103,9 @@ NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE = EnvVariable[int](
 )  # 120_000 bytes seems to be the hard limit, but let's be safe
 NEPTUNE_QUERY_MAX_REQUEST_SIZE = EnvVariable[int]("NEPTUNE_QUERY_MAX_REQUEST_SIZE", int, 220_000)
 NEPTUNE_QUERY_MAX_WORKERS = EnvVariable[int]("NEPTUNE_QUERY_MAX_WORKERS", int, 32)
-# Metadata to be attached to each query for tracking purposes (e.g. user info, experiment context, etc.)
-# This can be a plain string or JSON-encoded string.
-# The length limit is 82 characters after converting to JSON.
+# Metadata to be attached to each query for tracking purposes (e.g. user info, experiment context, etc.).
+# Accepts a plain string or JSON-encoded string. After we JSON-encode the value (using Python's json.dumps),
+# it must fit in 82 bytes. Otherwise, the client sends a placeholder string instead.
 NEPTUNE_QUERY_METADATA = EnvVariable[str]("NEPTUNE_QUERY_METADATA", _map_str, "")
 NEPTUNE_QUERY_RETRY_HARD_TIMEOUT = EnvVariable[Optional[int]](
     "NEPTUNE_QUERY_RETRY_HARD_TIMEOUT", _lift_optional(int), 3600

@@ -15,12 +15,12 @@
 #
 from __future__ import annotations
 
+import base64
 import contextlib
 import functools
 import json
 import logging
-import random
-import string
+import secrets
 from importlib.metadata import (
     PackageNotFoundError,
     version,
@@ -44,33 +44,6 @@ ADD_QUERY_METADATA = True
 logger = logging.getLogger(__name__)
 
 
-@functools.cache
-def process_user_data(user_data: str | None) -> str | dict | None:
-    if not user_data:
-        return None
-
-    try:
-        user_data = json.loads(user_data)
-    except json.JSONDecodeError:
-        logger.debug("NEPTUNE_QUERY_METADATA env variable is not valid JSON. Skipping user data in query metadata.")
-
-    if len(json.dumps(user_data)) > 82:
-        logger.debug("User data in NEPTUNE_QUERY_METADATA env too long. Skipping user data in query metadata.")
-        user_data = "NEPTUNE_QUERY_METADATA too long"
-
-    return user_data
-
-
-@functools.cache
-def get_client_version() -> str:
-    package_name = "neptune-query"
-    try:
-        package_version = version(package_name)
-    except PackageNotFoundError:
-        package_version = "unknown"
-    return f"nq/{package_version}"
-
-
 class QueryMetadata:
     def __init__(
         self,
@@ -90,7 +63,7 @@ class QueryMetadata:
         self.nq_query_id = nq_query_id[:8]
 
         # user_data may contribute at most 80 characters when JSON-encoded
-        self.user_data: str | dict | None = process_user_data(user_data)
+        self.user_data: str | dict | None = _process_user_data(user_data)
 
     def to_json(self) -> str:
         return json.dumps(
@@ -105,13 +78,12 @@ class QueryMetadata:
 
 @contextlib.contextmanager
 def use_query_metadata(api_function: str) -> Generator[None, None, None]:
-    nq_query_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     user_data = env.NEPTUNE_QUERY_METADATA.get()
 
     query_metadata = QueryMetadata(
         api_function=api_function,
-        client_version=get_client_version(),
-        nq_query_id=nq_query_id,
+        client_version=_get_client_version(),
+        nq_query_id=_generate_nq_query_id(),
         user_data=user_data if user_data else None,
     )
     with concurrency.use_thread_local({"query_metadata": query_metadata}):
@@ -133,3 +105,43 @@ def with_neptune_client_metadata(func: Callable[T, Response[R]]) -> Callable[T, 
         return func(*args, **kwargs)
 
     return wrapper
+
+
+@functools.cache
+def _get_client_version() -> str:
+    try:
+        package_version = version("neptune-query")
+    except PackageNotFoundError:
+        package_version = "unknown"
+    return f"nq/{package_version}"
+
+
+@functools.cache
+def _process_user_data(user_data: str | None) -> str | dict | None:
+    if not user_data:
+        return None
+
+    try:
+        user_data = json.loads(user_data)
+        user_data_is_proper_json = True
+    except json.JSONDecodeError:
+        user_data_is_proper_json = False
+
+    if len(json.dumps(user_data)) > 82:
+        user_data = "NEPTUNE_QUERY_METADATA too long"
+        if user_data_is_proper_json:
+            logger.debug("User data in NEPTUNE_QUERY_METADATA env too long. Skipping user data in query metadata.")
+        else:
+            logger.debug(
+                "User data in NEPTUNE_QUERY_METADATA env too long (and not JSON-encoded). "
+                "Skipping user data in query metadata."
+            )
+
+    return user_data
+
+
+def _generate_nq_query_id() -> str:
+    # Generate a random string of exactly 8 URL-safe base64 characters (a-z, A-Z, 0-9, -, _):
+    nq_query_id_bytes = secrets.token_bytes(6)
+    nq_query_id = base64.urlsafe_b64encode(nq_query_id_bytes).decode("ascii")
+    return nq_query_id
