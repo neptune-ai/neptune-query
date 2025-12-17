@@ -189,9 +189,11 @@ def _process_entries_page(
 
         return GlobalRunSearchEntry(
             sys_id=SysId(attributes["sys/id"]),
-            sys_name=SysName(attributes["sys/name"]) if attributes.get("sys/name") else None,
+            sys_name=SysName(attributes["sys/name"]) if attributes.get("sys/name") is not None else None,
             sys_custom_run_id=(
-                CustomRunId(attributes["sys/custom_run_id"]) if attributes.get("sys/custom_run_id") else None
+                CustomRunId(attributes["sys/custom_run_id"])
+                if attributes.get("sys/custom_run_id") is not None
+                else None
             ),
             project_identifier=ProjectIdentifier(f"{entry.organization_name}/{entry.project_name}"),
             container_type=container_type,
