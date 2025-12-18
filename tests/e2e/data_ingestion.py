@@ -55,7 +55,7 @@ class RunData:
     # run_id of the parent run and the fork step
     fork_point: tuple[str, float] | None = None
 
-    configs: dict[str, int | str] | None = field(default_factory=dict)
+    configs: dict[str, float | int | str] | None = field(default_factory=dict)
     files: dict[str, IngestionFile] | None = field(default_factory=dict)
 
     float_series: dict[str, dict[float, float]] = field(default_factory=dict)
@@ -86,7 +86,7 @@ class IngestedRunData:
     experiment_name: str
     run_id: str
 
-    configs: dict[str, int | str]
+    configs: dict[str, float | int | str]
     float_series: dict[str, dict[float, float]]
     string_series: dict[str, dict[float, str]]
     histogram_series: dict[str, dict[float, IngestionHistogram]]
