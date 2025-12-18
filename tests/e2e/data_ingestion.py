@@ -102,6 +102,12 @@ class IngestedProjectData:
     project_identifier: str
     ingested_runs: list[IngestedRunData]
 
+    def get_run_by_run_id(self: IngestedProjectData, run_id: str) -> IngestedRunData:
+        for run in self.ingested_runs:
+            if run.run_id == run_id:
+                return run
+        raise ValueError(f"Run not found: {run_id}")
+
 
 def ingest_project(
     *,

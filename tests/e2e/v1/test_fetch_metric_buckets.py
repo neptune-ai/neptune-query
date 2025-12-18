@@ -1,4 +1,8 @@
 import threading
+from math import (
+    inf,
+    nan,
+)
 from typing import (
     Iterable,
     Literal,
@@ -16,7 +20,6 @@ from neptune_query.filters import (
 )
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
-    ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
     SysId,
@@ -24,24 +27,99 @@ from neptune_query.internal.identifiers import (
 from neptune_query.internal.output_format import create_metric_buckets_dataframe
 from neptune_query.internal.retrieval import metric_buckets
 from neptune_query.internal.retrieval.metric_buckets import TimeseriesBucket
-from tests.e2e.data import (
-    NUMBER_OF_STEPS,
-    PATH,
-    TEST_DATA,
-    ExperimentData,
+from tests.e2e.conftest import EnsureProjectFunction
+from tests.e2e.data_ingestion import (
+    IngestedProjectData,
+    ProjectData,
+    RunData,
 )
 from tests.e2e.metric_buckets import (
     aggregate_metric_buckets,
     calculate_global_range,
     calculate_metric_bucket_ranges,
 )
-from tests.e2e.v1.generator import (
-    EXP_NAME_INF_NAN_RUN,
-    RUN_BY_ID,
-    RUN_ID_INF_NAN_RUN,
-)
 
-EXPERIMENT = TEST_DATA.experiments[0]
+FINITE_EXPERIMENT_NAMES = [
+    "metric-buckets-alpha",
+    "metric-buckets-beta",
+    "metric-buckets-gamma",
+]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def run_with_attributes_autouse():
+    # Disable shared ingestion from v1 conftest; this module ingests its own data.
+    return None
+
+
+MISALIGNED_STEPS_SETS = [[0], [0, 1], list(range(10)), [1, 10], [12, 14, 16], [18, 19, 20]]
+MISALIGNED_PATHS = [
+    f"misaligned-steps/misaligned-steps-float-series-value-{ix}" for ix in range(len(MISALIGNED_STEPS_SETS))
+]
+
+
+@pytest.fixture(scope="module")
+def project_finite(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    alpha_series = {
+        "metrics/step": {float(i): float(i) for i in range(10)},
+        "metrics/float-series-value_0": {float(i): float(i) + 0.1 for i in range(10)},
+        "metrics/float-series-value_1": {float(i): float(i) + 1.1 for i in range(10)},
+    }
+    beta_series = {
+        "metrics/step": {float(i): float(i) for i in range(10)},
+        "metrics/float-series-value_0": {float(i): float(i) * 1.5 for i in range(10)},
+    }
+    gamma_series = {
+        "metrics/step": {float(i): float(i) for i in range(10)},
+        "metrics/float-series-value_0": {float(i): float(i) * 0.5 for i in range(10)},
+    }
+
+    misaligned_series = {
+        path: {float(step): float(step) ** 2 + 0.123 for step in steps}
+        for path, steps in zip(MISALIGNED_PATHS, MISALIGNED_STEPS_SETS)
+    }
+
+    return ensure_project(
+        ProjectData(
+            runs=[
+                RunData(
+                    experiment_name="metric-buckets-alpha",
+                    run_id="metric-buckets-alpha-run",
+                    float_series={**alpha_series, **misaligned_series},
+                ),
+                RunData(
+                    experiment_name="metric-buckets-beta",
+                    run_id="metric-buckets-beta-run",
+                    float_series={**beta_series, **misaligned_series},
+                ),
+                RunData(
+                    experiment_name="metric-buckets-gamma",
+                    run_id="metric-buckets-gamma-run",
+                    float_series={**gamma_series, **misaligned_series},
+                ),
+            ]
+        )
+    )
+
+
+@pytest.fixture(scope="module")
+def project_non_finite(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            runs=[
+                RunData(
+                    experiment_name="metric-buckets-inf-nan",
+                    run_id="inf-nan-run",
+                    float_series={
+                        "series-containing-inf": {0.0: 1.0, 1.0: inf, 2.0: 3.0},
+                        "series-containing-nan": {0.0: 1.0, 1.0: nan, 2.0: 3.0},
+                        "series-ending-with-inf": {0.0: 1.0, 1.0: 2.0, 2.0: inf},
+                        "series-ending-with-nan": {0.0: 1.0, 1.0: 2.0, 2.0: nan},
+                    },
+                ),
+            ]
+        )
+    )
 
 
 def _to_run_attribute_definition(project, run, path):
@@ -56,24 +134,29 @@ def _sys_id_label_mapping(experiments: Iterable[str]) -> dict[SysId, str]:
 
 
 def create_expected_data_experiments(
-    project_identifier: ProjectIdentifier,
-    experiments: list[ExperimentData],
-    x: Union[Literal["step"]],  # TODO - only option
+    project: IngestedProjectData,
+    experiment_names: list[str],
+    x: Union[Literal["step"]],  # only option currently
     limit: int,
-    include_point_previews: bool,  # TODO - add to the test data?
+    include_point_previews: bool,
 ) -> pd.DataFrame:
-    data = {
-        exp.name: {
-            path: list(zip(exp.float_series[f"{PATH}/metrics/step"], ys)) for path, ys in exp.float_series.items()
+    data: dict[str, dict[str, list[tuple[float, float]]]] = {}
+    for exp_name in experiment_names:
+        run = project.get_run_by_run_id(exp_name + "-run")
+        # Take all metric-like float series (including step itself) under ^metrics
+        series_pairs = {
+            path: sorted(list(values.items()))
+            for path, values in run.float_series.items()
+            if path.startswith("metrics/")
         }
-        for exp in experiments
-    }
+        data[exp_name] = series_pairs
+
     return _create_expected_data_metric_buckets_dataframe(
-        data,
-        project_identifier,
-        x,
-        limit,
-        include_point_previews,
+        data=data,
+        project_identifier=project.project_identifier,
+        x=x,
+        limit=limit,
+        include_point_previews=include_point_previews,
     )
 
 
@@ -97,7 +180,7 @@ def _calculate_expected_data_global_range(
 
 def _create_expected_data_metric_buckets_dataframe(
     data: dict[str, dict[str, list[tuple[float, float]]]],
-    project_identifier: ProjectIdentifier,
+    project_identifier: str,
     x: Union[Literal["step"]],  # TODO - only option
     limit: int,
     include_point_previews: bool,  # TODO - add to the test data?
@@ -122,19 +205,19 @@ def _create_expected_data_metric_buckets_dataframe(
 @pytest.mark.parametrize(
     "y",
     [
-        AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
-        ".*/metrics/.*",
-        AttributeFilter(name=r".*/metrics/.*", type=["float_series"])
-        | AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
+        AttributeFilter(name="^metrics/.*", type=["float_series"]),
+        "^metrics/.*",
+        AttributeFilter(name="^metrics/.*", type=["float_series"])
+        | AttributeFilter(name="^metrics/.*", type=["float_series"]),
     ],
 )
 @pytest.mark.parametrize(
     "arg_experiments",
     [
-        Filter.name([exp.name for exp in TEST_DATA.experiments[:3]]),
-        f"{TEST_DATA.exp_name(0)}|{TEST_DATA.exp_name(1)}|{TEST_DATA.exp_name(2)}",
-        f"{TEST_DATA.exp_name(0)} | {TEST_DATA.exp_name(1)} | {TEST_DATA.exp_name(2)}",  # ERS
-        [exp.name for exp in TEST_DATA.experiments[:3]],
+        Filter.name(FINITE_EXPERIMENT_NAMES),
+        "metric-buckets-alpha|metric-buckets-beta|metric-buckets-gamma",  # regular expressions
+        "metric-buckets-alpha | metric-buckets-beta | metric-buckets-gamma",  # ERS
+        FINITE_EXPERIMENT_NAMES,
     ],
 )
 @pytest.mark.parametrize(
@@ -153,17 +236,15 @@ def _create_expected_data_metric_buckets_dataframe(
     ],
 )
 def test__fetch_metric_buckets__experiment_attribute_filter_variants(
-    project,
+    project_finite,
     arg_experiments,
     x,
     y,
     limit,
     include_point_previews,
 ):
-    experiments = TEST_DATA.experiments[:3]
-
     result_df = fetch_metric_buckets(
-        project=project.project_identifier,
+        project=project_finite.project_identifier,
         experiments=arg_experiments,
         x=x,
         y=y,
@@ -173,8 +254,8 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
     )
 
     expected_df = create_expected_data_experiments(
-        project_identifier=project.project_identifier,
-        experiments=experiments,
+        project=project_finite,
+        experiment_names=FINITE_EXPERIMENT_NAMES,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
@@ -185,7 +266,7 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
 
 @pytest.mark.parametrize(
     "limit",
-    [1, 2, 3, 10, NUMBER_OF_STEPS + 10, 1000],
+    [1, 2, 3, 10, 20, 1000],
 )
 @pytest.mark.parametrize(
     "x",
@@ -199,32 +280,30 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
     "arg_experiments,y",
     [
         (
-            Filter.name([exp.name for exp in TEST_DATA.experiments[:3]]),
-            AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
+            Filter.name(FINITE_EXPERIMENT_NAMES),
+            AttributeFilter(name="^metrics/.*", type=["float_series"]),
         ),
         (
-            f"{TEST_DATA.exp_name(0)} | {TEST_DATA.exp_name(1)} | {TEST_DATA.exp_name(2)}",
-            ".*/metrics/.*",
+            "metric-buckets-alpha | metric-buckets-beta | metric-buckets-gamma",  # ERS
+            "^metrics/.*",
         ),
         (
-            [exp.name for exp in TEST_DATA.experiments[:3]],
-            AttributeFilter(name=r".*/metrics/.*", type=["float_series"])
-            | AttributeFilter(name=r".*/metrics/.*", type=["float_series"]),
+            FINITE_EXPERIMENT_NAMES,
+            AttributeFilter(name="^metrics/.*", type=["float_series"])
+            | AttributeFilter(name="^metrics/.*", type=["float_series"]),
         ),
     ],
 )
 def test__fetch_metric_buckets__bucketing_x_limit_variants(
-    project,
+    project_finite,
     arg_experiments,
     x,
     y,
     limit,
     include_point_previews,
 ):
-    experiments = TEST_DATA.experiments[:3]
-
     result_df = fetch_metric_buckets(
-        project=project.project_identifier,
+        project=project_finite.project_identifier,
         experiments=arg_experiments,
         x=x,
         y=y,
@@ -234,8 +313,8 @@ def test__fetch_metric_buckets__bucketing_x_limit_variants(
     )
 
     expected_df = create_expected_data_experiments(
-        project_identifier=project.project_identifier,
-        experiments=experiments,
+        project=project_finite,
+        experiment_names=FINITE_EXPERIMENT_NAMES,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
@@ -246,12 +325,11 @@ def test__fetch_metric_buckets__bucketing_x_limit_variants(
 
 @pytest.mark.parametrize(
     "arg_experiments",
-    [TEST_DATA.experiments[:1], TEST_DATA.experiments[:3]],
+    [["metric-buckets-alpha"], FINITE_EXPERIMENT_NAMES],
 )
 @pytest.mark.parametrize(
     "y",
-    [[path] for path in EXPERIMENT.unique_length_float_series.keys()]
-    + [list(EXPERIMENT.unique_length_float_series.keys())],
+    [[path] for path in MISALIGNED_PATHS] + [MISALIGNED_PATHS],
 )
 @pytest.mark.parametrize(
     "x",
@@ -268,14 +346,14 @@ def test__fetch_metric_buckets__bucketing_x_limit_variants(
 def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
     arg_experiments,
     y,
-    project,
+    project_finite,
     x,
     limit,
     include_point_previews,
 ):
     result_df = fetch_metric_buckets(
-        project=project.project_identifier,
-        experiments=[exp.name for exp in arg_experiments],
+        project=project_finite.project_identifier,
+        experiments=arg_experiments,
         x=x,
         y=y,
         limit=limit,
@@ -283,13 +361,13 @@ def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
         lineage_to_the_root=True,
     )
 
-    expected_data = {
-        experiment.name: {path: experiment.unique_length_float_series[path] for path in y}
-        for experiment in arg_experiments
-    }
+    expected_data = {}
+    for exp_name in arg_experiments:
+        run = project_finite.get_run_by_run_id(exp_name + "-run")
+        expected_data[exp_name] = {path: sorted(list(run.float_series[path].items())) for path in y}
     expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
-        project_identifier=project.project_identifier,
+        project_identifier=project_finite.project_identifier,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
@@ -317,7 +395,7 @@ def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
     ],
 )
 def test__fetch_metric_buckets__over_1k_series(
-    new_project_id,
+    project_non_finite,
     monkeypatch,
     attribute_filter,
     expected_attributes,
@@ -343,11 +421,10 @@ def test__fetch_metric_buckets__over_1k_series(
     monkeypatch.setattr("neptune_query.internal.retrieval.metric_buckets.MAX_SERIES_PER_REQUEST", forced_limit)
     monkeypatch.setattr("neptune_query.internal.composition.fetch_metric_buckets.MAX_SERIES_PER_REQUEST", forced_limit)
 
-    experiment_name = EXP_NAME_INF_NAN_RUN
-    run_id = RUN_ID_INF_NAN_RUN
+    experiment_name = "metric-buckets-inf-nan"
 
     result_df = fetch_metric_buckets(
-        project=new_project_id,
+        project=project_non_finite.project_identifier,
         experiments=[experiment_name],
         x="step",
         y=attribute_filter,
@@ -356,14 +433,17 @@ def test__fetch_metric_buckets__over_1k_series(
         lineage_to_the_root=True,
     )
 
+    # Build expected data from ingested project
+    run = project_non_finite.ingested_runs[0]
     expected_data = {
         experiment_name: {
-            attribute_name: RUN_BY_ID[run_id].metrics_values(attribute_name) for attribute_name in expected_attributes
+            attribute_name: sorted(list(run.float_series[attribute_name].items()))
+            for attribute_name in expected_attributes
         }
     }
     expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
-        project_identifier=new_project_id,
+        project_identifier=project_non_finite.project_identifier,
         x="step",
         limit=5,
         include_point_previews=False,
@@ -378,12 +458,12 @@ def test__fetch_metric_buckets__over_1k_series(
 
 
 @pytest.mark.parametrize(
-    "arg_experiments,run_id,y",
+    "arg_experiments,y",
     [
-        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-containing-inf"),
-        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-containing-nan"),
-        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-ending-with-inf"),
-        (EXP_NAME_INF_NAN_RUN, RUN_ID_INF_NAN_RUN, "series-ending-with-nan"),
+        ("metric-buckets-inf-nan", "series-containing-inf"),
+        ("metric-buckets-inf-nan", "series-containing-nan"),
+        ("metric-buckets-inf-nan", "series-ending-with-inf"),
+        ("metric-buckets-inf-nan", "series-ending-with-nan"),
     ],
 )
 @pytest.mark.parametrize(
@@ -392,23 +472,22 @@ def test__fetch_metric_buckets__over_1k_series(
 )
 @pytest.mark.parametrize(
     "limit",
-    [2, 3, 10, NUMBER_OF_STEPS + 10],
+    [2, 3, 10, 20],
 )
 @pytest.mark.parametrize(
     "include_point_previews",
     [True],
 )
 def test__fetch_metric_buckets__inf_nan(
-    new_project_id,
+    project_non_finite,
     arg_experiments,
-    run_id,
     x,
     y,
     limit,
     include_point_previews,
 ):
     result_df = fetch_metric_buckets(
-        project=new_project_id,
+        project=project_non_finite.project_identifier,
         experiments=arg_experiments,
         x=x,
         y=y,
@@ -417,10 +496,11 @@ def test__fetch_metric_buckets__inf_nan(
         lineage_to_the_root=True,
     )
 
-    expected_data = {arg_experiments: {y: RUN_BY_ID[run_id].metrics_values(y)}}
+    run = project_non_finite.ingested_runs[0]
+    expected_data = {arg_experiments: {y: sorted(list(run.float_series[y].items()))}}
     expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
-        project_identifier=new_project_id,
+        project_identifier=project_non_finite.project_identifier,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
