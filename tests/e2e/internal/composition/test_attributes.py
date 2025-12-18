@@ -19,7 +19,10 @@ from neptune_query.internal.identifiers import (
 )
 from neptune_query.internal.retrieval import search
 from neptune_query.internal.retrieval.attribute_values import AttributeValue
-from tests.e2e.conftest import extract_pages
+from tests.e2e.conftest import (
+    EnsureProjectFunction,
+    extract_pages,
+)
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     ProjectData,
@@ -28,7 +31,7 @@ from tests.e2e.data_ingestion import (
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project) -> IngestedProjectData:
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
             runs=[

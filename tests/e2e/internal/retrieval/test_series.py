@@ -74,7 +74,7 @@ class HistogramMatcher:
         return other.type == "COUNTING" and self.edges == other.edges and self.values == other.values
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(
         ProjectData(
@@ -124,7 +124,7 @@ def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def run_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     run_id = project_1.ingested_runs[0].run_id
     sys_ids: list[SysId] = []
@@ -144,7 +144,7 @@ def run_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     return RunIdentifier(ProjectIdentifier(project_1.project_identifier), sys_id)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def experiment_1_id(client, project_1: IngestedProjectData) -> RunIdentifier:
     experiment_name = project_1.ingested_runs[0].experiment_name
     sys_ids: list[SysId] = []

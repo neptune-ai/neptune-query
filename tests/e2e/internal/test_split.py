@@ -29,7 +29,10 @@ from neptune_query.internal.retrieval.series import (
     SeriesValue,
     fetch_series_values,
 )
-from tests.e2e.conftest import extract_pages
+from tests.e2e.conftest import (
+    EnsureProjectFunction,
+    extract_pages,
+)
 from tests.e2e.data_ingestion import (
     IngestedProjectData,
     ProjectData,
@@ -60,7 +63,7 @@ LONG_PATH_METRICS = {
 
 
 @pytest.fixture(scope="module")
-def project(ensure_project) -> IngestedProjectData:
+def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(
         runs=[
             RunData(
@@ -211,6 +214,7 @@ def test_fetch_attribute_values_composition(client, project, experiment_identifi
 
     #  when
     result = npt.fetch_experiments_table(
+        project=project.project_identifier,
         experiments=exp_names,
         attributes=_attribute_filter("int-value", attr_limit),
         sort_direction="asc",
@@ -290,6 +294,7 @@ def test_fetch_string_series_values_composition(client, project, experiment_iden
 
     # when
     result = npt.fetch_series(
+        project=project.project_identifier,
         experiments=exp_names,
         attributes=_attribute_filter("string-series", attr_limit),
     )
@@ -366,6 +371,7 @@ def test_fetch_float_series_values_composition(client, project, experiment_ident
 
     # when
     result = npt.fetch_metrics(
+        project=project.project_identifier,
         experiments=exp_names,
         attributes=_attribute_filter("float-series", attr_limit),
     )

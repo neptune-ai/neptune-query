@@ -56,12 +56,6 @@ def _to_series_value(step, value):
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
-def run_with_attributes_autouse():
-    # Disable shared ingestion from v1 conftest; this module ingests its own data.
-    return None
-
-
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     series_runs = [

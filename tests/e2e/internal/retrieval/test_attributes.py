@@ -47,7 +47,7 @@ NUMBER_OF_STEPS = 10
 FILE_SERIES_NUMBER_OF_STEPS = 3  # less, since files are heavier to ingest
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     run_data = RunData(
         experiment_name="test_attributes_experiment",
@@ -116,17 +116,17 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ingested_project
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def project_identifier(project) -> ProjectIdentifier:
     return ProjectIdentifier(project.project_identifier)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def experiment_name(project) -> str:
     return project.ingested_runs[0].experiment_name
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def experiment_identifier(client, experiment_name, project_identifier) -> RunIdentifier:
     sys_ids: list[SysId] = []
     for page in search.fetch_experiment_sys_ids(

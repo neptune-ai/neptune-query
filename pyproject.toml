@@ -98,6 +98,7 @@ warn_unused_ignores = "True"
 ignore_missing_imports = "True"
 
 [tool.pytest.ini_options]
+addopts = ["--benchmark-disable"]
 markers = [
     "files: mark test as downloading files using the neptune storage api",
 ]
