@@ -25,7 +25,6 @@ from tests.e2e.data_ingestion import (
     ProjectData,
     RunData,
 )
-from tests.e2e.v1.generator import EXP_NAME_INF_NAN_RUN
 
 # Local dataset definitions for this module
 EXPERIMENT_NAMES = ["test_alpha_1", "test_alpha_2", "test_alpha_3"]
@@ -137,6 +136,45 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     ]
 
     return ensure_project(ProjectData(runs=runs))
+
+
+@pytest.fixture(scope="module")
+def project_non_finite(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
+    return ensure_project(
+        ProjectData(
+            runs=[
+                RunData(
+                    experiment_name="exp_inf_nan_run",
+                    run_id="experiments-inf-nan-run",
+                    configs={
+                        "inf-float": float("inf"),
+                        "nan-float": float("nan"),
+                        "neg-inf-float": float("-inf"),
+                    },
+                    float_series={
+                        "series-containing-inf": {
+                            float(i): v
+                            for i, v in enumerate(
+                                [float("inf"), 1, float("-inf"), 3, 4, float("inf"), 6, float("-inf"), 8, 9]
+                            )
+                        },
+                        "series-ending-with-inf": {
+                            float(i): v for i, v in enumerate([0, 1, 2, 3, 4, 5, 6, 7, 8, float("inf")])
+                        },
+                        "series-containing-nan": {
+                            float(i): v
+                            for i, v in enumerate(
+                                [float("nan"), 1, float("nan"), 3, 4, float("nan"), 6, float("nan"), 8, 9]
+                            )
+                        },
+                        "series-ending-with-nan": {
+                            float(i): v for i, v in enumerate([0, 1, 2, 3, 4, 5, 6, 7, 8, float("nan")])
+                        },
+                    },
+                ),
+            ]
+        )
+    )
 
 
 @pytest.mark.parametrize("sort_direction", ["asc", "desc"])
@@ -440,10 +478,10 @@ def test__fetch_experiments_table_with_attributes_regex_filter_for_metrics(
     assert df[expected.columns].columns.equals(expected.columns)
 
 
-def test__fetch_experiments_table_nan_inf(new_project_id):
+def test__fetch_experiments_table_nan_inf(project_non_finite):
     df = fetch_experiments_table(
-        project=new_project_id,
-        experiments=[EXP_NAME_INF_NAN_RUN],
+        project=project_non_finite.project_identifier,
+        experiments=["exp_inf_nan_run"],
         attributes=[
             "inf-float",
             "nan-float",
@@ -457,7 +495,7 @@ def test__fetch_experiments_table_nan_inf(new_project_id):
 
     expected = pd.DataFrame(
         {
-            "experiment": [EXP_NAME_INF_NAN_RUN],
+            "experiment": ["exp_inf_nan_run"],
             "inf-float": [float("inf")],
             "nan-float": [float("nan")],
             "neg-inf-float": [float("-inf")],
