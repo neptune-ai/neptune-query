@@ -39,7 +39,7 @@ from tests.e2e.metric_buckets import (
     calculate_metric_bucket_ranges,
 )
 
-ALL_EXPERIMENT_NAMES = [
+FINITE_EXPERIMENT_NAMES = [
     "metric-buckets-alpha",
     "metric-buckets-beta",
     "metric-buckets-gamma",
@@ -133,13 +133,6 @@ def _sys_id_label_mapping(experiments: Iterable[str]) -> dict[SysId, str]:
     return {SysId(name): name for name in experiments}  # we just use the id as the label in tests
 
 
-def _run_by_experiment_name(project: IngestedProjectData, name: str) -> RunData:
-    for run in project.ingested_runs:
-        if run.experiment_name == name:
-            return run
-    raise AssertionError(f"Experiment not found: {name}")
-
-
 def create_expected_data_experiments(
     project: IngestedProjectData,
     experiment_names: list[str],
@@ -149,7 +142,7 @@ def create_expected_data_experiments(
 ) -> pd.DataFrame:
     data: dict[str, dict[str, list[tuple[float, float]]]] = {}
     for exp_name in experiment_names:
-        run = _run_by_experiment_name(project, exp_name)
+        run = project.get_run_by_run_id(exp_name + "-run")
         # Take all metric-like float series (including step itself) under ^metrics
         series_pairs = {
             path: sorted(list(values.items()))
@@ -221,10 +214,10 @@ def _create_expected_data_metric_buckets_dataframe(
 @pytest.mark.parametrize(
     "arg_experiments",
     [
-        Filter.name(ALL_EXPERIMENT_NAMES),
+        Filter.name(FINITE_EXPERIMENT_NAMES),
         "metric-buckets-alpha|metric-buckets-beta|metric-buckets-gamma",  # regular expressions
         "metric-buckets-alpha | metric-buckets-beta | metric-buckets-gamma",  # ERS
-        ALL_EXPERIMENT_NAMES,
+        FINITE_EXPERIMENT_NAMES,
     ],
 )
 @pytest.mark.parametrize(
@@ -262,7 +255,7 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
 
     expected_df = create_expected_data_experiments(
         project=project_finite,
-        experiment_names=ALL_EXPERIMENT_NAMES,
+        experiment_names=FINITE_EXPERIMENT_NAMES,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
@@ -287,7 +280,7 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
     "arg_experiments,y",
     [
         (
-            Filter.name(ALL_EXPERIMENT_NAMES),
+            Filter.name(FINITE_EXPERIMENT_NAMES),
             AttributeFilter(name="^metrics/.*", type=["float_series"]),
         ),
         (
@@ -295,7 +288,7 @@ def test__fetch_metric_buckets__experiment_attribute_filter_variants(
             "^metrics/.*",
         ),
         (
-            ALL_EXPERIMENT_NAMES,
+            FINITE_EXPERIMENT_NAMES,
             AttributeFilter(name="^metrics/.*", type=["float_series"])
             | AttributeFilter(name="^metrics/.*", type=["float_series"]),
         ),
@@ -321,7 +314,7 @@ def test__fetch_metric_buckets__bucketing_x_limit_variants(
 
     expected_df = create_expected_data_experiments(
         project=project_finite,
-        experiment_names=ALL_EXPERIMENT_NAMES,
+        experiment_names=FINITE_EXPERIMENT_NAMES,
         x=x,
         limit=limit,
         include_point_previews=include_point_previews,
@@ -332,7 +325,7 @@ def test__fetch_metric_buckets__bucketing_x_limit_variants(
 
 @pytest.mark.parametrize(
     "arg_experiments",
-    [["metric-buckets-alpha"], ALL_EXPERIMENT_NAMES],
+    [["metric-buckets-alpha"], FINITE_EXPERIMENT_NAMES],
 )
 @pytest.mark.parametrize(
     "y",
@@ -370,7 +363,7 @@ def test__fetch_metric_buckets__handles_misaligned_steps_in_metrics(
 
     expected_data = {}
     for exp_name in arg_experiments:
-        run = _run_by_experiment_name(project_finite, exp_name)
+        run = project_finite.get_run_by_run_id(exp_name + "-run")
         expected_data[exp_name] = {path: sorted(list(run.float_series[path].items())) for path in y}
     expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
@@ -441,7 +434,7 @@ def test__fetch_metric_buckets__over_1k_series(
     )
 
     # Build expected data from ingested project
-    run = _run_by_experiment_name(project_non_finite, experiment_name)
+    run = project_non_finite.ingested_runs[0]
     expected_data = {
         experiment_name: {
             attribute_name: sorted(list(run.float_series[attribute_name].items()))
@@ -503,7 +496,7 @@ def test__fetch_metric_buckets__inf_nan(
         lineage_to_the_root=True,
     )
 
-    run = _run_by_experiment_name(project_non_finite, arg_experiments)
+    run = project_non_finite.ingested_runs[0]
     expected_data = {arg_experiments: {y: sorted(list(run.float_series[y].items()))}}
     expected_df = _create_expected_data_metric_buckets_dataframe(
         data=expected_data,
