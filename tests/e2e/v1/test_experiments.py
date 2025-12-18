@@ -15,6 +15,7 @@ from neptune_query.filters import (
     AttributeFilter,
     Filter,
 )
+from neptune_query.types import File
 from neptune_query.types import Histogram as OHistogram
 from tests.e2e.conftest import EnsureProjectFunction
 from tests.e2e.data_ingestion import (
@@ -69,18 +70,26 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 for p in HISTOGRAM_SERIES_PATHS
             },
             files={
-                "files/file-value.txt": IngestionFile(source=b"Text content", mime_type="text/plain"),
+                "files/file-value.txt": IngestionFile(
+                    source=b"Text content",
+                    mime_type="text/plain",
+                    destination="dst/file/file-value.txt",
+                ),
             },
             file_series={
                 "files/file-series-value_0": {
                     float(step): IngestionFile(
-                        source=f"file-{int(step)}".encode("utf-8"), mime_type="application/octet-stream"
+                        source=f"file-{int(step)}".encode("utf-8"),
+                        mime_type="application/octet-stream",
+                        destination="dst/file/file-series-value_0",
                     )
                     for step in range(3)
                 },
                 "files/file-series-value_1": {
                     float(step): IngestionFile(
-                        source=f"file-{int(step)}".encode("utf-8"), mime_type="application/octet-stream"
+                        source=f"file-{int(step)}".encode("utf-8"),
+                        mime_type="application/octet-stream",
+                        destination="dst/file/file-series-value_1",
                     )
                     for step in range(3)
                 },
@@ -357,19 +366,35 @@ def test__fetch_experiments_table_with_attributes_filter_for_file_series(
     )
 
     suffix = ":file_series" if type_suffix_in_column_names else ""
-    # We expect last step file entry
-    from tests.e2e.data import FileMatcher
 
     expected = pd.DataFrame(
         {
             "experiment": ["test_alpha_1"],
             "files/file-series-value_0"
             + suffix: [
-                FileMatcher(path_pattern="file-series-value_0", size_bytes=6, mime_type="application/octet-stream"),
+                File(
+                    project_identifier=project.project_identifier,
+                    experiment_name="test_alpha_1",
+                    run_id=None,
+                    attribute_path="files/file-series-value_0",
+                    step=2.0,
+                    path="dst/file/file-series-value_0",
+                    size_bytes=6,
+                    mime_type="application/octet-stream",
+                )
             ],
             "files/file-series-value_1"
             + suffix: [
-                FileMatcher(path_pattern="file-series-value_1", size_bytes=6, mime_type="application/octet-stream"),
+                File(
+                    project_identifier=project.project_identifier,
+                    experiment_name="test_alpha_1",
+                    run_id=None,
+                    attribute_path="files/file-series-value_1",
+                    step=2.0,
+                    path="dst/file/file-series-value_1",
+                    size_bytes=6,
+                    mime_type="application/octet-stream",
+                )
             ],
         }
     ).set_index("experiment", drop=True)
