@@ -1,0 +1,6 @@
+project_name_override: neptune-api
+package_version_override: 0.1.0
+post_hooks:
+  - "echo > py.typed"
+content_type_overrides:
+  application/x-protobuf: application/octet-stream

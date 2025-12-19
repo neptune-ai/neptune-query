@@ -1,0 +1,239 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ingestion-gateway",
+    "description": "",
+    "contact": {
+      "name": "Neptune",
+      "url": "https://neptune.ml",
+      "email": "contact@neptune.ml"
+    },
+    "license": {
+      "name": ""
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/client/v1/ingest": {
+      "post": {
+        "tags": [
+          "ingestion-gateway"
+        ],
+        "operationId": "ingest",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully enqueued operation",
+            "content": {
+              "application/x-protobuf": {}
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/api/client/v1/ingest/check": {
+      "get": {
+        "tags": [
+          "ingestion-gateway"
+        ],
+        "operationId": "checkStatus",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "query",
+            "description": "Id of the request",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {}
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ingestion-gateway"
+        ],
+        "operationId": "bulkCheckStatus",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {}
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/api/client/v1/ingest/checkDetails": {
+      "post": {
+        "tags": [
+          "ingestion-gateway"
+        ],
+        "operationId": "checkDetails",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {}
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    }
+  },
+  "components": {}
+}

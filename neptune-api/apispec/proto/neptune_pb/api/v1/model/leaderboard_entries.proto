@@ -1,0 +1,123 @@
+syntax = "proto3";
+import "neptune_pb/api/v1/model/series_values.proto";
+
+package neptune.api.v1.model;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.model.proto.generated";
+
+message ProtoLeaderboardEntriesSearchResultDTO {
+    int64 matching_item_count = 1;
+    optional int64 total_group_count = 2;
+    repeated ProtoAttributesDTO entries = 3;
+}
+
+message ProtoAttributesDTO {
+    string experiment_id = 1;
+    string type = 2;
+    string project_id = 3;
+    string organization_id = 4;
+    string project_name = 5;
+    string organization_name = 6;
+    repeated ProtoAttributeDTO attributes = 7;
+}
+
+message ProtoAttributeDTO {
+    string name = 1;
+    string type = 2;
+    optional ProtoIntAttributeDTO int_properties = 3;
+    optional ProtoFloatAttributeDTO float_properties = 4;
+    optional ProtoStringAttributeDTO string_properties = 5;
+    optional ProtoBoolAttributeDTO bool_properties = 6;
+    optional ProtoDatetimeAttributeDTO datetime_properties = 7;
+    optional ProtoStringSetAttributeDTO string_set_properties = 8;
+    optional ProtoFloatSeriesAttributeDTO float_series_properties = 9;
+    optional ProtoFileRefAttributeDTO file_ref_properties = 10;
+    optional ProtoStringSeriesAttributeDTO string_series_properties = 11;
+    optional ProtoFileRefSeriesAttributeDTO file_ref_series_properties = 12;
+    optional ProtoHistogramSeriesAttributeDTO histogram_series_properties = 13;
+}
+
+message ProtoIntAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    int64 value = 3;
+}
+
+message ProtoFloatAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    double value = 3;
+}
+
+message ProtoStringAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    string value = 3;
+}
+
+message ProtoBoolAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    bool value = 3;
+}
+
+message ProtoDatetimeAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    int64 value = 3;
+}
+
+message ProtoStringSetAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    repeated string value = 3;
+}
+
+message ProtoFloatSeriesAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    optional double last_step = 3;
+    optional double last = 4;
+    optional double min = 5;
+    optional double max = 6;
+    optional double average = 7;
+    optional double variance = 8;
+    ProtoFloatSeriesAttributeConfigDTO config = 9;
+    bool has_preview = 10;
+}
+
+message ProtoFloatSeriesAttributeConfigDTO {
+    optional double min = 1;
+    optional double max = 2;
+    optional string unit = 3;
+}
+
+message ProtoFileRefAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    string path = 3;
+    int64 sizeBytes = 4;
+    string mimeType = 5;
+}
+
+message ProtoStringSeriesAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    optional double last_step = 3;
+    optional string last = 4;
+}
+
+message ProtoFileRefSeriesAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    optional double last_step = 3;
+    optional ProtoFileRef last = 4;
+}
+
+message ProtoHistogramSeriesAttributeDTO {
+    string attribute_name = 1;
+    string attribute_type = 2;
+    optional double last_step = 3;
+    optional ProtoHistogram last = 4;
+}

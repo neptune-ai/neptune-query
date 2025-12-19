@@ -1,0 +1,2334 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Neptune Leaderboard REST API",
+    "description": "Public REST API",
+    "termsOfService": "Terms of service",
+    "contact": {
+      "name": "Neptune",
+      "url": "https://neptune.ml",
+      "email": "contact@neptune.ml"
+    },
+    "license": {
+      "name": "",
+      "url": ""
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "//localhost:8070/"
+    },
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "attributes",
+      "description": "Provides attributes api",
+      "x-displayName": "attributes"
+    },
+    {
+      "name": "audited-sessions",
+      "description": "User Sessions Api Controller",
+      "x-displayName": "audited-sessions"
+    },
+    {
+      "name": "dashboards",
+      "description": "Dashboards Api Controller",
+      "x-displayName": "dashboards"
+    },
+    {
+      "name": "experiments",
+      "description": "Provides experiments api",
+      "x-displayName": "experiments"
+    },
+    {
+      "name": "leaderboard",
+      "description": "Provides leaderboard api",
+      "x-displayName": "leaderboard"
+    },
+    {
+      "name": "proto",
+      "description": "Proto Attributes Api Controller",
+      "x-displayName": "proto"
+    },
+    {
+      "name": "reports",
+      "description": "Reports Api Controller",
+      "x-displayName": "reports"
+    },
+    {
+      "name": "userAnalytics",
+      "description": "User Analytics Api Controller",
+      "x-displayName": "userAnalytics"
+    },
+    {
+      "name": "retrieval",
+      "x-displayName": "retrieval"
+    },
+    {
+      "name": "backend",
+      "x-displayName": "backend"
+    },
+    {
+      "name": "storage",
+      "x-displayName": "storage"
+    },
+    {
+      "name": "ingestion",
+      "x-displayName": "ingestion"
+    }
+  ],
+  "paths": {
+    "/api/leaderboard/v1/leaderboard/attributes/definitions/query": {
+      "post": {
+        "operationId": "queryAttributeDefinitionsWithinProject",
+        "summary": "Queries attribute definitions",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "projectIdentifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "query",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAttributeDefinitionsBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryAttributeDefinitionsResultDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "query",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/attributes/attributes": {
+      "post": {
+        "operationId": "getAttributesWithPathsFilterProto",
+        "summary": "Get attributes",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "holderIdentifier",
+            "in": "query",
+            "description": "holderIdentifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "holderType",
+            "in": "query",
+            "description": "holderType",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "attributeQuery",
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributeQueryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "attributeQuery",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/attributes/queryAttributeDefinitions": {
+      "get": {
+        "operationId": "queryAttributeDefinitionsProto",
+        "summary": "Queries attribute definitions of an experiment",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attributeType",
+            "in": "query",
+            "description": "attributeType",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "explode": true,
+            "style": "form"
+          },
+          {
+            "name": "experimentIdentifier",
+            "in": "query",
+            "description": "experimentIdentifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/attributes/series": {
+      "post": {
+        "operationId": "getSeriesValuesProto",
+        "summary": "Get series values",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "useDeprecatedStringFields",
+            "in": "query",
+            "description": "useDeprecatedStringFields",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "request",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeriesValuesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "request",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/attributes/series/float": {
+      "post": {
+        "operationId": "getMultipleFloatSeriesValuesProto",
+        "summary": "Get multiple float series values",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "request",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FloatTimeSeriesValuesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "request",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/attributes/timeseries/buckets": {
+      "post": {
+        "operationId": "getTimeseriesBucketsProto",
+        "summary": "Get bucketed timeseries data",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "request",
+          "required": true,
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "request",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/leaderboard/attributes/query": {
+      "post": {
+        "operationId": "queryAttributesWithinProjectProto",
+        "summary": "Queries attributes",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "projectIdentifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "query",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAttributesBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "query",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/leaderboard/v1/proto/leaderboard/entries/search/": {
+      "post": {
+        "operationId": "searchLeaderboardEntriesProto",
+        "summary": "Get leaderboard",
+        "parameters": [
+          {
+            "name": "X-Neptune-Client-Metadata",
+            "in": "header",
+            "description": "Custom metadata header for Neptune client information (max 200 characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "projectIdentifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "type",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "explode": true,
+            "style": "form"
+          }
+        ],
+        "requestBody": {
+          "description": "params",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchLeaderboardEntriesParamsDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "x-codegen-request-body-name": "params",
+        "tags": [
+          "retrieval"
+        ]
+      }
+    },
+    "/api/backend/v1/projects/get": {
+      "get": {
+        "operationId": "getProject",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "tags": [
+          "backend"
+        ]
+      }
+    },
+    "/api/backend/v1/authorization/oauth-token": {
+      "get": {
+        "operationId": "exchangeApiToken",
+        "parameters": [
+          {
+            "name": "X-Neptune-Api-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NeptuneOauthToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "tags": [
+          "backend"
+        ]
+      }
+    },
+    "/api/backend/v1/clients/config": {
+      "get": {
+        "operationId": "getClientConfig",
+        "parameters": [
+          {
+            "name": "X-Neptune-Api-Token",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alpha",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "408": {
+            "description": "Request Timeout",
+            "content": {}
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {}
+          }
+        },
+        "deprecated": false,
+        "tags": [
+          "backend"
+        ]
+      }
+    },
+    "/api/storagebridge/v1/azure/signedUrl": {
+      "post": {
+        "tags": [
+          "storage"
+        ],
+        "operationId": "signed_url",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSignedUrlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully signed URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSignedUrlsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "410": {
+            "description": "Azure storage not configured"
+          },
+          "413": {
+            "description": "Payload Too Large"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/api/storagebridge/v1/s3/completeMultipartUpload": {
+      "post": {
+        "tags": [
+          "storage"
+        ],
+        "operationId": "complete_multipart_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteMultipartUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Multipart upload completed"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/api/storagebridge/v1/signedUrl": {
+      "post": {
+        "tags": [
+          "storage"
+        ],
+        "operationId": "signed_url_generic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSignedUrlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully signed URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSignedUrlsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "413": {
+            "description": "Payload Too Large"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/api/client/v1/ingest": {
+      "post": {
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "ingest",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully enqueued operation",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/api/client/v1/ingest/check": {
+      "get": {
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "checkStatus",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "query",
+            "description": "Id of the request",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      },
+      "post": {
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "bulkCheckStatus",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/api/client/v1/ingest/checkDetails": {
+      "post": {
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "checkDetails",
+        "parameters": [
+          {
+            "name": "projectIdentifier",
+            "in": "query",
+            "description": "Project Identifier, e.g. \"workspace-name/project-name\"",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved status",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "408": {
+            "description": "Request Timeout"
+          },
+          "413": {
+            "description": "Request Entity Too Large"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AttributeDefinitionDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeTypeDTO"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "AttributeDefinitionDTO"
+      },
+      "AttributeFilterDTO": {
+        "type": "object",
+        "properties": {
+          "attributeType": {
+            "$ref": "#/components/schemas/AttributeTypeDTO"
+          }
+        },
+        "required": [
+          "attributeType"
+        ],
+        "title": "AttributeFilterDTO"
+      },
+      "AttributeNameFilterDTO": {
+        "type": "object",
+        "properties": {
+          "mustMatchAny": {
+            "description": "A list of filters representing disjunctions of conjunctive simple filters. The implementation is currently limited to 1 level of nesting. E.g. `(a AND b AND NOT c) OR (d AND e) OR (f AND g)` is supported, but `(a OR (b OR c))` is not supported. The latter should be expressed as `(a OR b OR c)`. `(a AND (b OR c))` is also not supported. Mutually exclusive with `mustMatchRegexes` and `mustNotMatchRegexes`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributeNameFilterDTO"
+            }
+          },
+          "mustMatchRegexes": {
+            "description": "An attribute must match all of the regexes from the list to be returned. Mutually exclusive with `mustMatchAny`",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mustNotMatchRegexes": {
+            "description": "An attribute must match none of the regexes from the list to be returned. Mutually exclusive with `mustMatchAny`",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "AttributeNameFilterDTO"
+      },
+      "AttributeQueryDTO": {
+        "type": "object",
+        "properties": {
+          "attributePathsFilter": {
+            "description": "Filter attribute paths, if null api returns all attributes",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "AttributeQueryDTO"
+      },
+      "AttributeTypeDTO": {
+        "type": "string",
+        "enum": [
+          "complex",
+          "experimentState",
+          "float",
+          "int",
+          "bool",
+          "string",
+          "datetime",
+          "floatSeries",
+          "stringSeries",
+          "stringSet",
+          "gitRef",
+          "fileRef",
+          "fileRefSeries",
+          "histogramSeries"
+        ]
+      },
+      "AttributesHolderIdentifier": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "type"
+        ],
+        "title": "AttributesHolderIdentifier"
+      },
+      "FloatTimeSeriesValuesRequest": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "string",
+            "enum": [
+              "ascending",
+              "descending"
+            ]
+          },
+          "perSeriesPointsLimit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FloatTimeSeriesValuesRequestSeries"
+            }
+          },
+          "stepRange": {
+            "$ref": "#/components/schemas/OpenRangeDTO"
+          }
+        },
+        "required": [
+          "perSeriesPointsLimit",
+          "requests"
+        ],
+        "title": "FloatTimeSeriesValuesRequest"
+      },
+      "FloatTimeSeriesValuesRequestSeries": {
+        "type": "object",
+        "properties": {
+          "afterStep": {
+            "type": "number",
+            "format": "double"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "series": {
+            "$ref": "#/components/schemas/TimeSeries"
+          }
+        },
+        "required": [
+          "requestId",
+          "series"
+        ],
+        "title": "FloatTimeSeriesValuesRequestSeries"
+      },
+      "NextPageDTO": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "description": "Results limit, can be null on request (default applied)",
+            "type": "integer",
+            "format": "int32"
+          },
+          "nextPageToken": {
+            "description": "Next page token, can be null (first requested / last returned page)",
+            "type": "string"
+          }
+        },
+        "title": "NextPageDTO"
+      },
+      "NqlQueryParamsDTO": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "NqlQueryParamsDTO"
+      },
+      "OpenRangeDTO": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number",
+            "format": "double"
+          },
+          "to": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "title": "OpenRangeDTO"
+      },
+      "QueryAttributeDefinitionsBodyDTO": {
+        "type": "object",
+        "properties": {
+          "attributeFilter": {
+            "description": "Filter by attribute (match any), if null no type or property value filtering is applied",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributeFilterDTO"
+            }
+          },
+          "attributeNameFilter": {
+            "$ref": "#/components/schemas/AttributeNameFilterDTO"
+          },
+          "attributeNameRegex": {
+            "description": "Filter by attribute name with regex, if null no name filtering is applied; deprecated, use attributeNameFilter instead; if attributeNameFilter is set, this field is ignored",
+            "type": "string"
+          },
+          "experimentIdsFilter": {
+            "description": "Filter by experiment id, if null all experiments are considered",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextPage": {
+            "$ref": "#/components/schemas/NextPageDTO"
+          },
+          "projectIdentifiers": {
+            "description": "Project identifiers to filter by",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "QueryAttributeDefinitionsBodyDTO"
+      },
+      "QueryAttributeDefinitionsResultDTO": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributeDefinitionDTO"
+            }
+          },
+          "nextPage": {
+            "$ref": "#/components/schemas/NextPageDTO"
+          }
+        },
+        "required": [
+          "entries",
+          "nextPage"
+        ],
+        "title": "QueryAttributeDefinitionsResultDTO"
+      },
+      "QueryAttributesBodyDTO": {
+        "type": "object",
+        "properties": {
+          "attributeFilter": {
+            "description": "Filter by attribute (match any), if null no type or property value filtering is applied",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributeFilterDTO"
+            }
+          },
+          "attributeNameFilter": {
+            "$ref": "#/components/schemas/AttributeNameFilterDTO"
+          },
+          "attributeNamesFilter": {
+            "description": "Filter by attribute name, if null all attributes are considered",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "experimentIdsFilter": {
+            "description": "Filter by experiment id, if null all experiments are considered",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextPage": {
+            "$ref": "#/components/schemas/NextPageDTO"
+          }
+        },
+        "title": "QueryAttributesBodyDTO"
+      },
+      "QueryLeaderboardParamsAttributeFilterDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "QueryLeaderboardParamsAttributeFilterDTO"
+      },
+      "QueryLeaderboardParamsFieldDTO": {
+        "type": "object",
+        "properties": {
+          "aggregationMode": {
+            "type": "string",
+            "enum": [
+              "last",
+              "min",
+              "max",
+              "average",
+              "variance",
+              "auto"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeTypeDTO"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "QueryLeaderboardParamsFieldDTO"
+      },
+      "QueryLeaderboardParamsGroupingParamsDTO": {
+        "type": "object",
+        "properties": {
+          "groupBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryLeaderboardParamsFieldDTO"
+            }
+          },
+          "openedGroups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "openedGroupsWithPagination": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO"
+            }
+          }
+        },
+        "required": [
+          "groupBy"
+        ],
+        "title": "QueryLeaderboardParamsGroupingParamsDTO"
+      },
+      "QueryLeaderboardParamsNameAliasDTO": {
+        "type": "object",
+        "properties": {
+          "nameAlias": {
+            "type": "string"
+          },
+          "originalId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nameAlias",
+          "originalId"
+        ],
+        "title": "QueryLeaderboardParamsNameAliasDTO"
+      },
+      "QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO": {
+        "type": "object",
+        "properties": {
+          "openedGroup": {
+            "type": "string"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsPaginationWithContinuationTokenDTO"
+          }
+        },
+        "required": [
+          "openedGroup"
+        ],
+        "title": "QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO"
+      },
+      "QueryLeaderboardParamsPaginationDTO": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "title": "QueryLeaderboardParamsPaginationDTO"
+      },
+      "QueryLeaderboardParamsPaginationWithContinuationTokenDTO": {
+        "type": "object",
+        "properties": {
+          "pagination": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsPaginationDTO"
+          },
+          "continuationToken": {
+            "type": "string"
+          },
+          "beforeToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pagination"
+        ],
+        "title": "QueryLeaderboardParamsPaginationWithContinuationTokenDTO"
+      },
+      "QueryLeaderboardParamsQueryAliasesDTO": {
+        "type": "object",
+        "properties": {
+          "experimentAliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryLeaderboardParamsNameAliasDTO"
+            }
+          },
+          "runAliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryLeaderboardParamsNameAliasDTO"
+            }
+          }
+        },
+        "title": "QueryLeaderboardParamsQueryAliasesDTO"
+      },
+      "QueryLeaderboardParamsSortingParamsDTO": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "enum": [
+              "ascending",
+              "descending"
+            ]
+          },
+          "sortBy": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsFieldDTO"
+          }
+        },
+        "required": [
+          "sortBy"
+        ],
+        "title": "QueryLeaderboardParamsSortingParamsDTO"
+      },
+      "SearchLeaderboardEntriesParamsDTO": {
+        "type": "object",
+        "properties": {
+          "attributeFilters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryLeaderboardParamsAttributeFilterDTO"
+            }
+          },
+          "experimentLeader": {
+            "type": "boolean"
+          },
+          "grouping": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsGroupingParamsDTO"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsPaginationDTO"
+          },
+          "query": {
+            "$ref": "#/components/schemas/NqlQueryParamsDTO"
+          },
+          "queryNameAliases": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsQueryAliasesDTO"
+          },
+          "sorting": {
+            "$ref": "#/components/schemas/QueryLeaderboardParamsSortingParamsDTO"
+          },
+          "truncateStringTo": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "title": "SearchLeaderboardEntriesParamsDTO"
+      },
+      "SeriesValuesRequest": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "string",
+            "enum": [
+              "ascending",
+              "descending"
+            ]
+          },
+          "perSeriesPointsLimit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeriesValuesRequestSeries"
+            }
+          },
+          "sizeLimitBytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stepRange": {
+            "$ref": "#/components/schemas/OpenRangeDTO"
+          }
+        },
+        "required": [
+          "requests"
+        ],
+        "title": "SeriesValuesRequest"
+      },
+      "SeriesValuesRequestSearchAfter": {
+        "type": "object",
+        "properties": {
+          "finished": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "finished",
+          "token"
+        ],
+        "title": "SeriesValuesRequestSearchAfter"
+      },
+      "SeriesValuesRequestSeries": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "searchAfter": {
+            "$ref": "#/components/schemas/SeriesValuesRequestSearchAfter"
+          },
+          "series": {
+            "$ref": "#/components/schemas/TimeSeries"
+          }
+        },
+        "required": [
+          "requestId",
+          "series"
+        ],
+        "title": "SeriesValuesRequestSeries"
+      },
+      "TimeSeries": {
+        "type": "object",
+        "properties": {
+          "attribute": {
+            "type": "string"
+          },
+          "holder": {
+            "$ref": "#/components/schemas/AttributesHolderIdentifier"
+          },
+          "includePreview": {
+            "type": "boolean"
+          },
+          "lineage": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "NONE"
+            ]
+          },
+          "lineageEntityType": {
+            "type": "string",
+            "enum": [
+              "RUN",
+              "EXPERIMENT"
+            ]
+          },
+          "normalizeToFirstValue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attribute",
+          "holder"
+        ],
+        "title": "TimeSeries"
+      },
+      "SecurityDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "openIdDiscovery": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientId",
+          "openIdDiscovery"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ApiErrorTypeDTO"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ApiErrorTypeDTO"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "ClientConfig": {
+        "type": "object",
+        "properties": {
+          "apiUrl": {
+            "type": "string"
+          },
+          "pyLibVersions": {
+            "$ref": "#/components/schemas/ClientVersionsConfigDTO"
+          },
+          "security": {
+            "$ref": "#/components/schemas/SecurityDTO"
+          },
+          "applicationUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "apiUrl",
+          "pyLibVersions",
+          "security"
+        ]
+      },
+      "ClientVersionsConfigDTO": {
+        "type": "object",
+        "properties": {
+          "minRecommendedVersion": {
+            "type": "string"
+          },
+          "minCompatibleVersion": {
+            "type": "string"
+          },
+          "maxCompatibleVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiErrorTypeDTO": {
+        "type": "string",
+        "enum": [
+          "LIMIT_OF_PROJECTS_REACHED",
+          "LIMIT_OF_MEMBERS_IN_ORGANIZATION_REACHED",
+          "WORKSPACE_READONLY",
+          "USER_NOT_IN_PROJECT",
+          "SERVICE_ACCOUNT_ALREADY_EXISTS_IN_ORGANIZATION",
+          "SERVICE_ACCOUNT_NOT_IN_PROJECT",
+          "LIMIT_OF_SERVICE_ACCOUNTS_IN_ORGANIZATION_REACHED",
+          "CANNOT_ADD_MEMBERS_TO_PRIVATE_INDIVIDUAL_PROJECT",
+          "CANNOT_ADD_MANAGER_TO_INDIVIDUAL_PROJECT",
+          "CANNOT_ADD_OUTSIDERS_TO_TEAM_PROJECT",
+          "CANNOT_LEAVE_TEAM_PROJECT",
+          "ADMIN_CANNOT_LEAVE_PROJECT",
+          "LIMIT_OF_PROJECT_MEMBERS_REACHED",
+          "VISIBILITY_RESTRICTED",
+          "PLAN_NOT_AVAILABLE",
+          "PAYMENTS_NOT_SUPPORTED",
+          "PROJECT_NAME_COLLISION",
+          "PROJECT_KEY_COLLISION",
+          "PROJECT_NAME_INVALID",
+          "PROJECT_KEY_INVALID",
+          "USER_STILL_OWNS_SOME_ORGANIZATIONS",
+          "LIMIT_OF_ACTIVE_PROJECTS_REACHED",
+          "ACTIVE_PROJECTS_QUOTA_COULD_NOT_BE_CHANGED",
+          "LIMIT_OF_ACTIVE_PROJECTS_QUOTA_REACHED",
+          "INSUFFICIENT_ACTIVE_PROJECTS_QUOTA",
+          "CANNOT_MANAGE_ORGANIZATION_OWNER_IN_PROJECT",
+          "PROJECT_VISIBILITY_NOT_SUPPORTED_FOR_IAAC"
+        ]
+      },
+      "ProjectDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectKey": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "organizationId",
+          "organizationName",
+          "projectKey",
+          "version"
+        ]
+      },
+      "NeptuneOauthToken": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "username"
+        ]
+      },
+      "CompleteMultipartUploadRequest": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "upload_id",
+          "parts"
+        ],
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultipartPart"
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "upload_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateSignedUrlsRequest": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileToSign"
+            }
+          }
+        }
+      },
+      "CreateSignedUrlsResponse": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignedFile"
+            }
+          }
+        }
+      },
+      "FileToSign": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "permission"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "permission": {
+            "$ref": "#/components/schemas/Permission"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "MultipartPart": {
+        "type": "object",
+        "required": [
+          "part_number",
+          "etag"
+        ],
+        "properties": {
+          "etag": {
+            "type": "string"
+          },
+          "part_number": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "MultipartUpload": {
+        "type": "object",
+        "required": [
+          "part_urls",
+          "part_size",
+          "upload_id"
+        ],
+        "properties": {
+          "part_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "part_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "upload_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Permission": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write"
+        ]
+      },
+      "Provider": {
+        "type": "string",
+        "enum": [
+          "azure",
+          "gcp",
+          "aws"
+        ]
+      },
+      "SignedFile": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "url",
+          "provider"
+        ],
+        "properties": {
+          "multipart": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MultipartUpload"
+              }
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "description": "",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "",
+            "tokenUrl": "",
+            "scopes": {}
+          }
+        }
+      }
+    }
+  },
+  "x-tagGroups": [
+    {
+      "name": "Neptune Leaderboard REST API",
+      "tags": [
+        "attributes",
+        "audited-sessions",
+        "dashboards",
+        "experiments",
+        "leaderboard",
+        "proto",
+        "reports",
+        "userAnalytics",
+        "retrieval"
+      ]
+    },
+    {
+      "name": "Neptune Backend API",
+      "tags": [
+        "backend"
+      ]
+    },
+    {
+      "name": "storagebridge",
+      "tags": [
+        "storage"
+      ]
+    },
+    {
+      "name": "ingestion-gateway",
+      "tags": [
+        "ingestion"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package neptune.ingest.v1.pub;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.ingest.v1.pub";
+option java_outer_classname = "IngestPubProto";
+
+import "neptune_pb/ingest/v1/common.proto";
+
+
+// RunOperation is a message body for the operation to be performed on the run.
+message RunOperation {
+  // Qualified name of the context project. This name must include workspace, e.g.: "your-workspace/your-project".
+  string project = 1;
+
+  // Required. Subject run id of the operation. In case of `CreateRun` it's the id of the new run.
+  // User must ensure uniqueness of the id within the project.
+  string run_id = 2;
+
+  // Optional. Will create project if it doesn't yet exist. This operation is idempotent.
+  optional bool create_missing_project = 3;
+
+  // Required. Operation to be performed on the run.
+  oneof operation {
+    // Creates a new run. See `CreateRun` for details.
+    Run create = 6;
+
+    // All included fields will be aligned to the same step. In case the step is not set, it will select the
+    // successor of the highest last_step value among metrics currently being updated.
+    UpdateRunSnapshot update = 7;
+
+    // repeated UpdateRunSnapshot
+    UpdateRunSnapshots update_batch = 8;
+  }
+  // API Key used for authorization of operations.
+  // See https://docs.neptune.ai/setup/setting_api_token/ for more information on how to obtain an API Key.
+  optional bytes api_key = 12;
+}
