@@ -25,9 +25,10 @@ from typing import (
 import azure.core.exceptions
 import requests
 from azure.storage.blob import BlobClient as AzureBlobClient
-from neptune_api.api.storage import signed_url_generic
-from neptune_api.client import AuthenticatedClient
-from neptune_api.models import (
+
+from neptune_query.generated.neptune_api.api.storage import signed_url_generic
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.models import (
     CreateSignedUrlsRequest,
     CreateSignedUrlsResponse,
     FileToSign,
