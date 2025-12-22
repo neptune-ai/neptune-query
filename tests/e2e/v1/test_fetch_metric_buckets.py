@@ -46,12 +46,6 @@ FINITE_EXPERIMENT_NAMES = [
 ]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def run_with_attributes_autouse():
-    # Disable shared ingestion from v1 conftest; this module ingests its own data.
-    return None
-
-
 MISALIGNED_STEPS_SETS = [[0], [0, 1], list(range(10)), [1, 10], [12, 14, 16], [18, 19, 20]]
 MISALIGNED_PATHS = [
     f"misaligned-steps/misaligned-steps-float-series-value-{ix}" for ix in range(len(MISALIGNED_STEPS_SETS))

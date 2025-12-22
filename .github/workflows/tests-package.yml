@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install . neptune==${{ matrix.neptune-version }} "pytest" "pytest-timeout" "pytest-xdist"
+          pip install . neptune==${{ matrix.neptune-version }} pytest pytest-timeout pytest-xdist pytest-benchmark
         shell: bash
 
       - name: List dependencies
