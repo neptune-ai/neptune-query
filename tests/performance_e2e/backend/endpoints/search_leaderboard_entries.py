@@ -12,9 +12,7 @@ from fastapi import (
     Response,
 )
 from neptune_api.models.search_leaderboard_entries_params_dto import SearchLeaderboardEntriesParamsDTO
-from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
-    ProtoLeaderboardEntriesSearchResultDTO,
-)
+from neptune_api.proto.gneptune_pb.api.v1.model.leaderboard_entries_pb2 import ProtoLeaderboardEntriesSearchResultDTO
 
 # Import attribute types from neptune_query
 from neptune_query.internal.retrieval.attribute_types import ALL_TYPES

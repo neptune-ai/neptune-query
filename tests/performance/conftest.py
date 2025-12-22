@@ -36,6 +36,10 @@ def pytest_configure(config):
     config.option.benchmark_json = BytesIO()
     config.option.benchmark_quiet = True
 
+    # --benchmark-disable is passed via pyproject.tml
+    # So we're overriding this here
+    config.option.benchmark_disable = False
+
     config.option.original_xmlpath = config.option.xmlpath
     config.option.xmlpath = None
 
