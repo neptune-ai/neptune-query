@@ -55,12 +55,6 @@ def _drop_sys_attr_names(attributes: Iterable[str]) -> list[str]:
     return [attr for attr in attributes if not attr.startswith("sys/")]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def run_with_attributes_autouse():
-    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
-    return None
-
-
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     runs: list[RunData] = [
@@ -188,10 +182,11 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     ],
 )
 def test_list_attributes_known_in_all_experiments_with_name_filter_excluding_sys(
-    arg_experiments, arg_attributes, expected
+    project, arg_experiments, arg_attributes, expected
 ):
     attributes = _drop_sys_attr_names(
         list_attributes(
+            project=project.project_identifier,
             experiments=arg_experiments,
             attributes=arg_attributes,
         )
@@ -210,9 +205,11 @@ def test_list_attributes_known_in_all_experiments_with_name_filter_excluding_sys
         AttributeFilter(),
     ),
 )
-def test_list_attributes_all_names_from_all_experiments_excluding_sys(name_filter):
+def test_list_attributes_all_names_from_all_experiments_excluding_sys(project, name_filter):
     attributes = _drop_sys_attr_names(
-        list_attributes(experiments=Filter.name(EXPERIMENT_NAMES), attributes=name_filter)
+        list_attributes(
+            project=project.project_identifier, experiments=Filter.name(EXPERIMENT_NAMES), attributes=name_filter
+        )
     )
     assert set(attributes) == set(ALL_ATTRIBUTE_NAMES)
     assert len(attributes) == len(ALL_ATTRIBUTE_NAMES)
@@ -226,8 +223,8 @@ def test_list_attributes_all_names_from_all_experiments_excluding_sys(name_filte
         AttributeFilter(name="unknown"),
     ),
 )
-def test_list_attributes_unknown_name(filter_):
-    attributes = list_attributes(attributes=filter_)
+def test_list_attributes_unknown_name(project, filter_):
+    attributes = list_attributes(project=project.project_identifier, attributes=filter_)
     assert not attributes
 
 
@@ -267,8 +264,9 @@ def test_list_attributes_unknown_name(filter_):
         ),
     ],
 )
-def test_list_attributes_depending_on_values_in_experiments(arg_experiments, arg_attributes, expected):
+def test_list_attributes_depending_on_values_in_experiments(project, arg_experiments, arg_attributes, expected):
     attributes = list_attributes(
+        project=project.project_identifier,
         experiments=arg_experiments,
         attributes=arg_attributes,
     )
@@ -288,9 +286,9 @@ def test_list_attributes_depending_on_values_in_experiments(arg_experiments, arg
         (AttributeFilter(name="sys/name | sys/id"), {"sys/name", "sys/id"}),  # ERS
     ],
 )
-def test_list_attributes_sys_attrs(attribute_filter, expected):
+def test_list_attributes_sys_attrs(project, attribute_filter, expected):
     """A separate test for sys attributes, as we ignore them in tests above for simplicity."""
 
-    attributes = list_attributes(attributes=attribute_filter)
+    attributes = list_attributes(project=project.project_identifier, attributes=attribute_filter)
     assert set(attributes) == expected
     assert len(attributes) == len(expected)

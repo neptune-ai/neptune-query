@@ -57,12 +57,6 @@ def _to_float_point_value(step, value):
     return _timestamp_millis(step), step, value, False, 1.0
 
 
-@pytest.fixture(scope="module", autouse=True)
-def run_with_attributes_autouse():
-    # Disable shared ingestion from v1 conftest; this module ingests its own data.
-    return None
-
-
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     project_data = ProjectData(

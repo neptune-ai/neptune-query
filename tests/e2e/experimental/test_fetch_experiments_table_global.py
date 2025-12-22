@@ -296,7 +296,7 @@ def test_fetch_experiments_table_complex_filter(project_2, unique_magic_string):
     pd.testing.assert_frame_equal(dataframe, expected_dataframe)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def project_1(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     exp_project_1_root = RunData(
         experiment_name=f"exp_{unique_magic_string}_project_1",
@@ -378,7 +378,7 @@ def project_1(ensure_project: EnsureProjectFunction, unique_magic_string: str) -
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def project_2(ensure_project: EnsureProjectFunction, unique_magic_string: str) -> IngestedProjectData:
     exp_project_2_root = RunData(
         experiment_name=f"exp_{unique_magic_string}_project_2",

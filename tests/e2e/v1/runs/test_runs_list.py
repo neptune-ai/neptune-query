@@ -23,13 +23,6 @@ RUNS_IN_EXPERIMENT_B = [
 ALL_RUN_IDS = RUNS_IN_EXPERIMENT_A + RUNS_IN_EXPERIMENT_B
 
 
-# TODO: remove once all e2e tests use the ensure_project framework
-@pytest.fixture(scope="module", autouse=True)
-def run_with_attributes_autouse():
-    # Override autouse ingestion from shared v1 fixtures; this module ingests its own data.
-    return None
-
-
 @pytest.fixture(scope="module")
 def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     runs_data = [

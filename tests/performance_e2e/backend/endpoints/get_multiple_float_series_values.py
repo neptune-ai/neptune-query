@@ -16,9 +16,7 @@ from fastapi import (
     Response,
 )
 from neptune_api.models.float_time_series_values_request import FloatTimeSeriesValuesRequest
-from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.series_values_pb2 import (
-    ProtoFloatSeriesValuesResponseDTO,
-)
+from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoFloatSeriesValuesResponseDTO
 
 from tests.performance_e2e.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from tests.performance_e2e.backend.perf_request import FloatTimeSeriesValuesConfig
