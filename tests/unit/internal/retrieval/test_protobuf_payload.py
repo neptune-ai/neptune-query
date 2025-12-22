@@ -1,7 +1,7 @@
 from io import BytesIO
 from unittest import mock
 
-from neptune_api.proto.protobuf_v4plus.neptune_pb.api.v1.model.requests_pb2 import (
+from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
     ProtoCustomExpression,
     ProtoGetTimeseriesBucketsRequest,
     ProtoScale,
