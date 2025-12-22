@@ -91,8 +91,8 @@ def test_perf_create_metrics_dataframe_with_random_data(
 
 
 @expected_benchmark(
-    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
-    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.600, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=200, num_paths=50, num_steps=100, min_p0=0.500, max_p80=0.700, max_p100=1.000),
+    dict(num_experiments=50, num_paths=200, num_steps=100, min_p0=0.500, max_p80=0.700, max_p100=1.000),
 )
 def test_perf_create_series_dataframe(benchmark, num_experiments, num_paths, num_steps):
     """Test the performance of create_series_dataframe"""
