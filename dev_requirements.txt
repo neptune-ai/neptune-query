@@ -13,7 +13,7 @@ pytest-xdist
 icecream
 tabulate
 git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
-fastapi == 0.116.2
+fastapi == 0.127.0
 uvicorn == 0.40.0
 humanize == 4.13.0
 colorlog == 6.9.0
