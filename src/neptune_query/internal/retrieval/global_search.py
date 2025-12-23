@@ -162,9 +162,8 @@ def _make_next_page_params(
     if len(data.entries) < batch_size:
         return None
 
-    # If there is no pagination info, we cannot continue.
-    if not current_params.pagination or not current_params.pagination.offset:
-        raise RuntimeError("Pagination info missing in the current parameters.")
+    # We're always passing the offest, this is just to satisfy mypy
+    assert current_params.pagination and current_params.pagination.offset
 
     retrieved_so_far = current_params.pagination.offset + batch_size
     if limit is not None and retrieved_so_far >= limit:
