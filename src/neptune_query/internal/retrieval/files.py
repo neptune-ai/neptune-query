@@ -34,6 +34,7 @@ from neptune_api.models import (
     Permission,
     Provider,
 )
+from neptune_api.types import Response
 
 from ...exceptions import NeptuneFileDownloadError
 from ...types import File
@@ -72,14 +73,17 @@ def fetch_signed_urls(
 
     # skip with_neptune_client_metadata - storage bridge API doesn't support it
     call_api = retry.handle_errors_default(signed_url_generic.sync_detailed)
-    response = call_api(client=client, body=body)
+    response: Response[CreateSignedUrlsResponse] = call_api(client=client, body=body)
 
     logger.debug(
         f"signed_url_generic response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
 
-    data: CreateSignedUrlsResponse = response.parsed
+    data = response.parsed
+    if data is None:
+        raise RuntimeError("Failed to fetch signed URLs: response parsed content is None")
+
     if len(data.files) != len(files):
         missing_paths = {f.path for f in files} - {f.path for f in data.files}
         raise ValueError(

@@ -112,7 +112,9 @@ def _fetch_attribute_values_page(
         f"query_attributes_within_project_proto response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
-    return ProtoQueryAttributesResultDTO.FromString(response.content)
+
+    dto: ProtoQueryAttributesResultDTO = ProtoQueryAttributesResultDTO.FromString(response.content)
+    return dto
 
 
 def _process_attribute_values_page(

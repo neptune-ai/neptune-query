@@ -26,6 +26,7 @@ from neptune_api.models import (
     QueryAttributeDefinitionsBodyDTO,
     QueryAttributeDefinitionsResultDTO,
 )
+from neptune_api.types import Response
 
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
@@ -81,7 +82,10 @@ def _fetch_attribute_definitions_page(
     call_api = retry.handle_errors_default(
         with_neptune_client_metadata(query_attribute_definitions_within_project.sync_detailed)
     )
-    response = call_api(client=client, body=body)
+    response: Response[QueryAttributeDefinitionsResultDTO] = call_api(client=client, body=body)
+
+    if response.parsed is None:
+        raise RuntimeError("query_attribute_definitions_within_project returned no data")
 
     logger.debug(
         f"query_attribute_definitions_within_project response status: {response.status_code}, "
