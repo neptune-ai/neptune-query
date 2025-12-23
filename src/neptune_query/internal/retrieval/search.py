@@ -234,7 +234,9 @@ def _fetch_sys_attrs_page(
         f"search_leaderboard_entries_proto response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
-    return ProtoLeaderboardEntriesSearchResultDTO.FromString(response.content)
+
+    dto: ProtoLeaderboardEntriesSearchResultDTO = ProtoLeaderboardEntriesSearchResultDTO.FromString(response.content)
+    return dto
 
 
 def _process_sys_attrs_page(

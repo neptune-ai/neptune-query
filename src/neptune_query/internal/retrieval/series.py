@@ -127,7 +127,8 @@ def _fetch_series_page(
         f"get_series_values_proto response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
-    return ProtoSeriesValuesResponseDTO.FromString(response.content)
+    dto: ProtoSeriesValuesResponseDTO = ProtoSeriesValuesResponseDTO.FromString(response.content)
+    return dto
 
 
 def _process_series_page(

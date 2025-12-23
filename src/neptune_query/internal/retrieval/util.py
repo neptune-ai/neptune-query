@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import (
     Any,
+    BinaryIO,
     Callable,
     Generator,
     Generic,
@@ -59,7 +60,7 @@ class ProtobufPayload(File):
     """A version of the neptune_api.types.File class that uses a protobuf message as payload"""
 
     @property
-    def payload(self) -> BytesIO:
+    def payload(self) -> BinaryIO:
         return self.get_payload()
 
     @payload.setter

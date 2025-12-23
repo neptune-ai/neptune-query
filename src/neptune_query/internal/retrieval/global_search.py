@@ -144,7 +144,8 @@ def _fetch_entries_page(
         f"search_l_global_entries_proto response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
-    return ProtoLeaderboardEntriesSearchResultDTO.FromString(response.content)
+    dto: ProtoLeaderboardEntriesSearchResultDTO = ProtoLeaderboardEntriesSearchResultDTO.FromString(response.content)
+    return dto
 
 
 def _make_next_page_params(
@@ -160,6 +161,9 @@ def _make_next_page_params(
     # If the server returned fewer entries than we process in a single request, we've reached the end.
     if len(data.entries) < batch_size:
         return None
+
+    # We're always passing the offest, this is just to satisfy mypy
+    assert current_params.pagination and current_params.pagination.offset
 
     retrieved_so_far = current_params.pagination.offset + batch_size
     if limit is not None and retrieved_so_far >= limit:

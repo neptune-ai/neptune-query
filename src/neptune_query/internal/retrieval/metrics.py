@@ -136,7 +136,8 @@ def _fetch_metrics_page(
         f"get_multiple_float_series_values_proto response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
-    return ProtoFloatSeriesValuesResponseDTO.FromString(response.content)
+    dto: ProtoFloatSeriesValuesResponseDTO = ProtoFloatSeriesValuesResponseDTO.FromString(response.content)
+    return dto
 
 
 def _process_metrics_page(
