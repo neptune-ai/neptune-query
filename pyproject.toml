@@ -11,8 +11,6 @@ pattern = "default-unprefixed"
 [tool.poetry.dependencies]
 python = "^3.10"
 
-# Base neptune package
-neptune-api = ">=0.25.0,<0.26.0"
 azure-storage-blob = "^12.7.0"
 pandas = ">=1.4.0"
 
@@ -82,6 +80,15 @@ force_grid_wrap = 2
 [tool.flake8]
 max-line-length = 120
 extend-ignore = "E203"
+per-file-ignores = [
+    # Ignore errors in the generated code:
+    # E402: module level import not at top of file
+    # E501: line too long
+    # E712: comparison to True should be 'if cond is True:' or 'if
+    # F401: module imported but unused
+    "src/neptune_query/generated/*:E402,E501,E712,F401"
+]
+
 
 [tool.mypy]
 mypy_path = "src/"
