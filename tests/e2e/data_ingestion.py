@@ -22,7 +22,8 @@ from typing import (
 import filelock
 import neptune_scale
 import neptune_scale.types
-from neptune_api import AuthenticatedClient
+
+from neptune_query.generated.neptune_api import AuthenticatedClient
 
 IngestionHistogram = neptune_scale.types.Histogram
 IngestionFile = neptune_scale.types.File

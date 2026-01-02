@@ -20,14 +20,13 @@ from typing import (
     Optional,
 )
 
-from neptune_api.api.retrieval import query_attribute_definitions_within_project
-from neptune_api.client import AuthenticatedClient
-from neptune_api.models import (
+from neptune_query.generated.neptune_api.api.retrieval import query_attribute_definitions_within_project
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.models import (
     QueryAttributeDefinitionsBodyDTO,
     QueryAttributeDefinitionsResultDTO,
 )
-from neptune_api.types import Response
-
+from neptune_query.generated.neptune_api.types import Response
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
 from .. import filters  # noqa: E402
@@ -87,12 +86,14 @@ def _fetch_attribute_definitions_page(
     if response.parsed is None:
         raise RuntimeError("query_attribute_definitions_within_project returned no data")
 
+    dto: QueryAttributeDefinitionsResultDTO = response.parsed
+
     logger.debug(
         f"query_attribute_definitions_within_project response status: {response.status_code}, "
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
 
-    return response.parsed
+    return dto
 
 
 def _process_attribute_definitions_page(

@@ -21,7 +21,7 @@ from typing import (
     Tuple,
 )
 
-from neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
 
 from .. import (
     env,
