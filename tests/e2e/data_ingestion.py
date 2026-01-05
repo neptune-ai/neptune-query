@@ -11,6 +11,7 @@ from datetime import (
     timezone,
 )
 from pathlib import Path
+from time import sleep
 from typing import (
     Generator,
     Iterable,
@@ -220,6 +221,8 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
 
     for run in runs:
         run.close()
+
+    sleep(2)  # Extra wait to ensure data is available to query before proceeding
 
 
 def _get_all_steps(run_data: RunData) -> Iterable[float]:
