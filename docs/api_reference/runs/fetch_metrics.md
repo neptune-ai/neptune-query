@@ -116,4 +116,3 @@ prompt-wolf-2g2r1  34.0 2025-08-29 09:18:27.875000+00:00      False           1.
 ```
 
 [fetch-metrics]: ../fetch_metrics.md
-

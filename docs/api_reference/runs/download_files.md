@@ -104,4 +104,3 @@ kittiwake-h7jk2   NaN   /home/sigurd/project-x/kittiwake-h7jk2/sample.csv  /home
 ```
 
 [download-files]: ../download_files.md
-

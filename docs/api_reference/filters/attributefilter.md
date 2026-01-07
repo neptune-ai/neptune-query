@@ -36,5 +36,3 @@ losses = AttributeFilter(name=r"loss", type="float_series")
 learning_rate = AttributeFilter(name="configs/learning_rate")
 nq.fetch_experiments_table(attributes=losses | learning_rate)
 ```
-
-

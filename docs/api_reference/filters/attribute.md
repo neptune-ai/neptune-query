@@ -27,5 +27,3 @@ batch_size = Attribute(
 
 nq.fetch_experiments_table(experiments=Filter.eq(batch_size, 64))
 ```
-
-

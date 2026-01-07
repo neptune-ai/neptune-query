@@ -16,5 +16,3 @@ import neptune_query as nq
 
 nq.set_api_token("SomeOtherNeptuneApiToken")
 ```
-
-

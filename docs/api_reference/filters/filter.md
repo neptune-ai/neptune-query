@@ -591,5 +591,3 @@ Fetch configs from the interesting experiments:
 ```py
 nq.fetch_experiments_table(experiments=interesting, attributes=r"config/")
 ```
-
-

@@ -59,5 +59,3 @@ nq_experimental.fetch_experiments_table_global(
     attributes=r"loss | configs",
 )
 ```
-
-

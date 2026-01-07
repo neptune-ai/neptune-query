@@ -118,4 +118,3 @@ seabird-4  34.0 2025-08-29 09:18:27.875000+00:00      False           1.000000  
 ```
 
 [fetch-metrics-runs]: runs/fetch_metrics.md
-

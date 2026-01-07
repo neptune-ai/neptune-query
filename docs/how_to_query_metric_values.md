@@ -266,7 +266,7 @@ Sample output:
 
 ```sh
 experiment    seagull-week1
-metric           train/loss              train/accuracy 
+metric           train/loss              train/accuracy
 bucket                    x           y               x          y
 (0.0, 200.0]       0.766337   46.899769        0.629231  29.418603
 (200.0, 400.0]   200.435899   42.001229      200.825488  11.989595
