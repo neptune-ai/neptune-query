@@ -20,9 +20,9 @@ from typing import (
     Optional,
 )
 
-from neptune_api.api.retrieval import get_timeseries_buckets_proto
-from neptune_api.client import AuthenticatedClient
-from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
+from neptune_query.generated.neptune_api.api.retrieval import get_timeseries_buckets_proto
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
     LineageEntityType,
     ProtoCustomExpression,
     ProtoGetTimeseriesBucketsRequest,
@@ -32,7 +32,9 @@ from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
     ProtoXAxis,
     XSteps,
 )
-from neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import ProtoTimeseriesBucketsDTO
+from neptune_query.generated.neptune_api.proto.neptune_pb.api.v1.model.series_values_pb2 import (
+    ProtoTimeseriesBucketsDTO,
+)
 
 from ..identifiers import RunAttributeDefinition
 from ..logger import get_logger

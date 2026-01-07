@@ -6,16 +6,16 @@ from unittest.mock import (
 )
 
 import pytest
-from neptune_api.errors import (
-    ApiKeyRejectedError,
-    UnableToParseResponse,
-)
 from pytest import fixture
 
 from neptune_query.exceptions import (
     NeptuneInvalidCredentialsError,
     NeptuneRetryError,
     NeptuneUnexpectedResponseError,
+)
+from neptune_query.generated.neptune_api.errors import (
+    ApiKeyRejectedError,
+    UnableToParseResponse,
 )
 from neptune_query.internal.retrieval.retry import (
     exponential_backoff,
