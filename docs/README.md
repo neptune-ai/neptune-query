@@ -1,4 +1,4 @@
-This directory contains the documentation for the `neptune_query` package.
+This directory contains the documentation for the `neptune-query` package.
 
 How-to guides:
 
