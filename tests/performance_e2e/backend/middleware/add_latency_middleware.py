@@ -1,6 +1,7 @@
 """
 Middleware for simulating network latency in performance_e2e tests.
 """
+
 import asyncio
 import random
 import time

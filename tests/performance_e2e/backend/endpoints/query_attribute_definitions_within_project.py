@@ -1,6 +1,7 @@
 """
 Endpoint for handling attribute definitions queries within a project.
 """
+
 import json
 import random
 import time

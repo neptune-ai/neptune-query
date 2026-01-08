@@ -2,6 +2,7 @@
 Middleware for tracking request metrics in performance_e2e tests.
 Records timing information and adds metrics to requests.
 """
+
 import json
 import time
 from contextvars import Token

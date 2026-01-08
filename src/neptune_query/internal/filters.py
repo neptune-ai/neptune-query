@@ -49,8 +49,7 @@ class _BaseAttributeFilter(ABC):
     @abc.abstractmethod
     def transform(
         self, map_attribute_filter: Callable[["_AttributeFilter"], "_AttributeFilter"]
-    ) -> "_BaseAttributeFilter":
-        ...
+    ) -> "_BaseAttributeFilter": ...
 
 
 @dataclass
@@ -351,8 +350,7 @@ class _Filter(ABC):
         return _Filter.eq(name_attribute, name)
 
     @abc.abstractmethod
-    def to_query(self) -> str:
-        ...
+    def to_query(self) -> str: ...
 
     def __str__(self) -> str:
         return self.to_query()

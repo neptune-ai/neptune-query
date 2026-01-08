@@ -180,9 +180,9 @@ def _fetch_metrics(
         ),
     )
 
-    results: Generator[
-        dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None
-    ] = concurrency.gather_results(output)
+    results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None] = (
+        concurrency.gather_results(output)
+    )
 
     metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
     for result in results:
