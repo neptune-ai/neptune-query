@@ -2,6 +2,7 @@
 Middleware for handling performance_e2e testing configuration parsing.
 Parses X-Perf-Request headers and attaches config to request state.
 """
+
 import json
 from typing import (
     Callable,

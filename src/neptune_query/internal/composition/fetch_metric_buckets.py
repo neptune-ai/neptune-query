@@ -63,8 +63,7 @@ __all__ = ("fetch_metric_buckets",)
 class _FetchInChunksProtocol(Protocol):
     def __call__(
         self, x_range: Optional[tuple[float, float]], bucket_limit: int
-    ) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]:
-        ...
+    ) -> dict[RunAttributeDefinition, list[TimeseriesBucket]]: ...
 
 
 def fetch_metric_buckets(
@@ -251,9 +250,10 @@ def _compute_global_x_range(fetch_in_chunks: _FetchInChunksProtocol) -> Optional
     return x_range[0], x_range[1]
 
 
-def _update_range(
-    current_range: tuple[Optional[float], Optional[float]], bucket: TimeseriesBucket
-) -> tuple[Optional[float], Optional[float],]:
+def _update_range(current_range: tuple[Optional[float], Optional[float]], bucket: TimeseriesBucket) -> tuple[
+    Optional[float],
+    Optional[float],
+]:
     # We're including from_x and to_x because some buckets might hold only non-finite points,
     # in which case first_x and last_x are None.
     candidates = [bucket.first_x, bucket.last_x, bucket.from_x, bucket.to_x] + list(current_range)

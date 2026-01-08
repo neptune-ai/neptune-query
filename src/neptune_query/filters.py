@@ -63,8 +63,7 @@ class BaseAttributeFilter(ABC):
         return _AttributeFilterAlternative(filters=filters)
 
     @abc.abstractmethod
-    def _to_internal(self) -> _filters._BaseAttributeFilter:
-        ...
+    def _to_internal(self) -> _filters._BaseAttributeFilter: ...
 
 
 @dataclass

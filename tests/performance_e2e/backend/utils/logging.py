@@ -2,6 +2,7 @@
 Logging utilities for the performance_e2e test backend.
 Provides a consistent logging configuration across all modules.
 """
+
 import logging
 import os
 from contextvars import ContextVar

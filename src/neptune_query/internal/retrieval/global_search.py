@@ -117,13 +117,17 @@ def fetch_global_entries(
                     type=AttributeTypeDTO(
                         map_attribute_type_python_to_backend(sort_by.type) if sort_by.type is not None else "string"
                     ),
-                    aggregation_mode=QueryLeaderboardParamsFieldDTOAggregationMode(sort_by.aggregation)
-                    if sort_by.aggregation is not None
-                    else UNSET,
+                    aggregation_mode=(
+                        QueryLeaderboardParamsFieldDTOAggregationMode(sort_by.aggregation)
+                        if sort_by.aggregation is not None
+                        else UNSET
+                    ),
                 ),
-                dir_=QueryLeaderboardParamsSortingParamsDTODir.ASCENDING
-                if sort_direction == "asc"
-                else QueryLeaderboardParamsSortingParamsDTODir.DESCENDING,
+                dir_=(
+                    QueryLeaderboardParamsSortingParamsDTODir.ASCENDING
+                    if sort_direction == "asc"
+                    else QueryLeaderboardParamsSortingParamsDTODir.DESCENDING
+                ),
             ),
         ),
     )

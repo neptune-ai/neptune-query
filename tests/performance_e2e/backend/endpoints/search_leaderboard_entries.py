@@ -1,6 +1,7 @@
 """
 Endpoint for handling leaderboard entries search requests.
 """
+
 import json
 import random
 import time
