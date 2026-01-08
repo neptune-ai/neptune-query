@@ -9,14 +9,14 @@ from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
 )
 from neptune_api.types import File
 
-from neptune_query.internal.retrieval.util import ProtobufPayload
+from neptune_query.internal.retrieval.util import body_from_protobuf
 
 
 @mock.patch("neptune_query.internal.retrieval.util.BytesIO", wraps=BytesIO)
 def test_bytesio_recreation_on_retry(mock_bytesio):
     """Test that BytesIO instance is recreated when the API call is retried."""
 
-    file = ProtobufPayload(
+    file = body_from_protobuf(
         ProtoGetTimeseriesBucketsRequest(
             expressions=[ProtoCustomExpression(requestId="0123", customYFormula="${abc}")],
             view=ProtoView(xScale=ProtoScale.linear),
@@ -35,5 +35,6 @@ def test_bytesio_recreation_on_retry(mock_bytesio):
     assert read1 == read2
     assert read2 != b""
 
-    # Verify BytesIO was called twice
-    assert mock_bytesio.call_count == 2
+    # Verify BytesIO was called three times:
+    # Once during ProtobufPayload creation and twice for the two reads
+    assert mock_bytesio.call_count == 3

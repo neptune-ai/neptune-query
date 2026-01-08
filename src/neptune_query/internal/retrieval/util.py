@@ -56,13 +56,19 @@ def fetch_pages(
         page_params = make_new_page_params(page_params, data)
 
 
-class ProtobufPayload(File):
-    """A version of the neptune_api.types.File class that uses a protobuf message as payload"""
+class ReusableFile(File):
+    """A File that recreates its payload on each access to support retries."""
 
     @property
     def payload(self) -> BinaryIO:
         return self.get_payload()
 
     @payload.setter
-    def payload(self, message: Message) -> None:
-        self.get_payload = lambda: BytesIO(message.SerializeToString())
+    def payload(self, payload: BinaryIO) -> None:
+        stored_payload = payload.read()
+        self.get_payload = lambda: BytesIO(stored_payload)
+
+
+def body_from_protobuf(message: Message) -> ReusableFile:
+    """Generate a ReusableFile from a protobuf message."""
+    return ReusableFile(payload=BytesIO(message.SerializeToString()))
