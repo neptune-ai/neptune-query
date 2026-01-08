@@ -1,6 +1,7 @@
 """
 Utilities for generating random data for test responses.
 """
+
 import random
 import string
 from typing import Final

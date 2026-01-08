@@ -61,9 +61,11 @@ def test_create_metrics_dataframe(
     # validate columns
     expected_attributes = sorted(
         {
-            f"{run_attributes.attribute_definition.name}:{run_attributes.attribute_definition.type}"
-            if type_suffix_in_column_names
-            else run_attributes.attribute_definition.name
+            (
+                f"{run_attributes.attribute_definition.name}:{run_attributes.attribute_definition.type}"
+                if type_suffix_in_column_names
+                else run_attributes.attribute_definition.name
+            )
             for run_attributes, points in metrics_data.items()
             if points
         }

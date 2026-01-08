@@ -1,6 +1,7 @@
 """
 Endpoint for handling multiple float series values requests.
 """
+
 import hashlib
 import json
 import math

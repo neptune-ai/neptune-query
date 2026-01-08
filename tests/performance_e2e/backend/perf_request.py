@@ -2,6 +2,7 @@
 Common schema and utilities for X-Perf-Request headers used in performance_e2e testing.
 This module provides shared functionality for both test cases and the server implementation.
 """
+
 import json
 from dataclasses import (
     asdict,
