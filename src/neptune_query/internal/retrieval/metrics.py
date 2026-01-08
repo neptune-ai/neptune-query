@@ -38,7 +38,7 @@ from .search import ContainerType
 logger = get_logger()
 
 # Tuples are used here to enhance performance
-FloatPointValue = tuple[float, float, float, bool, float]
+FloatPointValue = tuple[int, float, float, bool, float]
 (
     TimestampIndex,
     StepIndex,
