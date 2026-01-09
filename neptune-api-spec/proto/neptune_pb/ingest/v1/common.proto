@@ -1,0 +1,317 @@
+syntax = "proto3";
+
+package neptune.ingest.v1;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.ingest.v1";
+option java_outer_classname = "CommonProto";
+
+import "google/protobuf/timestamp.proto";
+
+
+// Step is used to measure computational progress of the Run and it's used to stamp its state.
+// For example, to express Step `3.5`, use `Step{whole: 3, micro: 500_000`}.
+message Step {
+  // Whole step index.
+  uint64 whole = 1;
+  // Fractional part of a step expressed as number of micro steps.
+  // Expression `0 <= micro < 1_000_000` must be true at all times.
+  uint64 micro = 2;
+}
+
+// ForkPoint is used to mark the parent and its last inherited state during Forking.
+message ForkPoint {
+  // Optional. Parent project qualified name. If not set, it will default to the context project.
+  optional string parent_project = 1;
+  // Required. The id of the parent run within the parent project.
+  string parent_run_id = 2;
+  // Fork Step, which is the last step that a new run will inherit from its parent.
+  // If not set, it will default to the last seen step of the parent run by the server at the time of forking.
+  // New run may start numbering steps from the next micro step after the fork step.
+  Step step = 4;
+
+  // Internal. requested parent_id of the run.
+  optional string requested_parent_id = 15;
+}
+
+// StringSet represents a set of strings. The order of strings is irrelevant and duplicates are ignored.
+message StringSet {
+  repeated string values = 1;
+}
+
+message FileRef {
+  string path = 1;
+  int64 size_bytes = 2;
+  string mime_type = 3;
+}
+
+// Histogram represents a histogram with explicit bin edges.
+message Histogram {
+  // bin_edges is a sorted list of boundary values defining the histogram bins.
+  // Each bin is determined as follows:
+  //   - For i in [0..(len(bin_edges) - 2)], the bin spans [bin_edges[i], bin_edges[i+1}).
+  //   - The final bin spans [bin_edges[-2], bin_edges[-1]] (closed interval).
+  //
+  // bin_edges must not contain NaN values. Infinity (-∞ or +∞) is allowed at the boundaries
+  // to create unbounded bins. For example:
+  //     bin_edges = [0, 1, 2, 4, 8, +∞]
+  //   describes 5 bins:
+  //     [0,1), [1,2), [2,4), [4,8), [8,+∞]
+  repeated double bin_edges = 1;
+
+  // Counts holds the number of entries in each bin.
+  message Counts {
+    repeated uint64 values = 1;
+  }
+
+  // Densities holds the density (or weight) for each bin.
+  message Densities {
+    repeated double values = 1;
+  }
+
+  // Exactly one of counts or densities should be set.
+  oneof values {
+    // counts specifies the total number of occurrences in each bin.
+    // The length of counts.values must be bin_edges.length - 1.
+    //
+    // Example:
+    //   counts.values = [1, 4, 3, 0, 2]
+    //   represents:
+    //     Range      Count   Bars
+    //     [0,1)         1      #
+    //     [1,2)         4      ####
+    //     [2,4)         3      ###
+    //     [4,8)         0
+    //     [8,+∞]        2      ##
+    Counts counts = 4;
+
+    // densities specifies the density for each bin.
+    // The length of densities.values must be bin_edges.length - 1.
+    //
+    // Example:
+    //   densities.values = [0.1, 0.4, 0.15, 0.0, 0.0]
+    //   represents:
+    //     Range      Density   Bars
+    //     [0,1)       0.1       #
+    //     [1,2)       0.4       ####
+    //     [2,4)       0.15      ##
+    //     [4,8)       0.0
+    //     [8,+∞]      0.0
+    Densities densities = 5;
+  }
+}
+
+// Value is a union of all supported types that can be used to update a field.
+// Different types of operations support different subset of this field, so please refer to the documentation.
+message Value {
+  oneof value {
+    double float64 = 1;
+    int64 int64 = 3;
+    bool bool = 5;
+    string string = 6;
+    google.protobuf.Timestamp timestamp = 8;
+    StringSet string_set = 12;
+    FileRef file_ref = 13;
+    Histogram histogram = 14;
+  }
+}
+
+// SET_OPERATION is used to describe the operation to be performed on a set.
+enum SET_OPERATION {
+  NOOP = 0;
+  ADD = 1;
+  REMOVE = 2;
+}
+
+message ModifyStringSet {
+  map<string, SET_OPERATION> values = 1;
+}
+
+// Allows to update tag values in an incremental way.
+message ModifySet {
+  oneof type {
+    ModifyStringSet string = 1;
+  }
+}
+
+message Owner {
+  oneof owner_type {
+    // Id of a person's account. It will appear in the "sys/owner" field.
+    string user_id = 1;
+    // Id of a service account used for automation.
+    // When set to "myaccount", in the "sys/owner" it will appear as "myaccount@myorganization".
+    string service_account_id = 2;
+  }
+}
+
+message OffsetMetadata {
+  // System-set. Version of configuration used by kafka for consumed topic (number of partitions, etc.). 
+  // Used with `message_offset` field to create robust ordering of operations
+  optional uint32 broker_version = 1;
+
+  // System-set. Message offset from kafka. Set on consumption from Kafka. 
+  // Used with `message_offset` field to create robust ordering of operations
+  optional uint64 message_offset = 2;
+}
+
+// CreateRun can be used to create a new run. This can be done in two ways:
+// 1. Create a new run with no inherited state. You may specify a new run family that will be
+//    inherited by future runs forking from this one, otherwise the new family will be selected by the server.
+// 2. Create a new run that inherits state from the parent run up to a specific step. You may specify
+//    a new run family that will be inherited by future runs forking from this one. By default, the new run
+//    will be in the same Family as the parent run.
+// CreateRun is idempotent, as long as `fork_point` and `family` parameters are the same. In case pf conflict,
+// the second operation will fail.
+message Run {
+  // Id of the run to be created. Optional if parent context has already specified run_id. If both are set, they
+  // must be equal, otherwise the operation will fail.
+  optional string run_id = 1;
+
+  // Experiment Id to assign to this Run. If Experiment Id is already assigned to another Run, specifying it in this
+  // field will move it from the previous Run, so that at most one Run in given project has a given Experiment Id.
+  // Note: Experiment Id is currently exposed as "sys/name" field in the Run metadata.
+  optional string experiment_id = 5;
+
+  // Optional. ForkPoint is used to identify the exact point in the parent history from which the new run continues.
+  // If not specified, the new run will start with no inherited state.
+  optional ForkPoint fork_point = 2;
+
+  // Specifies Family for the new run. Run Family is used to group forking runs that share common ancestry.
+  // By default, the new forking run will be in the same family as the parent run.
+  optional string family = 4;
+
+  // User-specified creation time for the new run. This is especially useful for getting consistent relative timestamps
+  // for series.
+  // If not specified, server will use its current time instead when processing the request.
+  optional google.protobuf.Timestamp creation_time = 3;
+
+  // User that is the owner of the run/experiment being created.
+  // If not specified, it will be set to a user named "unspecified".
+  optional Owner owner = 6;
+
+  // Optional. The request ID generated by the Neptune client, used for tracking outcome of run creation.
+  optional string request_id = 7;
+
+  // Optional. A descriptive identifier of the tracker used to create a run request (e.g neptune-scale-client-0.9),
+  // value will be stored as sys/diagnostics/tracker_client
+  optional string tracker = 8;
+
+  // Optional. Flag that enables copy all user-defined atoms to the child run. Defaults to false
+  optional bool inherit_configs = 9;
+
+  // System-set. This field marks the time when the Run was queued for Neptune to process.
+  //
+  // It may significantly differ from the `creation_time` in cases of:
+  // - offline mode data generation,
+  // - data migrations of historical runs
+  optional google.protobuf.Timestamp start_processing_time = 11;
+
+  // System-set. Object contains infromation to provide robust ordering of operations.
+  optional OffsetMetadata offset_metadata = 12;
+}
+
+// Preview allows to control whether values are preview or committed.
+message Preview {
+  // This flag marks the values as preview. Preview values are not yet fully committed.
+  // When this flag is set, additional completion ratio can be set to indicate the progress of the preview.
+  // Previews are only supported to series (`append` field).
+  bool is_preview = 1;
+
+  // Completion ratio is a progress of the metric value in a bounded computation.
+  // `completion_ratio` value should be set in range between `[0, 1]`.
+  //
+  // Validation:
+  // - `non-NaN` values outside this range, including `+/-Inf`, are clamped to this range.
+  // - `NaN` values are be treated as `0`.
+  // - missing values are treated as `0`.
+  //
+  // Completion and commitment are separate concepts. Preview value may be fully complete, but not committed.
+  // In order to commit a value, unset `is_preview` flag.
+  float completion_ratio = 2;
+}
+
+// Stores Snapshot information about updated fields for a single step. Only passed fields will be updated.
+message UpdateRunSnapshot {
+  // Optional. Step value within the run. If not set, it will default to next full step of the run
+  // (highest step across step values).
+  optional Step step = 1;
+
+  // Timestamp field common to all included operations
+  optional google.protobuf.Timestamp timestamp = 2;
+
+  // Preview allows to control whether values are preview or committed.
+  // When not specified, the values are considered committed.
+  optional Preview preview = 10;
+
+  // Assigns values for fields. Fields `field_path` is used as a key. Example:
+  // ```
+  // {assign: {
+  //   "parameters/learning_rate":  {float64: 0.01},
+  //   "parameters/optimizer":      {string: "sgd"}}}
+  // ```
+  // Note: when using a StringSet value, this action will override the whole Set with the new values.
+  //       If you want to add or remove tags individually, use `modify_set.string` instead.
+  map<string, Value> assign = 4;
+
+  // Modify string sets with incremental changes. For example:
+  // ```
+  // {modify_sets: {
+  //      "sys/tags": {
+  //        "string": {
+  //          values: {
+  //            "new_tag1":  ADD,
+  //            "prev_tag1": REMOVE,
+  //            "new_tag2":  ADD}}}}
+  // ```
+  map<string, ModifySet> modify_sets = 5;
+
+  // Appends values for Series fields. Fields `field_path` is used as a key. Example:
+  // ```
+  // {assign: {
+  //   "metrics/recall":    {float64: 0.6},
+  //   "metrics/precision": {float64: 0.72}}}
+  // ```
+  // Note: when using a StringSet value, this action will override the whole Set with the new values.
+  //       If you want to add or remove tags individually, use `modify_set.string` instead.
+  map<string, Value> append = 8;
+
+  // Optional. The request ID generated by the Neptune client, used for tracking outcome of run update.
+  optional string request_id = 9;
+
+  // System-set. This field marks the time when the snapshot was queued for Neptune to process.
+  //
+  // This timestamp may significantly differ from the `timestamp` in cases of:
+  // - offline mode data generation,
+  // - data migrations of historical runs,
+  // - slow metric computation
+  optional google.protobuf.Timestamp start_processing_time = 11;
+
+  // System-set. Object contains infromation to provide robust ordering of operations.
+  optional OffsetMetadata offset_metadata = 12;
+}
+
+// UpdateSnapshots updates fields for a given step. Used to update current state of the run in a single step.
+// It's especially useful when user updates a large number of disparate fields in a single or few steps.
+// All fields that were seen in a single snapshot will be aligned to the same step. In case the step is not set,
+// it will select the successor of the highest step across applicable individual metric leaders for this run.
+// Example:
+// ```
+// [{step: {whole: 1},
+//  timestamp: "2020-01-01T00:00:00Z",
+//  assign: {
+//    "parameters/learning_rate":  {float64: 0.001},
+//    "parameters/param1":         {float64: 0.1}},
+//  append: {
+//    "metrics/precision":         {float64: 0.72}}},
+// {step: {whole: 2},
+//  timestamp: "2020-01-01T00:00:00Z",
+//  append: {
+//    "metrics/recall":     {float64: 0.6},
+//    "metrics/precision":  {float64: 0.74}}}]
+//
+// ```
+message UpdateRunSnapshots {
+  repeated UpdateRunSnapshot snapshots = 1;
+}
+
+

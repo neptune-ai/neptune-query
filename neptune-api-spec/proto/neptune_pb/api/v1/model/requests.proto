@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package neptune.api.v1.model;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.model.proto.generated";
+
+message ProtoGetTimeseriesBucketsRequest {
+    repeated ProtoCustomExpression expressions = 1;
+    ProtoView view = 2;
+}
+
+// Custom metric configuration
+message ProtoCustomExpression {
+    string requestId = 1; // needs to be unique in the whole ProtoGetTimeseriesBucketsRequest
+    string runId = 2;
+    string customYFormula = 3;
+    optional bool includePreview = 4;
+    ProtoLineage lineage = 5;
+    LineageEntityType entityType = 6;
+}
+
+// View configuration
+message ProtoView {
+    optional double from = 1;
+    optional double to = 2;
+    optional ProtoPointFilters pointFilters = 3;
+    int32 maxBuckets = 4;
+    ProtoScale xScale = 5;
+    ProtoScale yScale = 6;
+    ProtoXAxis xAxis = 7;
+}
+
+// Point filters
+message ProtoPointFilters {
+    optional ProtoOpenRange stepRange = 1;
+}
+
+message ProtoOpenRange {
+    optional double from = 1;
+    optional double to = 2;
+}
+
+message ProtoXAxis {
+    oneof value {
+        XSteps steps = 1;
+        XEpochMillis epochMillis = 2;
+        XRelativeTime relativeTime =3;
+        XCustom custom = 4;
+    }
+}
+message XSteps {}
+message XEpochMillis {}
+message XRelativeTime {}
+message XCustom {
+    string expression = 1;
+}
+
+enum ProtoScale {
+    linear = 0;
+    log = 1;
+}
+
+// Enum for lineage types
+enum ProtoLineage {
+    FULL = 0;
+    ONLY_OWNED = 1;
+}
+
+enum LineageEntityType {
+    EXPERIMENT = 0;
+    RUN = 1;
+}

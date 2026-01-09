@@ -1,0 +1,271 @@
+syntax = "proto3";
+
+package neptune.ingest.v1;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.ingest.v1";
+option java_outer_classname = "IngestProto";
+
+import "google_rpc/code.proto";
+import "neptune_pb/ingest/v1/common.proto";
+
+
+
+// BatchContext
+message BatchContext {
+  // Project qualified name, e.g. "your-workspace/your-project".
+  string project = 1;
+  // API Key required used to authorize all operations withing batch.
+  bytes api_key = 2;
+}
+
+// Mode of update run. We currently support only Update Snapshots.
+message UpdateRun {
+  oneof mode {
+    // All included fields will be aligned to the same step. In case the step is not set, it will select the
+    // successor of the run step, which is the highest step across individual metric leaders for this run.
+    UpdateRunSnapshots update_snapshots = 8;
+  }
+}
+
+// BatchProjectOperations will execute operations within provided `context`. It will execute `create_runs` first and
+// then `update_run_fields`. All operations within each group are unordered and may be executed simultaneously.
+//
+// Currently, Ingest API does not perform any topological sort within a single batch. Customer of this API must ensure
+// that all required dependencies are met before this Batch is executed.
+message BatchProjectOperations {
+  // Required. Context of the operation: workspace, project and api key used for authorization
+  BatchContext context = 1;
+
+  // Optional. This option will instrument the server to create project if it doesn't yet exist.
+  // This operation is idempotent.
+  bool create_missing_project = 3;
+
+  // Optional. Creates a new Run or Forks an existing Run from the specified `parent_run` and `step`.
+  repeated Run create_runs = 4;
+
+  // Optional. Update fields for selected runs. Map key is an id of the run to be updated.
+  // Allows users to provide shared StepInfo, which is useful for large updates happening for the same step.
+  map<string, UpdateRun> update_runs = 8;
+}
+
+// Error codes for the operations
+enum IngestCode {
+  // OK is returned on successful operations.
+  OK = 0;
+
+  // Run create requests are not topologically sorted across batches. A single batch must not contain dependent runs.
+  BATCH_CONTAINS_DEPENDENT_RUNS = 4;
+
+  // Project not found. May happen when the project is not created yet and `create_missing_project` is not set.
+  PROJECT_NOT_FOUND = 8;
+
+  // Project name is either empty or too long.
+  PROJECT_INVALID_NAME = 9;
+
+  // Run not found. May happen when the run is not yet created.
+  RUN_NOT_FOUND = 10;
+
+  // Idempotency Warning: Identical run already exists.
+  RUN_DUPLICATE = 11;
+
+  // Run with specified `run_id` already exists, but has different creation parameters (`run_family` or `fork_point`).
+  RUN_CONFLICTING = 12;
+
+  // Warning: Missing fork parent run.
+  RUN_FORK_PARENT_NOT_FOUND = 13;
+
+  // Invalid run creation parameters. For example, experiment id is too large, etc
+  RUN_INVALID_CREATION_PARAMETERS = 14;
+
+  // Field Path is too long. Maximum length is 1024 bytes (not characters)
+  FIELD_PATH_EXCEEDS_SIZE_LIMIT = 16;
+
+  // Field Path is empty.
+  FIELD_PATH_EMPTY = 17;
+
+  // Field Path is invalid for other reasons, like invalid UTF-8 encoding.
+  FIELD_PATH_INVALID = 18;
+
+  // Field Path is non-writable. Some special sys/ fields are read-only.
+  FIELD_PATH_NON_WRITABLE = 19;
+
+  // Field Type is not supported by the system.
+  FIELD_TYPE_UNSUPPORTED = 20;
+
+  // Field type is different from the one that was previously logged for this series.
+  // Once a field type is set, it cannot be changed.
+  FIELD_TYPE_CONFLICTING = 21;
+
+  // Idempotency Warning: The exact same data point was already logged for this series.
+  SERIES_POINT_DUPLICATE = 24;
+
+  // Step value must be smaller than: `1_000_000_000_000`.
+  SERIES_STEP_TOO_LARGE = 40;
+
+  // Invalid step value. Step `micro` part must be smaller than `1_000_000`.
+  SERIES_STEP_INVALID = 41;
+
+  // Series preview step not after last committed step.
+  SERIES_PREVIEW_STEP_NOT_AFTER_LAST_COMMITTED_STEP = 42;
+
+  // The step of a series value is lesser than the most recently logged step for this series or the step is exactly the
+  // same, but the value is different (DUPLICATE_DATA_POINT doesn't apply).
+  SERIES_STEP_NON_INCREASING = 25;
+
+  // The series value must be greater than the step specified in the run Fork Point.
+  SERIES_STEP_NOT_AFTER_FORK_POINT = 26;
+
+  // The timestamp of a series value is lesser than the most recently logged value. Identical timestamps are allowed.
+  SERIES_TIMESTAMP_DECREASING = 27;
+
+  // Unsupported value type for float64 field or float64 series. Applies to Inf and NaN values.
+  FLOAT_VALUE_NAN_INF_UNSUPPORTED = 32;
+
+  // Timestamp allowed range is (1900-01-01 to 2299-12-31)
+  DATETIME_VALUE_OUT_OF_RANGE = 33;
+
+  // String value is too long. Maximum length is 1MiB.
+  STRING_VALUE_EXCEEDS_SIZE_LIMIT = 36;
+
+  // String Set value is too long. Maximum length is 1MiB.
+  STRING_SET_EXCEEDS_SIZE_LIMIT = 37;
+
+  // File Ref value is too long. Maximum length is 4KiB.
+  FILE_REF_EXCEEDS_SIZE_LIMIT = 38;
+
+  // Histogram must not contain `NaN` values.
+  HISTOGRAM_BIN_EDGES_CONTAINS_NAN = 50;
+
+  // Max allowed size of bin_edges array is 513 elements, which corresponds to 512 bins.
+  HISTOGRAM_TOO_MANY_BINS = 51;
+
+  // Bins must be increasing monotonically.
+  HISTOGRAM_BIN_EDGES_NOT_INCREASING = 52;
+
+  // Histogram values and bins arrays are not matching.
+  // Following must always be true: `assert len(values) == len(bins) - 1`.
+  HISTOGRAM_VALUES_LENGTH_DOESNT_MATCH_BINS = 53;
+
+  // Ingest is currently suspended
+  INGEST_SUSPENDED = 63;
+  // Internal failure
+  INTERNAL = 64;
+}
+
+message CreateRunError {
+  // grpc response code of the operation.
+  google_rpc.Code grpc_code = 1;
+  // error code of the operation.
+  IngestCode ingest_code = 3;
+  // error message related to the operation.
+  string message = 2;
+}
+
+// Run create results
+message CreateRunResult {
+  oneof type {
+    // Run successfully created by the server.
+    Run run = 1;
+
+    // error details.
+    CreateRunError error = 2;
+  }
+}
+
+// counters for the operations performed in the request, batch or run update
+message ResultSummary {
+  // failed_count + successful_count = total_operations_count
+  int64 total_operations_count = 1;
+  int64 successful_count = 2;
+  int64 failed_count = 3;
+
+  // Mapping of failed operations counts by error code.
+  message FailedByGRPCCodeCounters {
+    google_rpc.Code grpc_code = 1;
+    int64 count = 2;
+  }
+
+  message IngestCodeCounters {
+    IngestCode ingest_code = 1;
+    int64 count = 2;
+  }
+
+  // Failed summary details
+  repeated FailedByGRPCCodeCounters failed_by_grpc_code = 4;
+  repeated IngestCodeCounters failed_by_ingest_code = 5;
+}
+
+message UpdateRunError {
+  // grpc error code of the operation.
+  google_rpc.Code grpc_code = 1;
+  // error code of the operation.
+  IngestCode ingest_code = 2;
+  // error message related to the operation.
+  string message = 3;
+  // field path is set only if a failed operation is a Field Operation.
+  string field = 4;
+}
+
+message UpdateRunResults {
+  ResultSummary operations_summary = 1;
+
+  // Detail error. If the whole batch fails due to wider conditions, per-field errors will not be listed.
+  // Successful field updates are not reported here, they are only counted in the `operations_summary`.
+  repeated UpdateRunError update_errors = 2;
+}
+
+message BatchResult {
+  // Error code that applies to the whole batch. Used codes:
+  // - OK: when the batch is partially successful, but there could be some operations that failed.
+  //   Operation-specific errors will be listed in `operation_errors`.
+  // - UNAUTHENTICATED: when `api_key` is not provided.
+  // - PERMISSION_DENIED: when provided `api_key` is not authorized to perform the operations on a provided context.
+  // - NOT_FOUND: when `workspace` or `project` does not exist or provided`api_key` doesn't have read access to them.
+  // - INVALID_ARGUMENT: when the batch is malformed to a degree that no operation can be performed.
+  // - INTERNAL: when an unexpected error occurred.
+  // - UNAVAILABLE: when the service is unavailable.
+  // - DATA_LOSS: when the service experienced a data loss.
+  google_rpc.Code grpc_code = 1;
+  IngestCode ingest_code = 9;
+
+  // Summary of the operations performed in the batch.
+  ResultSummary operations_summary = 2;
+
+  // Project associated with the batch.
+  string project = 5;
+
+  // Reports created runs in the batch. In case the user didn't set their `run_id` in the request, it will be provided
+  // by the server. Order of the results is preserved.
+  repeated CreateRunResult create_run_results = 6;
+
+  // Run update results.
+  map<string, UpdateRunResults> update_run_results = 7;
+
+  // Error message related to the batch failure.
+  string message = 8;
+}
+
+// Ingest Request is a request body for the Ingest method. It contains a list of batches of operations to be performed.
+// Each Batch of operations is executed within the provided context.
+//
+// We recommend counting the number of atomic changes (points, `assign` operations) in all batches in a single
+// request and keeping them between 10 thousand and 20 thousands to avoid performance issues.
+message IngestRequest {
+  // Batches of operations to be performed. Each batch is executed within the provided context.
+  //
+  // Multiple batches may be executed together to improve Ingest performance if their operations are found to be
+  // independent. Batches that don't share the same Context are always considered independent and may be merged.
+  repeated BatchProjectOperations batches = 1;
+}
+
+// Ingest Response returns a list of errors for each batch of operations
+message IngestResponse {
+  // summary of the results of the operations performed in the request.
+  ResultSummary summary = 2;
+  // Error message related to the whole request. Corresponding error code is set in the response header
+  string error_message = 4;
+  // Batch results. Each batch result corresponds to a single batch in the request.
+  // The order of the results is preserved.
+  repeated BatchResult batch_results = 5;
+}
