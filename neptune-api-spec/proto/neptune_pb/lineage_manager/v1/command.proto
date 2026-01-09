@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package neptune.lineage_manager.v1;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.lineage_manager.v1";
+option java_outer_classname = "CommandProto";
+
+import "google/protobuf/timestamp.proto";
+import "neptune_pb/ingest/v1/common.proto";
+
+// ForkPoint is already stored in mysql, so what remains is materializing it.
+message MaterializeRun {
+  // Run uuid encoded as big-endian bytes. Must always be 16 bytes long.
+  bytes run_id = 1;
+}
+
+// RebaseRun is issued to Lineage Manager to rebase a run onto a new fork point.
+// It will apply the RebaseRun command recursively to all of its children.
+message RebaseRun {
+  // Run uuid encoded as big-endian bytes. Must always be 16 bytes long.
+  bytes run_id = 1;
+
+  // Run to rebase on top of
+  neptune.ingest.v1.ForkPoint fork_point = 2;
+}
+
+// SetExperimentHead is issued to Lineage Manager to set the head of the experient.
+// Run that has it's being set as experiment head must already be materialized.
+message SetExperimentHead {
+  // Run uuid encoded as big-endian bytes. Must always be 16 bytes long.
+  bytes run_id = 1;
+}
+
+// ForwardLateAttributes is issued by Ingest Server when a forked run is still emitting data.
+// Materialized descendants still need to be updated with the latest attributes.
+message ForwardLateAttributes {
+  // Run uuid encoded as big-endian bytes. Must always be 16 bytes long.
+  bytes run_id = 1;
+
+  // snapshots that may need to be forwarded to descendants
+  neptune.ingest.v1.UpdateRunSnapshots snapshots = 2;
+}
+
+// Lineage Manager commands
+message LineageManagerCommand {
+  // Ingest partition. It's used to ensure serializability of commands
+  uint32 partition = 1;
+
+  oneof command {
+    MaterializeRun materialize_run = 2;
+    SetExperimentHead set_experiment_head = 3;
+    ForwardLateAttributes forward_late_attributes = 4;
+  }
+
+  // Timestamp since the original event triggering this command was first seen by the server.
+  // This is usually run reporting data or forking seen from Ingestion Gateway.
+  google.protobuf.Timestamp start_processing_timestamp = 10;
+
+  // Timestamp when the command was sent from Lineage Manager to Segment Builder.
+  google.protobuf.Timestamp producer_timestamp = 11;
+}
+

@@ -1,0 +1,32 @@
+syntax = "proto3";
+import "neptune_pb/api/v1/model/leaderboard_entries.proto";
+
+package neptune.api.v1.model;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.model.proto.generated";
+
+message ProtoAttributesSearchResultDTO {
+    repeated ProtoAttributeDefinitionDTO entries = 1;
+}
+
+message ProtoAttributeDefinitionDTO {
+    string name = 1;
+    string type = 2;
+}
+
+message ProtoQueryAttributesResultDTO {
+    repeated ProtoQueryAttributesExperimentResultDTO entries = 1;
+    ProtoNextPageDTO nextPage = 2;
+}
+
+message ProtoNextPageDTO {
+    optional string nextPageToken = 1;
+    optional uint32 limit = 2;
+}
+
+message ProtoQueryAttributesExperimentResultDTO {
+    string experimentId = 1;
+    string experimentShortId = 2;
+    repeated ProtoAttributeDTO attributes = 3;
+}

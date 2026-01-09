@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package neptune.segment_compactor.v1;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.segment_compactor.v1";
+option java_outer_classname = "CommandProto";
+
+import "google/protobuf/timestamp.proto";
+import "neptune_pb/ingest/v1/common.proto";
+
+message Input {
+  message SegmentRange {
+    // segment_id from which to copy points
+    bytes segment_id = 1;
+
+    // upper step limit of the segment range (inclusive)
+    neptune.ingest.v1.Step to_step = 3;
+  }
+
+  // Used for Versioned Atoms
+  message Attribute {
+    // run_id of the attribute
+    bytes run_id = 1;
+
+    // path of the attribute
+    string path = 2;
+
+    // set step at which the attribute was set (usually fork step of the run)
+    neptune.ingest.v1.Step step = 3;
+
+    // run creation time.
+    google.protobuf.Timestamp run_creation_time = 4;
+  }
+
+  oneof type {
+    // segment range to copy points from
+    SegmentRange segment_range = 1;
+
+    // attribute to copy the latest value of
+    Attribute attribute = 2;
+  }
+
+  // Needed when source segment is Owned Segment or an Attribute for Versioned Atoms,
+  // This is because owned data doesn't have lineage `run_depth` information.
+  optional uint32 run_depth = 4;
+}
+
+message CreateSharedSegment {
+  // multiple source segments are used to create a merged shared segment.
+  repeated Input inputs = 1;
+
+  // segment_id to be populated
+  bytes output_segment_id = 2;
+}
+
+message CreateSharedSegments {
+  // project uuid encoded as big-endian bytes.
+  bytes project_id = 1;
+
+  // Shared segments to create.
+  repeated CreateSharedSegment segments = 2;
+}
+
+// SwitchSeriesVersion is used to switch the series version of a run.
+// This message comes after all required segments have been created.
+message SwitchSeriesVersion {
+  bytes run_id = 1;
+
+  // lineage_version of the run. If the message lineage version is outdated, this command will be ignored.
+  uint32 current_lineage_version = 3;
+
+  // series version of a run to switch to.
+  uint32 next_series_version = 2;
+}
+
+message SegmentBuilderCommand {
+  uint32 partition = 1;
+
+  oneof command {
+    CreateSharedSegments create_shared_segments = 3;
+    SwitchSeriesVersion switch_series_version = 4;
+  }
+
+  // Timestamp since the original event triggering this command was first seen by the server.
+  // This is usually run forking seen from Ingestion Gateway.
+  google.protobuf.Timestamp start_processing_timestamp = 10;
+
+  // Timestamp when the command was sent from Lineage Manager to Segment Builder.
+  google.protobuf.Timestamp producer_timestamp = 11;
+}
