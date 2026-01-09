@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package neptune.experiment_indexer.v1;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.experiment_indexer.v1";
+option java_outer_classname = "ExperimentIndexerCommandProto";
+
+import "google/protobuf/timestamp.proto";
+import "neptune_pb/ingest/v1/common.proto";
+
+enum OperationSource {
+  OPERATION_SOURCE_UNSPECIFIED = 0;
+  OPERATION_SOURCE_LEADERBOARD = 1;
+  OPERATION_SOURCE_POINTSET_BUILDER = 2;
+  OPERATION_SOURCE_SYSTEM = 3;
+}
+
+// Envelope metadata attached to every command. All fields are optional.
+message CommandMetadata {
+  // Server-side timestamp (UTC) when the operation was enqueued.
+  google.protobuf.Timestamp operation_requested_at = 1;
+
+  // Human identifier of the requester (user id). Empty when unknown / system.
+  string requester = 2;
+
+  // Correlates multiple mutations originating from the same API request.
+  string correlation_id = 3;
+}
+
+// Marks or unmarks the run as archived in index tables.
+message SetArchived {
+  bool archived = 1;
+}
+
+// Adds/removes tags on a run for the provided path. An empty add/remove list is allowed.
+message UpsertTagSet {
+  string path = 1;
+  repeated string add = 2;
+  repeated string remove = 3;
+}
+
+// Updates inherited-data-ready status for the run.
+message SetReadyState {
+  bool inherited_data_ready = 1;
+}
+
+// Switches experiment head ownership. All optional ids are encoded as UUID bytes.
+message HeadSwitch {
+  // When true, the current run becomes the head; when false, only clearing occurs.
+  bool set_head = 1;
+
+  // Optional UUID (16 bytes, msb-first) of the previous head run for consistency checks.
+  bytes previous_head_run_id = 2;
+
+  // Optional UUID (16 bytes, msb-first) of owner whose run head flag must be cleared.
+  bytes previous_head_owner_id = 3;
+}
+
+// Finalizes a pointset-builder shard. Only request_id and shard number are required.
+message FinalizeShard {
+  // Shard request identifier from pointset-builder (UUID, 16 bytes, msb-first).
+  bytes request_id = 1;
+
+  // ClickHouse shard that corresponds to the request.
+  int32 clickhouse_shard = 2;
+
+  // Optional run UUID (16 bytes, msb-first) whose head flag should be cleared.
+  bytes run_id_to_clear_experiment_head = 3;
+
+  // Optional owner UUID (16 bytes, msb-first) for which the head flag should be cleared.
+  bytes previous_head_owner_id = 4;
+
+  // Optional timestamps propagated from ingest for auditing.
+  google.protobuf.Timestamp user_provided_creation_time = 5;
+  google.protobuf.Timestamp server_operation_start_time = 6;
+
+  // Indicates that the shard belongs to a run without an experiment context.
+  bool is_run_without_exp = 7;
+}
+
+// Carries ingest-style attribute snapshot limited to promoted attribute paths.
+message PromotedAttributeMutation {
+  neptune.ingest.v1.UpdateRunSnapshot snapshot = 1;
+}
+
+// Marks that promoted attributes for the current run start from an empty cache.
+message InitializePromotedAttributes {}
+
+message Mutation {
+  oneof payload {
+    SetArchived set_archived = 1;
+    UpsertTagSet upsert_tag_set = 2;
+    SetReadyState set_ready_state = 3;
+    HeadSwitch head_switch = 4;
+    FinalizeShard finalize_shard = 5;
+    PromotedAttributeMutation promoted_attribute_mutation = 7;
+    InitializePromotedAttributes initialize_promoted_attributes = 8;
+  }
+}
+
+// Top-level command describing a single experiment/run update.
+message ExperimentIndexingCommand {
+  // Required operation identifier (UUID, 16 bytes, msb-first).
+  bytes operation_id = 1;
+
+  // Required project identifier (UUID, 16 bytes, msb-first).
+  bytes project_id = 2;
+
+  // Required canonical run identifier (UUID, 16 bytes, msb-first).
+  bytes run_id = 3;
+
+  // Source component that produced the command.
+  OperationSource source = 4;
+
+  // Optional experiment name (immutable string identifier).
+  string experiment_name = 5;
+
+  // Optional custom run id provided by the client.
+  string custom_run_id = 6;
+
+  // Optional sys_id (legacy) value.
+  string sys_id = 7;
+
+  // Optional owner string (usually user id or team slug) for attribution.
+  string owner = 8;
+
+  // Optional UUID (16 bytes, msb-first) of run owner. Fields owner and owner_id
+  // are present always together.
+  bytes owner_id = 9;
+
+  // At least one mutation must be provided; multiple mutations share the same envelope.
+  repeated Mutation mutations = 10;
+
+  // Optional metadata that assists in tracing / auditing.
+  CommandMetadata metadata = 11;
+}

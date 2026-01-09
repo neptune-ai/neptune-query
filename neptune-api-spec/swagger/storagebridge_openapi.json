@@ -1,0 +1,313 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "storagebridge",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/storagebridge/v1/azure/signedUrl": {
+      "post": {
+        "tags": [
+          "storagebridge"
+        ],
+        "operationId": "signed_url",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSignedUrlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully signed URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSignedUrlsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "410": {
+            "description": "Azure storage not configured"
+          },
+          "413": {
+            "description": "Payload Too Large"
+          }
+        }
+      }
+    },
+    "/api/storagebridge/v1/s3/completeMultipartUpload": {
+      "post": {
+        "tags": [
+          "storagebridge"
+        ],
+        "operationId": "complete_multipart_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteMultipartUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Multipart upload completed"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        }
+      }
+    },
+    "/api/storagebridge/v1/signedUrl": {
+      "post": {
+        "tags": [
+          "storagebridge"
+        ],
+        "operationId": "signed_url_generic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSignedUrlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully signed URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSignedUrlsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "413": {
+            "description": "Payload Too Large"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CompleteMultipartUploadRequest": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "upload_id",
+          "parts"
+        ],
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultipartPart"
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "upload_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateSignedUrlsRequest": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileToSign"
+            }
+          }
+        }
+      },
+      "CreateSignedUrlsResponse": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignedFile"
+            }
+          }
+        }
+      },
+      "FileToSign": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "permission"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "permission": {
+            "$ref": "#/components/schemas/Permission"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "MultipartPart": {
+        "type": "object",
+        "required": [
+          "part_number",
+          "etag"
+        ],
+        "properties": {
+          "etag": {
+            "type": "string"
+          },
+          "part_number": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "MultipartUpload": {
+        "type": "object",
+        "required": [
+          "part_urls",
+          "part_size",
+          "upload_id"
+        ],
+        "properties": {
+          "part_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "part_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "upload_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Permission": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write"
+        ]
+      },
+      "Provider": {
+        "type": "string",
+        "enum": [
+          "azure",
+          "gcp",
+          "aws"
+        ]
+      },
+      "SignedFile": {
+        "type": "object",
+        "required": [
+          "project_identifier",
+          "path",
+          "url",
+          "provider"
+        ],
+        "properties": {
+          "multipart": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MultipartUpload"
+              }
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "project_identifier": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    }
+  }
+}

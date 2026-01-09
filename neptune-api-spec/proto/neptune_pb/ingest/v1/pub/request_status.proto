@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package neptune.ingest.v1.pub;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.leaderboard.api.ingest.v1.pub";
+option java_outer_classname = "IngestRequestStatusProto";
+
+import "google_rpc/code.proto";
+import "neptune_pb/ingest/v1/ingest.proto";
+
+message RequestStatus {
+    repeated CodeByCount code_by_count = 1;
+    optional string shared_error_message = 2; // in case error spans all operations of request
+
+
+    // in case all operations are successful {"OK": 1}, otherwise errors are reported
+    message CodeByCount {
+        google_rpc.Code code = 1;
+        int64 count = 2;
+        IngestCode detail = 3;
+    }
+}

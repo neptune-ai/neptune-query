@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package neptune.ingest.v1.pub;
+
+option java_multiple_files = true;
+option java_package = "ml.neptune.client.api.models";
+option java_outer_classname = "ClientIngestProto";
+
+import "neptune_pb/ingest/v1/pub/request_status.proto";
+import "neptune_pb/ingest/v1/ingest.proto";
+
+
+message RequestId {
+    string value = 1;
+}
+
+message RequestIdList {
+    repeated RequestId ids = 1;
+}
+
+// Maps a list of request identifiers to their respective statuses.
+// The backend API guarantees that the number of returned fields is equal
+// to the number of requested IDs, and the order is the same as requested.
+message BulkRequestStatus {
+    repeated RequestStatus statuses = 1;
+}
+
+message SubmitResponse {
+    string request_id = 1; // wire-compatibility with RequestId. Will be deprecated
+    repeated string request_ids = 2;
+}
+
+message StatusCheck {
+    string project = 1;
+    RequestId request_id = 2;
+}
+
+message BulkStatusCheck {
+    string project = 2;
+    repeated RequestId ids = 1; // wire-compatibility with RequestIdList
+}
+
+message BulkCheckDetail {
+    string project = 1;
+    repeated RequestId ids = 2;
+    optional string next_cursor = 3;
+    optional int32 limit = 4;
+}
+
+message IngestResultDetail {
+  RequestId request_id = 1;
+  string path = 2;
+  IngestCode ingest_code = 3;
+  string error_detail = 4;
+}
+
+message BulkIngestResultDetail {
+  repeated IngestResultDetail details = 1;
+  string next_cursor = 2;
+}
