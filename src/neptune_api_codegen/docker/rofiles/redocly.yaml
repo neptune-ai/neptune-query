@@ -1,0 +1,29 @@
+apis:
+  neptune:
+    root: neptune.json
+  backend:
+    root: backend.json
+    decorators:
+      filter-in:
+        property: operationId
+        value: [ getClientConfig, exchangeApiToken, getProject ]
+  retrieval:
+    root: retrieval.json
+    decorators:
+      filter-in:
+        property: operationId
+        value: [
+          getAttributesWithPathsFilterProto,
+          getMultipleFloatSeriesValuesProto,
+          getSeriesValuesProto,
+          getTimeseriesBucketsProto,
+          queryAttributeDefinitionsProto,
+          queryAttributeDefinitionsWithinProject,
+          queryAttributesWithinProjectProto,
+          searchGlobalLeaderboardEntriesProto,
+          searchLeaderboardEntriesProto,
+        ]
+  storage:
+    root: storage.json
+  ingestion:
+    root: ingestion.json
