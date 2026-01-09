@@ -84,12 +84,19 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
+split_on_trailing_comma = false
 line_length = 120
 force_grid_wrap = 2
 
 [tool.flake8]
 max-line-length = 120
+# E203: whitespace before ':' - conflicts with black
+# E501: line too long
 extend-ignore = "E203"
+per-file-ignores = """
+    src/neptune_api_codegen/docker/rofiles/neptune_api/client.py:E501
+    src/neptune_query/generated/neptune_api/*:E501
+"""
 
 [tool.mypy]
 mypy_path = "src/"
@@ -113,3 +120,11 @@ markers = [
 env_files = [
     ".env",
 ]
+
+# This is for neptune-api generated code only. We may remove this later
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["F", "UP"]
