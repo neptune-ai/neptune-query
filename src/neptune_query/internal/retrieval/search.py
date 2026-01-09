@@ -71,12 +71,10 @@ class ContainerType(Enum):
 
 class SysIdLabel(Protocol):
     @property
-    def sys_id(self) -> identifiers.SysId:
-        ...
+    def sys_id(self) -> identifiers.SysId: ...
 
     @property
-    def label(self) -> str:
-        ...
+    def label(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -136,8 +134,7 @@ class FetchSysAttrs(Protocol[T]):
         limit: Optional[int] = None,
         batch_size: int = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get(),
         container_type: ContainerType = ContainerType.EXPERIMENT,
-    ) -> Generator[util.Page[T], None, None]:
-        ...
+    ) -> Generator[util.Page[T], None, None]: ...
 
 
 def _create_fetch_sys_attrs(

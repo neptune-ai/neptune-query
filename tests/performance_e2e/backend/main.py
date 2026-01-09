@@ -2,6 +2,7 @@
 Main entry point for the performance_e2e test backend server.
 Configures the FastAPI app and includes all endpoints.
 """
+
 import time
 from typing import Dict
 
