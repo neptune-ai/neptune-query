@@ -22,7 +22,7 @@ on:
 jobs:
   test:
     runs-on: tools-gha-runners
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -54,13 +54,13 @@ jobs:
         env:
           NEPTUNE_E2E_WORKSPACE: ${{ secrets.E2E_WORKSPACE }}
           NEPTUNE_E2E_API_TOKEN: ${{ secrets[format('E2E_API_TOKEN{0}', matrix.env_suffix)] }}
-          NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS: "15"
-          NEPTUNE_QUERY_FILES_TIMEOUT: "240"
-          NEPTUNE_QUERY_RETRY_HARD_TIMEOUT: "240"
-          NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT: "120"
+          NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS: "5"
+          NEPTUNE_QUERY_FILES_TIMEOUT: "120"
+          NEPTUNE_QUERY_RETRY_HARD_TIMEOUT: "120"
+          NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT: "60"
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
-          pytest --retries=3 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
+          pytest -vx --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
 
       - name: Notify on failure
         if: failure() && github.event_name == 'schedule'
