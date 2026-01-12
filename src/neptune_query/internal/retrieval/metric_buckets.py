@@ -39,7 +39,7 @@ from ..logger import get_logger
 from ..query_metadata_context import with_neptune_client_metadata
 from . import retry
 from .search import ContainerType
-from .util import ProtobufPayload
+from .util import body_from_protobuf
 
 logger = get_logger()
 
@@ -151,7 +151,7 @@ def fetch_time_series_buckets(
     call_api = retry.handle_errors_default(with_neptune_client_metadata(get_timeseries_buckets_proto.sync_detailed))
     response = call_api(
         client=client,
-        body=ProtobufPayload(request_object),
+        body=body_from_protobuf(request_object),
     )
 
     logger.debug(
