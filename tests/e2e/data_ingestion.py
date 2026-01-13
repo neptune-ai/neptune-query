@@ -126,11 +126,11 @@ def _wait_for_ingestion(
         ):
             found_runs += len(page.items)
 
-        # Extra wait to ensure data is available to query before proceeding
-        sleep(2)
-
         if found_runs == len(expected_data.runs):
             return
+
+        # Next attempt in 2 seconds, please
+        sleep(2)
 
     raise RuntimeError(
         f"Timed out waiting for data ingestion, " f"found runs: {found_runs} out of expected: {len(expected_data.runs)}"
