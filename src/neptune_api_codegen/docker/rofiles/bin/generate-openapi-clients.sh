@@ -234,7 +234,7 @@ for file in __init__.py errors.py py.typed types.py; do
 done
 
 # Copy our custom versions of some files instead of the generated ones
-for file in client.py auth_helpers.py credentials.py; do
+for file in client.py auth_helpers.py credentials.py README.md; do
   cp /rofiles/neptune_api/$file "$output_dir/neptune_api/"
 done
 
