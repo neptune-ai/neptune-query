@@ -1,5 +1,3 @@
-import warnings
-
 import pytest
 
 from tests.e2e.conftest import EnsureProjectFunction
