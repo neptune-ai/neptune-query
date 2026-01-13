@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 from tests.e2e.conftest import EnsureProjectFunction
@@ -23,6 +25,6 @@ def project_1(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     )
 
 
-def test_connectivity(project_1: IngestedProjectData) -> None:
+def test_connectivity(client, project_1: IngestedProjectData) -> None:
     """A placeholder test to ensure connectivity to the Neptune server"""
     assert True
