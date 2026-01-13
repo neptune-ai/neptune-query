@@ -12,8 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import shutil
 from pathlib import Path
+from textwrap import dedent
 
 SWAGGER_FILES = {
     "apps/backend/server/src/main/resources/webapp/api/backend/swagger.json": "swagger/backend.json",
@@ -26,20 +28,6 @@ PROTO_DIRS = {
     "libs/models/leaderboard-proto/src/main/proto/neptune_pb": "proto/neptune_pb",
     "libs/models/leaderboard-proto/src/main/proto/google_rpc": "proto/google_rpc",
 }
-
-EXTRA_FILES = {
-    "neptune_api/auth_helpers.py": "neptune_api/auth_helpers.py",
-    "neptune_api/client.py": "neptune_api/client.py",
-    "neptune_api/credentials.py": "neptune_api/credentials.py",
-}
-
-
-def find_project_root() -> Path:
-    current_dir = Path.cwd()
-    for candidate in [current_dir] + list(current_dir.parents):
-        if (candidate / "pyproject.toml").exists() and (candidate / ".git").exists():
-            return candidate
-    raise RuntimeError("Could not find the project root (directory containing pyproject.toml and .git).")
 
 
 def is_neptune_repo(candidate_dir: Path) -> bool:
@@ -85,34 +73,17 @@ def copy_swagger_files(neptune_repo_path: Path, target_dir: Path) -> None:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(neptune_repo_path / swagger_file_src, dest_path)
 
+    # Add a README file
+    readme_path = target_dir / "README.md"
+    readme_path.write_text(
+        dedent(
+            """
+            This directory contains files generated from the Neptune backend repository.
+            Do not edit these files directly.
 
-def copy_generated_files(source_dir: Path, target_dir: Path):
-    shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+            To regenerate these files, run the following from neptune-query repo root:
 
-
-def remove_empty_dirs(dir: Path) -> bool:
-    """
-    Remove empty directories from the dir,
-    and then remove the dir itself if it's empty
-    """
-
-    if not dir.is_dir():
-        return
-
-    for file in dir.iterdir():
-        if file.is_dir():
-            if not remove_empty_dirs(file):
-                return False
-
-    try:
-        dir.rmdir()
-    except OSError:
-        # Directory not empty
-        return False
-
-    return True
-
-
-def remove_work_dir(work_dir: Path) -> None:
-    shutil.rmtree(work_dir)
-    remove_empty_dirs(work_dir.parent)
+                cd src && python3 -m neptune_api_codegen.cli
+            """
+        ).lstrip()
+    )
