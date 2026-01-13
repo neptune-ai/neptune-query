@@ -25,6 +25,9 @@ import neptune_scale
 import neptune_scale.types
 from neptune_api import AuthenticatedClient
 
+from neptune_query.internal.identifiers import ProjectIdentifier
+from neptune_query.internal.retrieval import search
+
 IngestionHistogram = neptune_scale.types.Histogram
 IngestionFile = neptune_scale.types.File
 
@@ -110,6 +113,30 @@ class IngestedProjectData:
         raise ValueError(f"Run not found: {run_id}")
 
 
+def _wait_for_ingestion(
+    client: AuthenticatedClient, project_identifier: ProjectIdentifier, expected_data: ProjectData
+) -> None:
+    for attempt in range(20):
+        found_runs = 0
+
+        for page in search.fetch_run_sys_ids(
+            client=client,
+            project_identifier=project_identifier,
+            filter_=None,
+        ):
+            found_runs += len(page.items)
+
+        if found_runs == len(expected_data.runs):
+            return
+
+        # Next attempt in 2 seconds, please
+        sleep(2)
+
+    raise RuntimeError(
+        f"Timed out waiting for data ingestion, " f"found runs: {found_runs} out of expected: {len(expected_data.runs)}"
+    )
+
+
 def ingest_project(
     *,
     client: AuthenticatedClient,
@@ -142,6 +169,8 @@ def ingest_project(
                 project_identifier=project_identifier,
                 project_data=project_data,
             )
+
+            _wait_for_ingestion(client=client, project_identifier=project_identifier, expected_data=project_data)
 
     return IngestedProjectData(
         project_identifier=project_identifier,
@@ -221,8 +250,6 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
 
     for run in runs:
         run.close()
-
-    sleep(2)  # Extra wait to ensure data is available to query before proceeding
 
 
 def _get_all_steps(run_data: RunData) -> Iterable[float]:

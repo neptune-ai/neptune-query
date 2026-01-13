@@ -60,7 +60,10 @@ jobs:
           NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT: "120"
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
-          pytest --retries=3 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
+          pytest --capture=no tests/e2e/test_connectivity.py &&
+          pytest --retries=1 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
+        # --capture=no is passed to the test_connectivity run, so that we can see logs from data ingestion
+        # This helps with debugging. At the very least, it shows the URL of the environment under test
 
       - name: Notify on failure
         if: failure() && github.event_name == 'schedule'
