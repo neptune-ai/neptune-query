@@ -25,14 +25,7 @@ import neptune_scale
 import neptune_scale.types
 from neptune_api import AuthenticatedClient
 
-from neptune_query.internal.filters import (
-    _Attribute,
-    _Filter,
-)
-from neptune_query.internal.identifiers import (
-    ProjectIdentifier,
-    SysId,
-)
+from neptune_query.internal.identifiers import ProjectIdentifier
 from neptune_query.internal.retrieval import search
 
 IngestionHistogram = neptune_scale.types.Histogram
@@ -118,6 +111,30 @@ class IngestedProjectData:
             if run.run_id == run_id:
                 return run
         raise ValueError(f"Run not found: {run_id}")
+
+
+def _wait_for_ingestion(
+    client: AuthenticatedClient, project_identifier: ProjectIdentifier, expected_data: ProjectData
+) -> None:
+    for attempt in range(20):
+        found_runs = 0
+
+        for page in search.fetch_run_sys_ids(
+            client=client,
+            project_identifier=project_identifier,
+            filter_=None,
+        ):
+            found_runs += len(page.items)
+
+        # Extra wait to ensure data is available to query before proceeding
+        sleep(2)
+
+        if found_runs == len(expected_data.runs):
+            return
+
+    raise RuntimeError(
+        f"Timed out waiting for data ingestion, " f"found runs: {found_runs} out of expected: {len(expected_data.runs)}"
+    )
 
 
 def ingest_project(
@@ -233,58 +250,6 @@ def _ingest_runs(runs_data: list[RunData], api_token: str, project_identifier: s
 
     for run in runs:
         run.close()
-
-
-def _wait_for_ingestion(
-    client: AuthenticatedClient, project_identifier: ProjectIdentifier, expected_data: ProjectData
-) -> None:
-    def fetch_sys_ids(attribute_name: str, attribute_value: str) -> list[SysId]:
-        sys_ids: list[SysId] = []
-        for page in search.fetch_run_sys_ids(
-            client=client,
-            project_identifier=project_identifier,
-            filter_=_Filter.eq(_Attribute(attribute_name, type="string"), attribute_value),
-        ):
-            for item in page.items:
-                sys_ids.append(item)
-        return sys_ids
-
-    all_runs = expected_data.runs
-    run_ids = [run.run_id for run in all_runs if run.run_id is not None]
-    experiment_names = [run.experiment_name for run in all_runs if run.experiment_name is not None]
-
-    for attempt in range(24):
-        found_runs = 0
-        found_experiments = 0
-
-        for run_id in run_ids:
-            sys_ids_by_run_id = fetch_sys_ids(attribute_name="sys/custom_run_id", attribute_value=run_id)
-            if len(sys_ids_by_run_id) > 1:
-                raise RuntimeError(f"Expected exactly one sys_id for run_id {run_id}, got {sys_ids_by_run_id}")
-            if len(sys_ids_by_run_id) == 1:
-                found_runs += 1
-
-        for experiment_name in experiment_names:
-            sys_ids_by_experiment_name = fetch_sys_ids(attribute_name="sys/name", attribute_value=experiment_name)
-            if len(sys_ids_by_experiment_name) > 1:
-                raise RuntimeError(
-                    f"Expected exactly one sys_id for experiment_name {experiment_name}, "
-                    f"got {sys_ids_by_experiment_name}"
-                )
-            if len(sys_ids_by_experiment_name) == 1:
-                found_experiments += 1
-
-        # Extra wait to ensure data is available to query before proceeding
-        sleep(2)
-
-        if found_runs == len(run_ids) and found_experiments == len(experiment_names):
-            return
-
-    raise RuntimeError(
-        f"Timed out waiting for data ingestion. "
-        f"Found runs: {found_runs} out of expected: {len(run_ids)}. "
-        f"Found experiments: {found_experiments} out of expected: {len(experiment_names)}."
-    )
 
 
 def _get_all_steps(run_data: RunData) -> Iterable[float]:
