@@ -234,9 +234,18 @@ for file in __init__.py errors.py py.typed types.py; do
 done
 
 # Copy our custom versions of some files instead of the generated ones
-for file in client.py auth_helpers.py credentials.py README.md; do
+for file in client.py auth_helpers.py credentials.py; do
   cp /rofiles/neptune_api/$file "$output_dir/neptune_api/"
 done
+
+cat > "$output_dir/neptune_api/README.md" <<EOL
+This directory contains files generated from the Neptune backend repository.
+Do not edit these files directly.
+
+To regenerate these files, run the following from neptune-query repo root:
+
+    cd src && python3 -m neptune_api_codegen.cli
+EOL
 
 rm -fr "$output_dir"/neptune_api/models
 mv "$tmpdir/neptune_api/models" "$output_dir/neptune_api/"
