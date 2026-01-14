@@ -17,12 +17,12 @@ from urllib.parse import urlparse
 import httpx
 import pytest
 from humanize import naturalsize
-from neptune_api import AuthenticatedClient
-from neptune_api.credentials import Credentials
-from neptune_api.types import OAuthToken
 
 import neptune_query.internal.client as client
 from neptune_query import set_api_token
+from neptune_query.generated.neptune_api import AuthenticatedClient
+from neptune_query.generated.neptune_api.credentials import Credentials
+from neptune_query.generated.neptune_api.types import OAuthToken
 from tests.performance_e2e.backend.utils.logging import setup_logger
 
 # Get a logger for the test framework using our centralized configuration

@@ -12,7 +12,8 @@ from typing import (
 )
 
 import colorlog
-from neptune_api.types import Unset
+
+from neptune_query.generated.neptune_api.types import Unset
 
 scenario_name_ctx = ContextVar("scenario_name", default="-")
 request_id_ctx = ContextVar("request_id", default="-")

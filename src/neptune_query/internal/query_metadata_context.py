@@ -33,8 +33,7 @@ from typing import (
     TypeVar,
 )
 
-from neptune_api.types import Response
-
+from neptune_query.generated.neptune_api.types import Response
 from neptune_query.internal import env
 from neptune_query.internal.composition import concurrency
 

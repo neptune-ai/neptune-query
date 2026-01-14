@@ -1,14 +1,13 @@
 from io import BytesIO
 from unittest import mock
 
-from neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
+from neptune_query.generated.neptune_api.proto.neptune_pb.api.v1.model.requests_pb2 import (
     ProtoCustomExpression,
     ProtoGetTimeseriesBucketsRequest,
     ProtoScale,
     ProtoView,
 )
-from neptune_api.types import File
-
+from neptune_query.generated.neptune_api.types import File
 from neptune_query.internal.retrieval.util import body_from_protobuf
 
 
