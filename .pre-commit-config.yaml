@@ -1,4 +1,4 @@
-exclude: /generated/neptune_api/proto/|^neptune-api-spec/
+exclude: /generated/neptune_api/proto/|/generated/neptune_api_spec/
 repos:
   - repo: https://github.com/psf/black
     rev: 25.12.0

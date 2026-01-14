@@ -26,12 +26,14 @@ from neptune_api_codegen.docker import (
 from neptune_api_codegen.fmt import (
     bold,
     print_err,
+    rel,
     stderr_errors,
 )
 from neptune_api_codegen.neptune_repo import (
     copy_swagger_files,
     find_neptune_repo,
     is_neptune_repo,
+    test_git_cmd_working,
 )
 
 
@@ -65,17 +67,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
     )
     return parser
-
-
-def rel(path: Path) -> str:
-    cwd_parents = [Path.cwd()] + list(Path.cwd().parents)
-    for level_up, prefix in [(0, "./"), (1, "../"), (2, "../../")]:
-        try:
-            return prefix + str(path.relative_to(cwd_parents[level_up]))
-        except ValueError:
-            continue
-    # Fall back to showing the absolute path
-    return str(path)
 
 
 def fix_dir_permissions(dirs: list[Path], *, ignore_errors: bool = False, verbose: bool = False) -> None:
@@ -144,7 +135,7 @@ def main() -> None:
     args = parser.parse_args()
 
     test_docker_permissions()
-    print_err("Testing if we can call Docker")
+    test_git_cmd_working()
 
     # Project root
     project_root = find_project_root()
@@ -164,7 +155,7 @@ def main() -> None:
     work_dir = tmp_dir / f"neptune-api__{datetime.now().strftime('%Y%m%d_%H%M%S')}_{rand_bit:04d}"
     apispec_dir = work_dir / "api_spec"
     generated_py_dir = work_dir / "generated_python"
-    target_apispec = project_root / "neptune-api-spec"
+    target_apispec = project_root / "src" / "neptune_query" / "generated" / "neptune_api_spec"
     target_py_dir = project_root / "src" / "neptune_query" / "generated" / "neptune_api"
 
     dirs_to_chown_afterwards = [
@@ -187,6 +178,7 @@ def main() -> None:
         copy_swagger_files(
             neptune_repo_path=args.neptune_repo_path,
             target_dir=apispec_dir,
+            verbose=args.verbose,
         )
 
         print_err(f"Generating OpenAPI clients in:                    {rel(generated_py_dir)}")
