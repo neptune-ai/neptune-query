@@ -16,4 +16,4 @@ src/
 
 To regenerate these files, run the following from neptune-query repo root:
 
-    cd src && python3 -m neptune_api_codegen.cli
+    poetry run python -m neptune_api_codegen.cli
