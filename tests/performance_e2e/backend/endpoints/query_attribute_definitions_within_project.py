@@ -16,13 +16,17 @@ from fastapi import (
     Request,
     Response,
 )
-from neptune_api.models import AttributeTypeDTO
-from neptune_api.models.attribute_definition_dto import AttributeDefinitionDTO
-from neptune_api.models.next_page_dto import NextPageDTO
-from neptune_api.models.query_attribute_definitions_body_dto import QueryAttributeDefinitionsBodyDTO
-from neptune_api.models.query_attribute_definitions_result_dto import QueryAttributeDefinitionsResultDTO
-from neptune_api.types import Unset
 
+from neptune_query.generated.neptune_api.models import AttributeTypeDTO
+from neptune_query.generated.neptune_api.models.attribute_definition_dto import AttributeDefinitionDTO
+from neptune_query.generated.neptune_api.models.next_page_dto import NextPageDTO
+from neptune_query.generated.neptune_api.models.query_attribute_definitions_body_dto import (
+    QueryAttributeDefinitionsBodyDTO,
+)
+from neptune_query.generated.neptune_api.models.query_attribute_definitions_result_dto import (
+    QueryAttributeDefinitionsResultDTO,
+)
+from neptune_query.generated.neptune_api.types import Unset
 from neptune_query.internal.retrieval.attribute_types import map_attribute_type_python_to_backend
 from tests.performance_e2e.backend.middleware.read_perf_config_middleware import PERF_REQUEST_CONFIG_ATTRIBUTE_NAME
 from tests.performance_e2e.backend.perf_request import QueryAttributeDefinitionsConfig

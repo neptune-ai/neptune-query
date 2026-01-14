@@ -28,8 +28,9 @@ from typing import (
 )
 
 from google.protobuf.message import Message
-from neptune_api import AuthenticatedClient
-from neptune_api.types import File
+
+from neptune_query.generated.neptune_api import AuthenticatedClient
+from neptune_query.generated.neptune_api.types import File
 
 T = TypeVar("T")
 R = TypeVar("R")

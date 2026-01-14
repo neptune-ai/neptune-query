@@ -23,9 +23,10 @@ from typing import (
 )
 
 import attrs
-from neptune_api.api.retrieval import search_global_leaderboard_entries_proto
-from neptune_api.client import AuthenticatedClient
-from neptune_api.models import (
+
+from neptune_query.generated.neptune_api.api.retrieval import search_global_leaderboard_entries_proto
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.models import (
     AttributeTypeDTO,
     GlobalSearchParamsDTO,
     NqlQueryParamsDTO,
@@ -35,12 +36,11 @@ from neptune_api.models import (
     QueryLeaderboardParamsSortingParamsDTO,
     QueryLeaderboardParamsSortingParamsDTODir,
 )
-from neptune_api.proto.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
+from neptune_query.generated.neptune_api.proto.neptune_pb.api.v1.model.leaderboard_entries_pb2 import (
     ProtoAttributesDTO,
     ProtoLeaderboardEntriesSearchResultDTO,
 )
-from neptune_api.types import UNSET
-
+from neptune_query.generated.neptune_api.types import UNSET
 from neptune_query.internal.query_metadata_context import with_neptune_client_metadata
 
 from .. import env

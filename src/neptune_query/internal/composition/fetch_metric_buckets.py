@@ -24,7 +24,8 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-from neptune_api.client import AuthenticatedClient
+
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
 
 from .. import identifiers
 from ..client import get_client

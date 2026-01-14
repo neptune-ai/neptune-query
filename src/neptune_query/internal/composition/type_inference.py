@@ -24,7 +24,7 @@ from typing import (
     Union,
 )
 
-from neptune_api.client import AuthenticatedClient
+from neptune_query.generated.neptune_api.client import AuthenticatedClient
 
 from ...exceptions import AttributeTypeInferenceError
 from ...warnings import AttributeWarning

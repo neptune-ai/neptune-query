@@ -13,9 +13,9 @@ from datetime import (
 
 import pytest
 from _pytest.outcomes import Failed
-from neptune_api import AuthenticatedClient
-from neptune_api.credentials import Credentials
 
+from neptune_query.generated.neptune_api import AuthenticatedClient
+from neptune_query.generated.neptune_api.credentials import Credentials
 from neptune_query.internal.api_utils import (
     create_auth_api_client,
     get_config_and_token_urls,
