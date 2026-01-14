@@ -15,6 +15,7 @@
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 from neptune_api_codegen.fmt import rel
@@ -103,7 +104,14 @@ def get_commit_info(neptune_repo_path: Path) -> str:
         ).strip()
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Error obtaining git commit info from neptune repo at {neptune_repo_path}: {e}")
-    return f"Files copied from neptune.git\n" f"Commit hash: {commit_hash}\n" f"Commit date: {commit_date}\n"
+
+    return textwrap.dedent(
+        f"""\
+            Files copied from neptune.git
+            Commit hash: {commit_hash}
+            Commit date: {commit_date}
+        """
+    )
 
 
 def test_git_cmd_working():
