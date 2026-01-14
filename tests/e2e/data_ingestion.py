@@ -25,7 +25,6 @@ import neptune_scale
 import neptune_scale.types
 
 from neptune_query.generated.neptune_api import AuthenticatedClient
-
 from neptune_query.internal.identifiers import ProjectIdentifier
 from neptune_query.internal.retrieval import search
 
