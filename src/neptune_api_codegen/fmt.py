@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 from subprocess import SubprocessError
 
 
@@ -29,3 +30,14 @@ def stderr_errors(func):
             sys.exit(1)
 
     return wrapper
+
+
+def rel(path: Path) -> str:
+    cwd_parents = [Path.cwd()] + list(Path.cwd().parents)
+    for level_up, prefix in [(0, "./"), (1, "../"), (2, "../../")]:
+        try:
+            return prefix + str(path.relative_to(cwd_parents[level_up]))
+        except ValueError:
+            continue
+    # Fall back to showing the absolute path
+    return str(path)

@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import shutil
+import subprocess
+import sys
 from pathlib import Path
-from textwrap import dedent
+
+from neptune_api_codegen.fmt import rel
 
 SWAGGER_FILES = {
     "apps/backend/server/src/main/resources/webapp/api/backend/swagger.json": "swagger/backend.json",
@@ -62,28 +64,51 @@ def find_neptune_repo(
     raise RuntimeError("Could not find neptune backend repository.\nPass the location using --neptune-repo-path.")
 
 
-def copy_swagger_files(neptune_repo_path: Path, target_dir: Path) -> None:
+def copy_swagger_files(neptune_repo_path: Path, target_dir: Path, verbose: bool = False) -> None:
+    # Write git reference from the backend repo (commit hash and date)
+    (target_dir / "GIT_REF").write_text(get_commit_info(neptune_repo_path))
+
     # Copy proto dirs
     for proto_dir_src, proto_dir_dest in PROTO_DIRS.items():
+        if verbose:
+            print(
+                f"  {rel(neptune_repo_path / proto_dir_src):82}  ->  {rel(target_dir / proto_dir_dest)}",
+                file=sys.stderr,
+            )
         shutil.copytree(neptune_repo_path / proto_dir_src, target_dir / proto_dir_dest)
 
     # Copy swagger files
     for swagger_file_src, swagger_file_dest in SWAGGER_FILES.items():
+        if verbose:
+            print(
+                f"  {rel(neptune_repo_path / swagger_file_src):82}  ->  {rel(target_dir / swagger_file_dest)}",
+                file=sys.stderr,
+            )
         dest_path = target_dir / swagger_file_dest
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(neptune_repo_path / swagger_file_src, dest_path)
 
-    # Add a README file
-    readme_path = target_dir / "README.md"
-    readme_path.write_text(
-        dedent(
-            """
-            This directory contains files generated from the Neptune backend repository.
-            Do not edit these files directly.
 
-            To regenerate these files, run the following from neptune-query repo root:
+def get_commit_info(neptune_repo_path: Path) -> str:
+    try:
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=neptune_repo_path,
+            text=True,
+        ).strip()
+        commit_date = subprocess.check_output(
+            ["git", "show", "--no-patch", "--date=format-local:%Y-%m-%d %H:%M:%S UTC", "--format=%cd", "HEAD"],
+            cwd=neptune_repo_path,
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Error obtaining git commit info from neptune repo at {neptune_repo_path}: {e}")
+    return f"Files copied from neptune.git\n" f"Commit hash: {commit_hash}\n" f"Commit date: {commit_date}\n"
 
-                cd src && python3 -m neptune_api_codegen.cli
-            """
-        ).lstrip()
-    )
+
+def test_git_cmd_working():
+    msg = 'Error: Cannot run "git". Please ensure that Git is installed.'
+    try:
+        subprocess.run(["git", "--version"], check=True, stdout=subprocess.DEVNULL)
+    except Exception as e:
+        raise RuntimeError(f"{e}\n\n{msg}")
