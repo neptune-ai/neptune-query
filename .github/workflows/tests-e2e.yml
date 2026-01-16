@@ -59,7 +59,7 @@ jobs:
         run: |
           echo "Check if neptune-api is in pip list (it should not)" && pip list
           curl -vsI "$(base64 -d <<< "$NEPTUNE_E2E_API_TOKEN" | jq .api_url -r )/api/leaderboard/" 2> >(head) &&
-          pytest --capture=no tests/e2e/test_connectivity.py &&
+          pytest --capture=no tests/e2e/pre_test_connectivity.py &&
           pytest --retries=1 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
         # --capture=no is passed to the test_connectivity run, so that we can see logs from data ingestion
         # This helps with debugging. At the very least, it shows the URL of the environment under test
