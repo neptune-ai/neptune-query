@@ -1,21 +1,32 @@
-exclude: ^src/neptune_query/generated/
+exclude: /generated/neptune_api/proto/|/generated/neptune_api_spec/
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-    hooks:
-      - id: check-yaml
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-  - repo: https://github.com/pycqa/isort
-    rev: 7.0.0
-    hooks:
-      - id: isort
-        args: [--settings-path, pyproject.toml]
   - repo: https://github.com/psf/black
     rev: 25.12.0
     hooks:
       - id: black
         args: [--config, pyproject.toml]
+  - repo: https://github.com/pycqa/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        args: [--settings-path, pyproject.toml]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.9
+    hooks:
+      - name: codegen-ruff
+        id: ruff
+        args: [--fix]
+        files: ^src/neptune_query/generated/.*py$
+      - name: codegen-ruff-format
+        id: ruff-format
+        files: ^src/neptune_query/generated/.*py$
+  - repo: https://github.com/pycqa/isort
+    rev: 7.0.0
+    hooks:
+      - name: codegen-isort
+        id: isort
+        args: [--settings-path, pyproject.toml]
+        files: /generated/neptune_api/
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
@@ -27,6 +38,12 @@ repos:
       - id: insert-license
         files: ^src/neptune_query.*[^/]+\.py$
         args: [ "--license-filepath", ".github/license_header.txt", "--allow-past-years"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
     hooks:
@@ -35,5 +52,22 @@ repos:
         pass_filenames: false
         additional_dependencies:
           - attrs
+          - httpx
+          - types-PyJWT
+          - grpcio-tools
+          - types-Pygments
+          - types-protobuf
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--settings-path, pyproject.toml]
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.4
+    hooks:
+      - id: insert-license
+        files: ^src/neptune_query/generated/.*py$
+        args: [ "--license-filepath", ".github/license_header.txt", "--allow-past-years"]
+
 default_language_version:
     python: python3
