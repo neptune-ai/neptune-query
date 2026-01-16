@@ -81,7 +81,7 @@ def fetch_signed_urls(
         f"content length: {len(response.content) if response.content else 'no content'}"
     )
 
-    data = response.parsed
+    data: Optional[CreateSignedUrlsResponse] = response.parsed
     if data is None:
         raise RuntimeError("Failed to fetch signed URLs: response parsed content is None")
 
