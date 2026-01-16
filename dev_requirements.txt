@@ -12,7 +12,7 @@ pytest-timeout
 pytest-xdist
 icecream
 tabulate
-git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
+git+https://github.com/neptune-ai/neptune-client-scale.git@gabrys/bundle-neptune-api#egg=neptune-scale
 fastapi == 0.127.0
 uvicorn == 0.40.0
 humanize == 4.15.0
