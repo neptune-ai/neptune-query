@@ -57,6 +57,7 @@ jobs:
           NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT: "120"
           TEST_MARKERS: ${{ matrix.test_markers }}
         run: |
+          echo "Check if neptune-api is in pip list (it should not)" && pip list
           curl -vsI "$(base64 -d <<< "$NEPTUNE_E2E_API_TOKEN" | jq .api_url -r )/api/leaderboard/" 2> >(head) &&
           pytest --capture=no tests/e2e/test_connectivity.py &&
           pytest --retries=1 --retry-delay=2 --junitxml="test-results/test-e2e.xml" ${TEST_MARKERS:+-m "$TEST_MARKERS"} tests/e2e
