@@ -14,12 +14,7 @@
 # limitations under the License.
 
 from http import HTTPStatus
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Union,
-)
+from typing import Any
 
 import httpx
 
@@ -35,45 +30,50 @@ from ...types import Response
 def _get_kwargs(
     *,
     body: CompleteMultipartUploadRequest,
-) -> Dict[str, Any]:
-    headers: Dict[str, Any] = {}
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
-    _kwargs: Dict[str, Any] = {
+    _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/storagebridge/v1/s3/completeMultipartUpload",
     }
 
-    _body = body.to_dict()
+    _kwargs["json"] = body.to_dict()
 
-    _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | None:
     try:
-        if response.status_code == HTTPStatus.NO_CONTENT:
+        if response.status_code == 204:
             return None
-        if response.status_code == HTTPStatus.BAD_REQUEST:
+
+        if response.status_code == 400:
             return None
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
+
+        if response.status_code == 401:
             return None
-        if response.status_code == HTTPStatus.FORBIDDEN:
+
+        if response.status_code == 403:
             return None
-        if response.status_code == HTTPStatus.SERVICE_UNAVAILABLE:
+
+        if response.status_code == 503:
             return None
+
     except Exception as e:
         raise errors.UnableToParseResponse(e, response) from e
 
-    if client.raise_on_unexpected_status:
-        raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    if True:
+        if client.raise_on_unexpected_status:
+            raise errors.UnexpectedStatus(response.status_code, response.content)
+        else:
+            return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,7 +84,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CompleteMultipartUploadRequest,
 ) -> Response[Any]:
     """
@@ -112,7 +112,7 @@ def sync_detailed(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CompleteMultipartUploadRequest,
 ) -> Response[Any]:
     """

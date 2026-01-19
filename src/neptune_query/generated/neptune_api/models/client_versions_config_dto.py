@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -37,24 +36,24 @@ T = TypeVar("T", bound="ClientVersionsConfigDTO")
 class ClientVersionsConfigDTO:
     """
     Attributes:
-        min_recommended_version (Union[Unset, str]):
-        min_compatible_version (Union[Unset, str]):
-        max_compatible_version (Union[Unset, str]):
+        min_recommended_version (str | Unset):
+        min_compatible_version (str | Unset):
+        max_compatible_version (str | Unset):
     """
 
-    min_recommended_version: Union[Unset, str] = UNSET
-    min_compatible_version: Union[Unset, str] = UNSET
-    max_compatible_version: Union[Unset, str] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    min_recommended_version: str | Unset = UNSET
+    min_compatible_version: str | Unset = UNSET
+    max_compatible_version: str | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         min_recommended_version = self.min_recommended_version
 
         min_compatible_version = self.min_compatible_version
 
         max_compatible_version = self.max_compatible_version
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if min_recommended_version is not UNSET:
@@ -67,8 +66,8 @@ class ClientVersionsConfigDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         min_recommended_version = d.pop("minRecommendedVersion", UNSET)
 
         min_compatible_version = d.pop("minCompatibleVersion", UNSET)
@@ -85,7 +84,7 @@ class ClientVersionsConfigDTO:
         return client_versions_config_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

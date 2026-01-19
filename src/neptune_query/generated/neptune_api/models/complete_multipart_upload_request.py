@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
 )
 
@@ -36,19 +36,19 @@ T = TypeVar("T", bound="CompleteMultipartUploadRequest")
 class CompleteMultipartUploadRequest:
     """
     Attributes:
-        parts (List['MultipartPart']):
+        parts (list[MultipartPart]):
         path (str):
         project_identifier (str):
         upload_id (str):
     """
 
-    parts: List["MultipartPart"]
+    parts: list[MultipartPart]
     path: str
     project_identifier: str
     upload_id: str
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         parts = []
         for parts_item_data in self.parts:
             parts_item = parts_item_data.to_dict()
@@ -60,7 +60,7 @@ class CompleteMultipartUploadRequest:
 
         upload_id = self.upload_id
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -74,10 +74,10 @@ class CompleteMultipartUploadRequest:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.multipart_part import MultipartPart
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         parts = []
         _parts = d.pop("parts")
         for parts_item_data in _parts:
@@ -102,7 +102,7 @@ class CompleteMultipartUploadRequest:
         return complete_multipart_upload_request
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

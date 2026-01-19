@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
 )
 
@@ -34,46 +34,46 @@ class AttributeDefinitionDTO:
     """
     Attributes:
         name (str):
-        type (AttributeTypeDTO):
+        type_ (AttributeTypeDTO):
     """
 
     name: str
-    type: AttributeTypeDTO
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    type_: AttributeTypeDTO
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        type = self.type.value
+        type_ = self.type_.value
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "name": name,
-                "type": type,
+                "type": type_,
             }
         )
 
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name = d.pop("name")
 
-        type = AttributeTypeDTO(d.pop("type"))
+        type_ = AttributeTypeDTO(d.pop("type"))
 
         attribute_definition_dto = cls(
             name=name,
-            type=type,
+            type_=type_,
         )
 
         attribute_definition_dto.additional_properties = d
         return attribute_definition_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

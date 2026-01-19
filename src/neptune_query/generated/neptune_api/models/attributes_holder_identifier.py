@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
 )
 
@@ -32,46 +32,46 @@ class AttributesHolderIdentifier:
     """
     Attributes:
         identifier (str):
-        type (str):
+        type_ (str):
     """
 
     identifier: str
-    type: str
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    type_: str
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         identifier = self.identifier
 
-        type = self.type
+        type_ = self.type_
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "identifier": identifier,
-                "type": type,
+                "type": type_,
             }
         )
 
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         identifier = d.pop("identifier")
 
-        type = d.pop("type")
+        type_ = d.pop("type")
 
         attributes_holder_identifier = cls(
             identifier=identifier,
-            type=type,
+            type_=type_,
         )
 
         attributes_holder_identifier.additional_properties = d
         return attributes_holder_identifier
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

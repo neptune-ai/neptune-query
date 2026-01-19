@@ -17,9 +17,6 @@ from http import HTTPStatus
 from io import BytesIO
 from typing import (
     Any,
-    Dict,
-    Optional,
-    Union,
     cast,
 )
 
@@ -42,78 +39,83 @@ from ...types import (
 def _get_kwargs(
     *,
     body: SeriesValuesRequest,
-    use_deprecated_string_fields: Union[Unset, bool] = True,
-    x_neptune_client_metadata: Union[Unset, str] = UNSET,
-) -> Dict[str, Any]:
-    headers: Dict[str, Any] = {}
+    use_deprecated_string_fields: bool | Unset = True,
+    x_neptune_client_metadata: str | Unset = UNSET,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
     if not isinstance(x_neptune_client_metadata, Unset):
         headers["X-Neptune-Client-Metadata"] = x_neptune_client_metadata
 
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
 
     params["useDeprecatedStringFields"] = use_deprecated_string_fields
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
-    _kwargs: Dict[str, Any] = {
+    _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/leaderboard/v1/proto/attributes/series",
         "params": params,
     }
 
-    _body = body.to_dict()
+    _kwargs["json"] = body.to_dict()
 
-    _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, File]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | File | None:
     try:
-        if response.status_code == HTTPStatus.OK:
+        if response.status_code == 200:
             response_200 = File(payload=BytesIO(response.content))
 
             return response_200
-        if response.status_code == HTTPStatus.BAD_REQUEST:
+
+        if response.status_code == 400:
             response_400 = cast(Any, None)
             return response_400
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
+
+        if response.status_code == 401:
             response_401 = cast(Any, None)
             return response_401
-        if response.status_code == HTTPStatus.FORBIDDEN:
+
+        if response.status_code == 403:
             response_403 = cast(Any, None)
             return response_403
-        if response.status_code == HTTPStatus.NOT_FOUND:
+
+        if response.status_code == 404:
             response_404 = cast(Any, None)
             return response_404
-        if response.status_code == HTTPStatus.REQUEST_TIMEOUT:
+
+        if response.status_code == 408:
             response_408 = cast(Any, None)
             return response_408
-        if response.status_code == HTTPStatus.CONFLICT:
+
+        if response.status_code == 409:
             response_409 = cast(Any, None)
             return response_409
-        if response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
+
+        if response.status_code == 422:
             response_422 = cast(Any, None)
             return response_422
-        if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+
+        if response.status_code == 429:
             response_429 = cast(Any, None)
             return response_429
+
     except Exception as e:
         raise errors.UnableToParseResponse(e, response) from e
 
-    if client.raise_on_unexpected_status:
-        raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    if True:
+        if client.raise_on_unexpected_status:
+            raise errors.UnexpectedStatus(response.status_code, response.content)
+        else:
+            return None
 
 
-def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, File]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | File]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -124,16 +126,16 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SeriesValuesRequest,
-    use_deprecated_string_fields: Union[Unset, bool] = True,
-    x_neptune_client_metadata: Union[Unset, str] = UNSET,
-) -> Response[Union[Any, File]]:
+    use_deprecated_string_fields: bool | Unset = True,
+    x_neptune_client_metadata: str | Unset = UNSET,
+) -> Response[Any | File]:
     """Get series values
 
     Args:
-        use_deprecated_string_fields (Union[Unset, bool]):  Default: True.
-        x_neptune_client_metadata (Union[Unset, str]):
+        use_deprecated_string_fields (bool | Unset):  Default: True.
+        x_neptune_client_metadata (str | Unset):
         body (SeriesValuesRequest):
 
     Raises:
@@ -141,7 +143,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, File]]
+        Response[Any | File]
     """
 
     kwargs = _get_kwargs(
@@ -159,16 +161,16 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SeriesValuesRequest,
-    use_deprecated_string_fields: Union[Unset, bool] = True,
-    x_neptune_client_metadata: Union[Unset, str] = UNSET,
-) -> Optional[Union[Any, File]]:
+    use_deprecated_string_fields: bool | Unset = True,
+    x_neptune_client_metadata: str | Unset = UNSET,
+) -> Any | File | None:
     """Get series values
 
     Args:
-        use_deprecated_string_fields (Union[Unset, bool]):  Default: True.
-        x_neptune_client_metadata (Union[Unset, str]):
+        use_deprecated_string_fields (bool | Unset):  Default: True.
+        x_neptune_client_metadata (str | Unset):
         body (SeriesValuesRequest):
 
     Raises:
@@ -176,7 +178,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, File]
+        Any | File
     """
 
     return sync_detailed(
@@ -189,16 +191,16 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SeriesValuesRequest,
-    use_deprecated_string_fields: Union[Unset, bool] = True,
-    x_neptune_client_metadata: Union[Unset, str] = UNSET,
-) -> Response[Union[Any, File]]:
+    use_deprecated_string_fields: bool | Unset = True,
+    x_neptune_client_metadata: str | Unset = UNSET,
+) -> Response[Any | File]:
     """Get series values
 
     Args:
-        use_deprecated_string_fields (Union[Unset, bool]):  Default: True.
-        x_neptune_client_metadata (Union[Unset, str]):
+        use_deprecated_string_fields (bool | Unset):  Default: True.
+        x_neptune_client_metadata (str | Unset):
         body (SeriesValuesRequest):
 
     Raises:
@@ -206,7 +208,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, File]]
+        Response[Any | File]
     """
 
     kwargs = _get_kwargs(
@@ -222,16 +224,16 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SeriesValuesRequest,
-    use_deprecated_string_fields: Union[Unset, bool] = True,
-    x_neptune_client_metadata: Union[Unset, str] = UNSET,
-) -> Optional[Union[Any, File]]:
+    use_deprecated_string_fields: bool | Unset = True,
+    x_neptune_client_metadata: str | Unset = UNSET,
+) -> Any | File | None:
     """Get series values
 
     Args:
-        use_deprecated_string_fields (Union[Unset, bool]):  Default: True.
-        x_neptune_client_metadata (Union[Unset, str]):
+        use_deprecated_string_fields (bool | Unset):  Default: True.
+        x_neptune_client_metadata (str | Unset):
         body (SeriesValuesRequest):
 
     Raises:
@@ -239,7 +241,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, File]
+        Any | File
     """
 
     return (

@@ -1,5 +1,5 @@
-FROM node:20-slim
-COPY --from=ghcr.io/astral-sh/uv:0.9.22 /uv /uvx /usr/local/bin/
+FROM node:20
+COPY --from=ghcr.io/astral-sh/uv:0.9.22 /uv /usr/local/bin/
 COPY --from=ghcr.io/jqlang/jq:1.8.1 /jq /usr/local/bin/
 
 WORKDIR /work
@@ -9,7 +9,8 @@ RUN npm install -g swagger2openapi@7.0.8
 RUN npm install -g openapi-format@1.26.0
 RUN npm install -g @redocly/cli@1.34.3
 
-# Install openapi-python-client via uvx
-RUN uv tool install --python=3.9 openapi-python-client==0.21.5
+# Install openapi-python-client via uv
+RUN uv tool install --python=3.10 git+https://github.com/gabrys/openapi-python-client.git@neptune-updates # 0.27.0
+
 RUN ln -s /root/.local/bin/openapi-python-client /usr/local/bin/
 RUN openapi-python-client --help

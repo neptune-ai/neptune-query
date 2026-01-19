@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -45,21 +44,21 @@ class QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO:
     """
     Attributes:
         opened_group (str):
-        pagination (Union[Unset, QueryLeaderboardParamsPaginationWithContinuationTokenDTO]):
+        pagination (QueryLeaderboardParamsPaginationWithContinuationTokenDTO | Unset):
     """
 
     opened_group: str
-    pagination: Union[Unset, "QueryLeaderboardParamsPaginationWithContinuationTokenDTO"] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    pagination: QueryLeaderboardParamsPaginationWithContinuationTokenDTO | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         opened_group = self.opened_group
 
-        pagination: Union[Unset, Dict[str, Any]] = UNSET
+        pagination: dict[str, Any] | Unset = UNSET
         if not isinstance(self.pagination, Unset):
             pagination = self.pagination.to_dict()
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -72,16 +71,16 @@ class QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.query_leaderboard_params_pagination_with_continuation_token_dto import (
             QueryLeaderboardParamsPaginationWithContinuationTokenDTO,
         )
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         opened_group = d.pop("openedGroup")
 
         _pagination = d.pop("pagination", UNSET)
-        pagination: Union[Unset, QueryLeaderboardParamsPaginationWithContinuationTokenDTO]
+        pagination: QueryLeaderboardParamsPaginationWithContinuationTokenDTO | Unset
         if isinstance(_pagination, Unset):
             pagination = UNSET
         else:
@@ -96,7 +95,7 @@ class QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO:
         return query_leaderboard_params_opened_group_with_pagination_params_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

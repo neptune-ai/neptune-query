@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -46,16 +45,16 @@ class ClientConfig:
         api_url (str):
         py_lib_versions (ClientVersionsConfigDTO):
         security (SecurityDTO):
-        application_url (Union[Unset, str]):
+        application_url (str | Unset):
     """
 
     api_url: str
-    py_lib_versions: "ClientVersionsConfigDTO"
-    security: "SecurityDTO"
-    application_url: Union[Unset, str] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    py_lib_versions: ClientVersionsConfigDTO
+    security: SecurityDTO
+    application_url: str | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         api_url = self.api_url
 
         py_lib_versions = self.py_lib_versions.to_dict()
@@ -64,7 +63,7 @@ class ClientConfig:
 
         application_url = self.application_url
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -79,11 +78,11 @@ class ClientConfig:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.client_versions_config_dto import ClientVersionsConfigDTO
         from ..models.security_dto import SecurityDTO
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         api_url = d.pop("apiUrl")
 
         py_lib_versions = ClientVersionsConfigDTO.from_dict(d.pop("pyLibVersions"))
@@ -103,7 +102,7 @@ class ClientConfig:
         return client_config
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

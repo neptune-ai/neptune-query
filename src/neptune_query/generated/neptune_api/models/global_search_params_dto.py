@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -44,34 +43,34 @@ T = TypeVar("T", bound="GlobalSearchParamsDTO")
 class GlobalSearchParamsDTO:
     """
     Attributes:
-        experiment_leader (Union[Unset, bool]):
-        pagination (Union[Unset, QueryLeaderboardParamsPaginationDTO]):
-        query (Union[Unset, NqlQueryParamsDTO]):
-        sorting (Union[Unset, QueryLeaderboardParamsSortingParamsDTO]):
+        experiment_leader (bool | Unset):
+        pagination (QueryLeaderboardParamsPaginationDTO | Unset):
+        query (NqlQueryParamsDTO | Unset):
+        sorting (QueryLeaderboardParamsSortingParamsDTO | Unset):
     """
 
-    experiment_leader: Union[Unset, bool] = UNSET
-    pagination: Union[Unset, "QueryLeaderboardParamsPaginationDTO"] = UNSET
-    query: Union[Unset, "NqlQueryParamsDTO"] = UNSET
-    sorting: Union[Unset, "QueryLeaderboardParamsSortingParamsDTO"] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    experiment_leader: bool | Unset = UNSET
+    pagination: QueryLeaderboardParamsPaginationDTO | Unset = UNSET
+    query: NqlQueryParamsDTO | Unset = UNSET
+    sorting: QueryLeaderboardParamsSortingParamsDTO | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         experiment_leader = self.experiment_leader
 
-        pagination: Union[Unset, Dict[str, Any]] = UNSET
+        pagination: dict[str, Any] | Unset = UNSET
         if not isinstance(self.pagination, Unset):
             pagination = self.pagination.to_dict()
 
-        query: Union[Unset, Dict[str, Any]] = UNSET
+        query: dict[str, Any] | Unset = UNSET
         if not isinstance(self.query, Unset):
             query = self.query.to_dict()
 
-        sorting: Union[Unset, Dict[str, Any]] = UNSET
+        sorting: dict[str, Any] | Unset = UNSET
         if not isinstance(self.sorting, Unset):
             sorting = self.sorting.to_dict()
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if experiment_leader is not UNSET:
@@ -86,30 +85,30 @@ class GlobalSearchParamsDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.nql_query_params_dto import NqlQueryParamsDTO
         from ..models.query_leaderboard_params_pagination_dto import QueryLeaderboardParamsPaginationDTO
         from ..models.query_leaderboard_params_sorting_params_dto import QueryLeaderboardParamsSortingParamsDTO
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         experiment_leader = d.pop("experimentLeader", UNSET)
 
         _pagination = d.pop("pagination", UNSET)
-        pagination: Union[Unset, QueryLeaderboardParamsPaginationDTO]
+        pagination: QueryLeaderboardParamsPaginationDTO | Unset
         if isinstance(_pagination, Unset):
             pagination = UNSET
         else:
             pagination = QueryLeaderboardParamsPaginationDTO.from_dict(_pagination)
 
         _query = d.pop("query", UNSET)
-        query: Union[Unset, NqlQueryParamsDTO]
+        query: NqlQueryParamsDTO | Unset
         if isinstance(_query, Unset):
             query = UNSET
         else:
             query = NqlQueryParamsDTO.from_dict(_query)
 
         _sorting = d.pop("sorting", UNSET)
-        sorting: Union[Unset, QueryLeaderboardParamsSortingParamsDTO]
+        sorting: QueryLeaderboardParamsSortingParamsDTO | Unset
         if isinstance(_sorting, Unset):
             sorting = UNSET
         else:
@@ -126,7 +125,7 @@ class GlobalSearchParamsDTO:
         return global_search_params_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

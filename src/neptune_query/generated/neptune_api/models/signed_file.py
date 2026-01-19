@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -48,17 +47,17 @@ class SignedFile:
         project_identifier (str):
         provider (Provider):
         url (str):
-        multipart (Union['MultipartUpload', None, Unset]):
+        multipart (MultipartUpload | None | Unset):
     """
 
     path: str
     project_identifier: str
     provider: Provider
     url: str
-    multipart: Union["MultipartUpload", None, Unset] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    multipart: MultipartUpload | None | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         from ..models.multipart_upload import MultipartUpload
 
         path = self.path
@@ -69,7 +68,7 @@ class SignedFile:
 
         url = self.url
 
-        multipart: Union[Dict[str, Any], None, Unset]
+        multipart: dict[str, Any] | None | Unset
         if isinstance(self.multipart, Unset):
             multipart = UNSET
         elif isinstance(self.multipart, MultipartUpload):
@@ -77,7 +76,7 @@ class SignedFile:
         else:
             multipart = self.multipart
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -93,10 +92,10 @@ class SignedFile:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.multipart_upload import MultipartUpload
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         path = d.pop("path")
 
         project_identifier = d.pop("project_identifier")
@@ -105,7 +104,7 @@ class SignedFile:
 
         url = d.pop("url")
 
-        def _parse_multipart(data: object) -> Union["MultipartUpload", None, Unset]:
+        def _parse_multipart(data: object) -> MultipartUpload | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -118,7 +117,7 @@ class SignedFile:
                 return multipart_type_1
             except:  # noqa: E722
                 pass
-            return cast(Union["MultipartUpload", None, Unset], data)
+            return cast(MultipartUpload | None | Unset, data)
 
         multipart = _parse_multipart(d.pop("multipart", UNSET))
 
@@ -134,7 +133,7 @@ class SignedFile:
         return signed_file
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

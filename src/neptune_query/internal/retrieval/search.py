@@ -226,7 +226,7 @@ def _fetch_sys_attrs_page(
 
     body = SearchLeaderboardEntriesParamsDTO.from_dict(params)
     call_api = retry.handle_errors_default(with_neptune_client_metadata(search_leaderboard_entries_proto.sync_detailed))
-    response = call_api(client=client, project_identifier=project_identifier, type=["run"], body=body)
+    response = call_api(client=client, project_identifier=project_identifier, type_=["run"], body=body)
 
     logger.debug(
         f"search_leaderboard_entries_proto response status: {response.status_code}, "

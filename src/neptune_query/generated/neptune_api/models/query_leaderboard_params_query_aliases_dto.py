@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -42,30 +41,30 @@ T = TypeVar("T", bound="QueryLeaderboardParamsQueryAliasesDTO")
 class QueryLeaderboardParamsQueryAliasesDTO:
     """
     Attributes:
-        experiment_aliases (Union[Unset, List['QueryLeaderboardParamsNameAliasDTO']]):
-        run_aliases (Union[Unset, List['QueryLeaderboardParamsNameAliasDTO']]):
+        experiment_aliases (list[QueryLeaderboardParamsNameAliasDTO] | Unset):
+        run_aliases (list[QueryLeaderboardParamsNameAliasDTO] | Unset):
     """
 
-    experiment_aliases: Union[Unset, List["QueryLeaderboardParamsNameAliasDTO"]] = UNSET
-    run_aliases: Union[Unset, List["QueryLeaderboardParamsNameAliasDTO"]] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    experiment_aliases: list[QueryLeaderboardParamsNameAliasDTO] | Unset = UNSET
+    run_aliases: list[QueryLeaderboardParamsNameAliasDTO] | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        experiment_aliases: Union[Unset, List[Dict[str, Any]]] = UNSET
+    def to_dict(self) -> dict[str, Any]:
+        experiment_aliases: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.experiment_aliases, Unset):
             experiment_aliases = []
             for experiment_aliases_item_data in self.experiment_aliases:
                 experiment_aliases_item = experiment_aliases_item_data.to_dict()
                 experiment_aliases.append(experiment_aliases_item)
 
-        run_aliases: Union[Unset, List[Dict[str, Any]]] = UNSET
+        run_aliases: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.run_aliases, Unset):
             run_aliases = []
             for run_aliases_item_data in self.run_aliases:
                 run_aliases_item = run_aliases_item_data.to_dict()
                 run_aliases.append(run_aliases_item)
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if experiment_aliases is not UNSET:
@@ -76,11 +75,11 @@ class QueryLeaderboardParamsQueryAliasesDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.query_leaderboard_params_name_alias_dto import QueryLeaderboardParamsNameAliasDTO
 
-        d = src_dict.copy()
-        experiment_aliases: Union[Unset, List[QueryLeaderboardParamsNameAliasDTO]] = UNSET
+        d = dict(src_dict)
+        experiment_aliases: list[QueryLeaderboardParamsNameAliasDTO] | Unset = UNSET
         _experiment_aliases = d.pop("experimentAliases", UNSET)
         if not isinstance(_experiment_aliases, Unset):
             experiment_aliases = []
@@ -89,7 +88,7 @@ class QueryLeaderboardParamsQueryAliasesDTO:
 
                 experiment_aliases.append(experiment_aliases_item)
 
-        run_aliases: Union[Unset, List[QueryLeaderboardParamsNameAliasDTO]] = UNSET
+        run_aliases: list[QueryLeaderboardParamsNameAliasDTO] | Unset = UNSET
         _run_aliases = d.pop("runAliases", UNSET)
         if not isinstance(_run_aliases, Unset):
             run_aliases = []
@@ -107,7 +106,7 @@ class QueryLeaderboardParamsQueryAliasesDTO:
         return query_leaderboard_params_query_aliases_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

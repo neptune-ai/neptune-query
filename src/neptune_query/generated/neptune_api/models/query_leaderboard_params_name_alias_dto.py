@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
 )
 
@@ -37,14 +37,14 @@ class QueryLeaderboardParamsNameAliasDTO:
 
     name_alias: str
     original_id: str
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         name_alias = self.name_alias
 
         original_id = self.original_id
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -56,8 +56,8 @@ class QueryLeaderboardParamsNameAliasDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name_alias = d.pop("nameAlias")
 
         original_id = d.pop("originalId")
@@ -71,7 +71,7 @@ class QueryLeaderboardParamsNameAliasDTO:
         return query_leaderboard_params_name_alias_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

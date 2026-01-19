@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -46,36 +45,34 @@ T = TypeVar("T", bound="QueryLeaderboardParamsGroupingParamsDTO")
 class QueryLeaderboardParamsGroupingParamsDTO:
     """
     Attributes:
-        group_by (List['QueryLeaderboardParamsFieldDTO']):
-        opened_groups (Union[Unset, List[str]]):
-        opened_groups_with_pagination (Union[Unset, List['QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO']]):
+        group_by (list[QueryLeaderboardParamsFieldDTO]):
+        opened_groups (list[str] | Unset):
+        opened_groups_with_pagination (list[QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO] | Unset):
     """
 
-    group_by: List["QueryLeaderboardParamsFieldDTO"]
-    opened_groups: Union[Unset, List[str]] = UNSET
-    opened_groups_with_pagination: Union[Unset, List["QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO"]] = (
-        UNSET
-    )
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    group_by: list[QueryLeaderboardParamsFieldDTO]
+    opened_groups: list[str] | Unset = UNSET
+    opened_groups_with_pagination: list[QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO] | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         group_by = []
         for group_by_item_data in self.group_by:
             group_by_item = group_by_item_data.to_dict()
             group_by.append(group_by_item)
 
-        opened_groups: Union[Unset, List[str]] = UNSET
+        opened_groups: list[str] | Unset = UNSET
         if not isinstance(self.opened_groups, Unset):
             opened_groups = self.opened_groups
 
-        opened_groups_with_pagination: Union[Unset, List[Dict[str, Any]]] = UNSET
+        opened_groups_with_pagination: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.opened_groups_with_pagination, Unset):
             opened_groups_with_pagination = []
             for opened_groups_with_pagination_item_data in self.opened_groups_with_pagination:
                 opened_groups_with_pagination_item = opened_groups_with_pagination_item_data.to_dict()
                 opened_groups_with_pagination.append(opened_groups_with_pagination_item)
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -90,13 +87,13 @@ class QueryLeaderboardParamsGroupingParamsDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.query_leaderboard_params_field_dto import QueryLeaderboardParamsFieldDTO
         from ..models.query_leaderboard_params_opened_group_with_pagination_params_dto import (
             QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO,
         )
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         group_by = []
         _group_by = d.pop("groupBy")
         for group_by_item_data in _group_by:
@@ -104,11 +101,9 @@ class QueryLeaderboardParamsGroupingParamsDTO:
 
             group_by.append(group_by_item)
 
-        opened_groups = cast(List[str], d.pop("openedGroups", UNSET))
+        opened_groups = cast(list[str], d.pop("openedGroups", UNSET))
 
-        opened_groups_with_pagination: Union[Unset, List[QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO]] = (
-            UNSET
-        )
+        opened_groups_with_pagination: list[QueryLeaderboardParamsOpenedGroupWithPaginationParamsDTO] | Unset = UNSET
         _opened_groups_with_pagination = d.pop("openedGroupsWithPagination", UNSET)
         if not isinstance(_opened_groups_with_pagination, Unset):
             opened_groups_with_pagination = []
@@ -129,7 +124,7 @@ class QueryLeaderboardParamsGroupingParamsDTO:
         return query_leaderboard_params_grouping_params_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

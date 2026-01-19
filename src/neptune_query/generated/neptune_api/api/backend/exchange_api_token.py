@@ -16,9 +16,6 @@
 from http import HTTPStatus
 from typing import (
     Any,
-    Dict,
-    Optional,
-    Union,
     cast,
 )
 
@@ -37,11 +34,11 @@ from ...types import Response
 def _get_kwargs(
     *,
     x_neptune_api_token: str,
-) -> Dict[str, Any]:
-    headers: Dict[str, Any] = {}
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
     headers["X-Neptune-Api-Token"] = x_neptune_api_token
 
-    _kwargs: Dict[str, Any] = {
+    _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/backend/v1/authorization/oauth-token",
     }
@@ -51,44 +48,52 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, Error, NeptuneOauthToken]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Any | Error | NeptuneOauthToken | None:
     try:
-        if response.status_code == HTTPStatus.OK:
+        if response.status_code == 200:
             response_200 = NeptuneOauthToken.from_dict(response.json())
 
             return response_200
-        if response.status_code == HTTPStatus.BAD_REQUEST:
+
+        if response.status_code == 400:
             response_400 = Error.from_dict(response.json())
 
             return response_400
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
+
+        if response.status_code == 401:
             response_401 = cast(Any, None)
             return response_401
-        if response.status_code == HTTPStatus.FORBIDDEN:
+
+        if response.status_code == 403:
             response_403 = cast(Any, None)
             return response_403
-        if response.status_code == HTTPStatus.NOT_FOUND:
+
+        if response.status_code == 404:
             response_404 = cast(Any, None)
             return response_404
-        if response.status_code == HTTPStatus.REQUEST_TIMEOUT:
+
+        if response.status_code == 408:
             response_408 = cast(Any, None)
             return response_408
-        if response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
+
+        if response.status_code == 422:
             response_422 = cast(Any, None)
             return response_422
+
     except Exception as e:
         raise errors.UnableToParseResponse(e, response) from e
 
-    if client.raise_on_unexpected_status:
-        raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    if True:
+        if client.raise_on_unexpected_status:
+            raise errors.UnexpectedStatus(response.status_code, response.content)
+        else:
+            return None
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, Error, NeptuneOauthToken]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[Any | Error | NeptuneOauthToken]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -101,7 +106,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     x_neptune_api_token: str,
-) -> Response[Union[Any, Error, NeptuneOauthToken]]:
+) -> Response[Any | Error | NeptuneOauthToken]:
     """
     Args:
         x_neptune_api_token (str):
@@ -111,7 +116,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error, NeptuneOauthToken]]
+        Response[Any | Error | NeptuneOauthToken]
     """
 
     kwargs = _get_kwargs(
@@ -129,7 +134,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     x_neptune_api_token: str,
-) -> Optional[Union[Any, Error, NeptuneOauthToken]]:
+) -> Any | Error | NeptuneOauthToken | None:
     """
     Args:
         x_neptune_api_token (str):
@@ -139,7 +144,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error, NeptuneOauthToken]
+        Any | Error | NeptuneOauthToken
     """
 
     return sync_detailed(
@@ -152,7 +157,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     x_neptune_api_token: str,
-) -> Response[Union[Any, Error, NeptuneOauthToken]]:
+) -> Response[Any | Error | NeptuneOauthToken]:
     """
     Args:
         x_neptune_api_token (str):
@@ -162,7 +167,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error, NeptuneOauthToken]]
+        Response[Any | Error | NeptuneOauthToken]
     """
 
     kwargs = _get_kwargs(
@@ -178,7 +183,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     x_neptune_api_token: str,
-) -> Optional[Union[Any, Error, NeptuneOauthToken]]:
+) -> Any | Error | NeptuneOauthToken | None:
     """
     Args:
         x_neptune_api_token (str):
@@ -188,7 +193,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error, NeptuneOauthToken]
+        Any | Error | NeptuneOauthToken
     """
 
     return (

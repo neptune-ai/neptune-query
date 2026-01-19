@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -42,29 +41,29 @@ class FileToSign:
         path (str):
         permission (Permission):
         project_identifier (str):
-        size (Union[None, Unset, int]):
+        size (int | None | Unset):
     """
 
     path: str
     permission: Permission
     project_identifier: str
-    size: Union[None, Unset, int] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    size: int | None | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         path = self.path
 
         permission = self.permission.value
 
         project_identifier = self.project_identifier
 
-        size: Union[None, Unset, int]
+        size: int | None | Unset
         if isinstance(self.size, Unset):
             size = UNSET
         else:
             size = self.size
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -79,20 +78,20 @@ class FileToSign:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         path = d.pop("path")
 
         permission = Permission(d.pop("permission"))
 
         project_identifier = d.pop("project_identifier")
 
-        def _parse_size(data: object) -> Union[None, Unset, int]:
+        def _parse_size(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         size = _parse_size(d.pop("size", UNSET))
 
@@ -107,7 +106,7 @@ class FileToSign:
         return file_to_sign
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

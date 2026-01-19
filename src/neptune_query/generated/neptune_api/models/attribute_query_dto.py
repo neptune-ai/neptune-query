@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -38,18 +37,18 @@ T = TypeVar("T", bound="AttributeQueryDTO")
 class AttributeQueryDTO:
     """
     Attributes:
-        attribute_paths_filter (Union[Unset, List[str]]): Filter attribute paths, if null api returns all attributes
+        attribute_paths_filter (list[str] | Unset): Filter attribute paths, if null api returns all attributes
     """
 
-    attribute_paths_filter: Union[Unset, List[str]] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    attribute_paths_filter: list[str] | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        attribute_paths_filter: Union[Unset, List[str]] = UNSET
+    def to_dict(self) -> dict[str, Any]:
+        attribute_paths_filter: list[str] | Unset = UNSET
         if not isinstance(self.attribute_paths_filter, Unset):
             attribute_paths_filter = self.attribute_paths_filter
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if attribute_paths_filter is not UNSET:
@@ -58,9 +57,9 @@ class AttributeQueryDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
-        attribute_paths_filter = cast(List[str], d.pop("attributePathsFilter", UNSET))
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
+        attribute_paths_filter = cast(list[str], d.pop("attributePathsFilter", UNSET))
 
         attribute_query_dto = cls(
             attribute_paths_filter=attribute_paths_filter,
@@ -70,7 +69,7 @@ class AttributeQueryDTO:
         return attribute_query_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

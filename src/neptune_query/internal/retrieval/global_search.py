@@ -114,7 +114,7 @@ def fetch_global_entries(
             sorting=QueryLeaderboardParamsSortingParamsDTO(
                 sort_by=QueryLeaderboardParamsFieldDTO(
                     name=sort_by.name,
-                    type=AttributeTypeDTO(
+                    type_=AttributeTypeDTO(
                         map_attribute_type_python_to_backend(sort_by.type) if sort_by.type is not None else "string"
                     ),
                     aggregation_mode=(

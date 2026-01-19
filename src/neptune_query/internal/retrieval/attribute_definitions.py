@@ -103,7 +103,7 @@ def _process_attribute_definitions_page(
     for entry in data.entries:
         item = identifiers.AttributeDefinition(
             name=entry.name,
-            type=types.map_attribute_type_backend_to_python(str(entry.type)),
+            type=types.map_attribute_type_backend_to_python(str(entry.type_)),
         )
         items.append(item)
     return util.Page(items=items)

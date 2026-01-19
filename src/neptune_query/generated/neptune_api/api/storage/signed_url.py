@@ -16,9 +16,6 @@
 from http import HTTPStatus
 from typing import (
     Any,
-    Dict,
-    Optional,
-    Union,
     cast,
 )
 
@@ -37,17 +34,16 @@ from ...types import Response
 def _get_kwargs(
     *,
     body: CreateSignedUrlsRequest,
-) -> Dict[str, Any]:
-    headers: Dict[str, Any] = {}
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
-    _kwargs: Dict[str, Any] = {
+    _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/storagebridge/v1/azure/signedUrl",
     }
 
-    _body = body.to_dict()
+    _kwargs["json"] = body.to_dict()
 
-    _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
@@ -55,40 +51,47 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, CreateSignedUrlsResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Any | CreateSignedUrlsResponse | None:
     try:
-        if response.status_code == HTTPStatus.OK:
+        if response.status_code == 200:
             response_200 = CreateSignedUrlsResponse.from_dict(response.json())
 
             return response_200
-        if response.status_code == HTTPStatus.BAD_REQUEST:
+
+        if response.status_code == 400:
             response_400 = cast(Any, None)
             return response_400
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
+
+        if response.status_code == 401:
             response_401 = cast(Any, None)
             return response_401
-        if response.status_code == HTTPStatus.FORBIDDEN:
+
+        if response.status_code == 403:
             response_403 = cast(Any, None)
             return response_403
-        if response.status_code == HTTPStatus.GONE:
+
+        if response.status_code == 410:
             response_410 = cast(Any, None)
             return response_410
-        if response.status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
+
+        if response.status_code == 413:
             response_413 = cast(Any, None)
             return response_413
+
     except Exception as e:
         raise errors.UnableToParseResponse(e, response) from e
 
-    if client.raise_on_unexpected_status:
-        raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    if True:
+        if client.raise_on_unexpected_status:
+            raise errors.UnexpectedStatus(response.status_code, response.content)
+        else:
+            return None
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, CreateSignedUrlsResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[Any | CreateSignedUrlsResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -99,9 +102,9 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CreateSignedUrlsRequest,
-) -> Response[Union[Any, CreateSignedUrlsResponse]]:
+) -> Response[Any | CreateSignedUrlsResponse]:
     """
     Args:
         body (CreateSignedUrlsRequest):
@@ -111,7 +114,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, CreateSignedUrlsResponse]]
+        Response[Any | CreateSignedUrlsResponse]
     """
 
     kwargs = _get_kwargs(
@@ -127,9 +130,9 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CreateSignedUrlsRequest,
-) -> Optional[Union[Any, CreateSignedUrlsResponse]]:
+) -> Any | CreateSignedUrlsResponse | None:
     """
     Args:
         body (CreateSignedUrlsRequest):
@@ -139,7 +142,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, CreateSignedUrlsResponse]
+        Any | CreateSignedUrlsResponse
     """
 
     return sync_detailed(
@@ -150,9 +153,9 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CreateSignedUrlsRequest,
-) -> Response[Union[Any, CreateSignedUrlsResponse]]:
+) -> Response[Any | CreateSignedUrlsResponse]:
     """
     Args:
         body (CreateSignedUrlsRequest):
@@ -162,7 +165,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, CreateSignedUrlsResponse]]
+        Response[Any | CreateSignedUrlsResponse]
     """
 
     kwargs = _get_kwargs(
@@ -176,9 +179,9 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: CreateSignedUrlsRequest,
-) -> Optional[Union[Any, CreateSignedUrlsResponse]]:
+) -> Any | CreateSignedUrlsResponse | None:
     """
     Args:
         body (CreateSignedUrlsRequest):
@@ -188,7 +191,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, CreateSignedUrlsResponse]
+        Any | CreateSignedUrlsResponse
     """
 
     return (

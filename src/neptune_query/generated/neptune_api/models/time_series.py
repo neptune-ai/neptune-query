@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -46,38 +45,38 @@ class TimeSeries:
     Attributes:
         attribute (str):
         holder (AttributesHolderIdentifier):
-        include_preview (Union[Unset, bool]):
-        lineage (Union[Unset, TimeSeriesLineage]):
-        lineage_entity_type (Union[Unset, TimeSeriesLineageEntityType]):
-        normalize_to_first_value (Union[Unset, bool]):
+        include_preview (bool | Unset):
+        lineage (TimeSeriesLineage | Unset):
+        lineage_entity_type (TimeSeriesLineageEntityType | Unset):
+        normalize_to_first_value (bool | Unset):
     """
 
     attribute: str
-    holder: "AttributesHolderIdentifier"
-    include_preview: Union[Unset, bool] = UNSET
-    lineage: Union[Unset, TimeSeriesLineage] = UNSET
-    lineage_entity_type: Union[Unset, TimeSeriesLineageEntityType] = UNSET
-    normalize_to_first_value: Union[Unset, bool] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    holder: AttributesHolderIdentifier
+    include_preview: bool | Unset = UNSET
+    lineage: TimeSeriesLineage | Unset = UNSET
+    lineage_entity_type: TimeSeriesLineageEntityType | Unset = UNSET
+    normalize_to_first_value: bool | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         attribute = self.attribute
 
         holder = self.holder.to_dict()
 
         include_preview = self.include_preview
 
-        lineage: Union[Unset, str] = UNSET
+        lineage: str | Unset = UNSET
         if not isinstance(self.lineage, Unset):
             lineage = self.lineage.value
 
-        lineage_entity_type: Union[Unset, str] = UNSET
+        lineage_entity_type: str | Unset = UNSET
         if not isinstance(self.lineage_entity_type, Unset):
             lineage_entity_type = self.lineage_entity_type.value
 
         normalize_to_first_value = self.normalize_to_first_value
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -97,10 +96,10 @@ class TimeSeries:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.attributes_holder_identifier import AttributesHolderIdentifier
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         attribute = d.pop("attribute")
 
         holder = AttributesHolderIdentifier.from_dict(d.pop("holder"))
@@ -108,14 +107,14 @@ class TimeSeries:
         include_preview = d.pop("includePreview", UNSET)
 
         _lineage = d.pop("lineage", UNSET)
-        lineage: Union[Unset, TimeSeriesLineage]
+        lineage: TimeSeriesLineage | Unset
         if isinstance(_lineage, Unset):
             lineage = UNSET
         else:
             lineage = TimeSeriesLineage(_lineage)
 
         _lineage_entity_type = d.pop("lineageEntityType", UNSET)
-        lineage_entity_type: Union[Unset, TimeSeriesLineageEntityType]
+        lineage_entity_type: TimeSeriesLineageEntityType | Unset
         if isinstance(_lineage_entity_type, Unset):
             lineage_entity_type = UNSET
         else:
@@ -136,7 +135,7 @@ class TimeSeries:
         return time_series
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

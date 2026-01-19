@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -40,30 +39,30 @@ class QueryLeaderboardParamsFieldDTO:
     """
     Attributes:
         name (str):
-        type (AttributeTypeDTO):
-        aggregation_mode (Union[Unset, QueryLeaderboardParamsFieldDTOAggregationMode]):
+        type_ (AttributeTypeDTO):
+        aggregation_mode (QueryLeaderboardParamsFieldDTOAggregationMode | Unset):
     """
 
     name: str
-    type: AttributeTypeDTO
-    aggregation_mode: Union[Unset, QueryLeaderboardParamsFieldDTOAggregationMode] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    type_: AttributeTypeDTO
+    aggregation_mode: QueryLeaderboardParamsFieldDTOAggregationMode | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        type = self.type.value
+        type_ = self.type_.value
 
-        aggregation_mode: Union[Unset, str] = UNSET
+        aggregation_mode: str | Unset = UNSET
         if not isinstance(self.aggregation_mode, Unset):
             aggregation_mode = self.aggregation_mode.value
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "name": name,
-                "type": type,
+                "type": type_,
             }
         )
         if aggregation_mode is not UNSET:
@@ -72,14 +71,14 @@ class QueryLeaderboardParamsFieldDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name = d.pop("name")
 
-        type = AttributeTypeDTO(d.pop("type"))
+        type_ = AttributeTypeDTO(d.pop("type"))
 
         _aggregation_mode = d.pop("aggregationMode", UNSET)
-        aggregation_mode: Union[Unset, QueryLeaderboardParamsFieldDTOAggregationMode]
+        aggregation_mode: QueryLeaderboardParamsFieldDTOAggregationMode | Unset
         if isinstance(_aggregation_mode, Unset):
             aggregation_mode = UNSET
         else:
@@ -87,7 +86,7 @@ class QueryLeaderboardParamsFieldDTO:
 
         query_leaderboard_params_field_dto = cls(
             name=name,
-            type=type,
+            type_=type_,
             aggregation_mode=aggregation_mode,
         )
 
@@ -95,7 +94,7 @@ class QueryLeaderboardParamsFieldDTO:
         return query_leaderboard_params_field_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

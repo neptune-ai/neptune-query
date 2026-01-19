@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Type,
     TypeVar,
-    Union,
 )
 
 from attrs import define as _attrs_define
@@ -43,23 +42,23 @@ class QueryLeaderboardParamsPaginationWithContinuationTokenDTO:
     """
     Attributes:
         pagination (QueryLeaderboardParamsPaginationDTO):
-        continuation_token (Union[Unset, str]):
-        before_token (Union[Unset, str]):
+        continuation_token (str | Unset):
+        before_token (str | Unset):
     """
 
-    pagination: "QueryLeaderboardParamsPaginationDTO"
-    continuation_token: Union[Unset, str] = UNSET
-    before_token: Union[Unset, str] = UNSET
-    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+    pagination: QueryLeaderboardParamsPaginationDTO
+    continuation_token: str | Unset = UNSET
+    before_token: str | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         pagination = self.pagination.to_dict()
 
         continuation_token = self.continuation_token
 
         before_token = self.before_token
 
-        field_dict: Dict[str, Any] = {}
+        field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
@@ -74,10 +73,10 @@ class QueryLeaderboardParamsPaginationWithContinuationTokenDTO:
         return field_dict
 
     @classmethod
-    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.query_leaderboard_params_pagination_dto import QueryLeaderboardParamsPaginationDTO
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         pagination = QueryLeaderboardParamsPaginationDTO.from_dict(d.pop("pagination"))
 
         continuation_token = d.pop("continuationToken", UNSET)
@@ -94,7 +93,7 @@ class QueryLeaderboardParamsPaginationWithContinuationTokenDTO:
         return query_leaderboard_params_pagination_with_continuation_token_dto
 
     @property
-    def additional_keys(self) -> List[str]:
+    def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
     def __getitem__(self, key: str) -> Any:

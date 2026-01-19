@@ -17,16 +17,6 @@
 
 import httpx
 
-__all__ = [
-    "UnexpectedStatus",
-    "InvalidApiTokenException",
-    "UnableToExchangeApiKeyError",
-    "ApiKeyRejectedError",
-    "UnableToDeserializeApiKeyError",
-    "UnableToParseResponse",
-    "UnableToRefreshTokenError",
-]
-
 
 class UnexpectedStatus(Exception):
     """Raised by api functions when the response status an undocumented status and Client.raise_on_unexpected_status is True"""
@@ -38,6 +28,18 @@ class UnexpectedStatus(Exception):
         super().__init__(
             f"Unexpected status code: {status_code}\n\nResponse content:\n{content.decode(errors='ignore')}"
         )
+
+
+__all__ = ["UnexpectedStatus"]
+
+__all__ += [
+    "InvalidApiTokenException",
+    "UnableToExchangeApiKeyError",
+    "ApiKeyRejectedError",
+    "UnableToDeserializeApiKeyError",
+    "UnableToParseResponse",
+    "UnableToRefreshTokenError",
+]
 
 
 class InvalidApiTokenException(Exception):
