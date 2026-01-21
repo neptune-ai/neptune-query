@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-update-api-spec",
         action="store_true",
-        help="Do not fetch new API spec files from Neptune repo.",
+        help="Do not fetch new API spec files (swagger, proto) from Neptune repo.",
         default=False,
     )
     parser.add_argument(
