@@ -78,6 +78,7 @@ T = TypeVar("T")
 class Response(Generic[T]):
     """A response from an endpoint"""
 
+    url: str
     status_code: HTTPStatus
     content: bytes
     headers: MutableMapping[str, str]
