@@ -49,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument(
+        "--no-update-api-spec",
+        action="store_true",
+        help="Do not fetch new API spec files (swagger, proto) from Neptune repo.",
+        default=False,
+    )
+    parser.add_argument(
         "--update",
         action="store_true",
         help="Move the generated files to the target directory (if unset, the code is left in generated_python)",
@@ -140,14 +146,17 @@ def main() -> None:
     # Project root
     project_root = find_project_root()
 
-    # Neptune repo path
-    if args.neptune_repo_path is None:
-        args.neptune_repo_path = find_neptune_repo(project_root)
-    elif not is_neptune_repo(args.neptune_repo_path):
-        raise RuntimeError(
-            f"The specified neptune repo path {args.neptune_repo_path} is not a valid neptune backend repository."
-        )
-    print_err(f"Using neptune backend repository at:              {rel(args.neptune_repo_path)}")
+    update_api_spec = not args.no_update_api_spec
+
+    if update_api_spec:
+        # Neptune repo path
+        if args.neptune_repo_path is None:
+            args.neptune_repo_path = find_neptune_repo(project_root)
+        elif not is_neptune_repo(args.neptune_repo_path):
+            raise RuntimeError(
+                f"The specified neptune repo path {args.neptune_repo_path} is not a valid neptune backend repository."
+            )
+        print_err(f"Using neptune backend repository at:              {rel(args.neptune_repo_path)}")
 
     # Target and backup dirs
     rand_bit = int(random() * 1e4)
@@ -174,12 +183,16 @@ def main() -> None:
         apispec_dir.mkdir()
         generated_py_dir.mkdir()
 
-        print_err(f"Copying proto directories and swagger files to:   {rel(apispec_dir)}")
-        copy_swagger_files(
-            neptune_repo_path=args.neptune_repo_path,
-            target_dir=apispec_dir,
-            verbose=args.verbose,
-        )
+        if update_api_spec:
+            print_err(f"Copying proto directories and swagger files to:   {rel(apispec_dir)}")
+            copy_swagger_files(
+                neptune_repo_path=args.neptune_repo_path,
+                target_dir=apispec_dir,
+                verbose=args.verbose,
+            )
+        else:
+            print_err(f"Using proto directories and swagger files from:   {rel(target_apispec)}")
+            shutil.copytree(target_apispec, apispec_dir, dirs_exist_ok=True)
 
         print_err(f"Generating OpenAPI clients in:                    {rel(generated_py_dir)}")
         run_in_docker(
