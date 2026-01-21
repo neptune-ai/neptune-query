@@ -1,5 +1,10 @@
 -e .
+# neptune-scale is only used in tests/e2e/data_ingestion.py
+# and you should be able to replace it with another way of sending data to Neptune
+git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
 behave
+freezegun
+icecream
 junit-xml
 mock
 pre-commit
@@ -10,11 +15,9 @@ pytest-mock
 pytest-retry
 pytest-timeout
 pytest-xdist
-icecream
 tabulate
-git+https://github.com/neptune-ai/neptune-client-scale.git@main#egg=neptune-scale
-fastapi == 0.127.0
-uvicorn == 0.40.0
-humanize == 4.15.0
 colorlog == 6.9.0
-hypothesis==6.150.2
+hypothesis == 6.150.2
+fastapi == 0.127.0
+humanize == 4.15.0
+uvicorn == 0.40.0
