@@ -27,7 +27,12 @@ from neptune_query.generated.neptune_api.models import QueryAttributeDefinitions
 )
 def test_error_while_parsing_200_response(endpoint_module, kwargs, content):
     httpx_client = Mock()
-    httpx_client.request.return_value = httpx.Response(status_code=HTTPStatus(200), content=content, headers={})
+    httpx_client.request.return_value = httpx.Response(
+        request=httpx.Request("GET", "https://example.com/api/projects/some/project"),
+        status_code=HTTPStatus(200),
+        content=content,
+        headers={},
+    )
 
     client = Mock()
     client.get_httpx_client = Mock(return_value=httpx_client)
@@ -50,7 +55,12 @@ def test_error_while_parsing_200_response(endpoint_module, kwargs, content):
 def test_error_while_parsing_400_response(endpoint_module, kwargs, content):
     """Test errors in parsing error responses, specifically 400 Bad Request -> the Error model."""
     httpx_client = Mock()
-    httpx_client.request.return_value = httpx.Response(status_code=HTTPStatus(400), content=content, headers={})
+    httpx_client.request.return_value = httpx.Response(
+        request=httpx.Request("GET", "https://example.com/api/projects/some/project"),
+        status_code=HTTPStatus(400),
+        content=content,
+        headers={},
+    )
 
     client = Mock()
     client.get_httpx_client = Mock(return_value=httpx_client)
