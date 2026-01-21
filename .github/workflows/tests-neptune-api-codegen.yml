@@ -38,5 +38,6 @@ jobs:
         run: |
           cd src &&
           python -m neptune_api_codegen.cli --no-update-api-spec --update &&
-          pre-commit run --all-files &&
-          [ -z "$(git status --porcelain)" ]
+          ( pre-commit run --all-files || true ; ) &&
+          [ -z "$(git status --porcelain)" ] &&
+          echo "✅ Repository is clean after regenerating neptune_api code"

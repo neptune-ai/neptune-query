@@ -191,7 +191,7 @@ def main() -> None:
                 verbose=args.verbose,
             )
         else:
-            print_err(f"Using proto directories and swagger from:         {rel(target_apispec)}")
+            print_err(f"Using proto directories and swagger files from:   {rel(target_apispec)}")
             shutil.copytree(target_apispec, apispec_dir, dirs_exist_ok=True)
 
         print_err(f"Generating OpenAPI clients in:                    {rel(generated_py_dir)}")
