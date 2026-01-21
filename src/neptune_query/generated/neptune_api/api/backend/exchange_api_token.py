@@ -90,6 +90,7 @@ def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
 ) -> Response[Union[Any, Error, NeptuneOauthToken]]:
     return Response(
+        url=str(response.url),
         status_code=HTTPStatus(response.status_code),
         content=response.content,
         headers=response.headers,

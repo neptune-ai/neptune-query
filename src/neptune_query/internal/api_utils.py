@@ -62,6 +62,7 @@ def _wrap_httpx_json_response(httpx_response: httpx.Response) -> Response:
         content=httpx_response.content,
         headers=httpx_response.headers,
         parsed=httpx_response.json(),
+        url=str(httpx_response.url),
     )
 
 

@@ -199,7 +199,12 @@ Response content: {content}
 
 class NeptuneRetryError(NeptuneError):
     def __init__(
-        self, retries: int, time: float, last_status_code: Optional[int] = None, last_content: Optional[bytes] = None
+        self,
+        retries: int,
+        time: float,
+        last_status_code: Optional[int] = None,
+        last_content: Optional[bytes] = None,
+        url: Optional[str] = None,
     ) -> None:
         content_str = _decode_content(last_content) if last_content else ""
         super().__init__(
@@ -216,11 +221,13 @@ For details, see the docs:
 https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_soft_timeout
 https://docs.neptune.ai/environment_variables/neptune_query#neptune_query_retry_hard_timeout
 
+{url_line}
 {status_code_line}
 {content_line}
 """,
             retries=retries,
             time=time,
+            url_line=f"Requested URL: {url}" if url is not None else "",
             status_code_line=f"Last response status: {last_status_code}" if last_status_code is not None else "",
             content_line=f"Last response content: {content_str}" if last_content is not None else "",
             soft_limit=env.NEPTUNE_QUERY_RETRY_SOFT_TIMEOUT.get(),
