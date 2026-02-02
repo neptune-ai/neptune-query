@@ -17,7 +17,7 @@ pytest-timeout
 pytest-xdist
 tabulate
 colorlog == 6.9.0
-hypothesis == 6.150.2
+hypothesis == 6.151.4
 fastapi == 0.127.0
 humanize == 4.15.0
 uvicorn == 0.40.0
