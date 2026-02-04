@@ -304,6 +304,7 @@ def fetch_experiments_table(
         sort_direction=sort_direction,
         limit=limit,
         type_suffix_in_column_names=type_suffix_in_column_names,
+        exact_attribute_names=attributes if isinstance(attributes, list) else None,
         container_type=_search.ContainerType.EXPERIMENT,
     )
 
