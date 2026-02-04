@@ -8,8 +8,10 @@ from unittest.mock import (
 import pytest
 
 import neptune_query as npt
+import neptune_query.runs as nq_runs
 from neptune_query.filters import AttributeFilter
 from neptune_query.internal import context
+from neptune_query.internal.env import NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
@@ -19,7 +21,10 @@ from neptune_query.internal.identifiers import (
     SysName,
 )
 from neptune_query.internal.retrieval import util
-from neptune_query.internal.retrieval.search import ExperimentSysAttrs
+from neptune_query.internal.retrieval.search import (
+    ContainerType,
+    ExperimentSysAttrs,
+)
 
 
 @pytest.mark.parametrize(
@@ -332,6 +337,76 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
         ],
         any_order=True,
     )
+
+
+def test_fetch_experiments_table_uses_entries_search_fast_path_for_exact_attribute_list():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+
+    with (
+        patch("neptune_query.internal.client.get_client") as get_client,
+        patch("neptune_query.internal.retrieval.search.fetch_table_rows_exact_attributes") as fetch_fast_path,
+        patch("neptune_query.internal.retrieval.search.fetch_sys_id_labels") as fetch_sys_id_labels,
+    ):
+        get_client.return_value = None
+        fetch_fast_path.return_value = iter([])
+
+        df = npt.fetch_experiments_table(
+            project=project,
+            attributes=["config/a", "config/b"],
+        )
+
+    assert df.empty
+    fetch_fast_path.assert_called_once()
+    assert fetch_fast_path.call_args.kwargs["exact_attribute_names"] == ["config/a", "config/b"]
+    fetch_sys_id_labels.assert_not_called()
+
+
+def test_fetch_runs_table_uses_entries_search_fast_path_for_exact_attribute_list():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+
+    with (
+        patch("neptune_query.internal.client.get_client") as get_client,
+        patch("neptune_query.internal.retrieval.search.fetch_table_rows_exact_attributes") as fetch_fast_path,
+        patch("neptune_query.internal.retrieval.search.fetch_sys_id_labels") as fetch_sys_id_labels,
+    ):
+        get_client.return_value = None
+        fetch_fast_path.return_value = iter([])
+
+        df = nq_runs.fetch_runs_table(
+            project=project,
+            attributes=["config/a", "config/b"],
+        )
+
+    assert df.empty
+    fetch_fast_path.assert_called_once()
+    assert fetch_fast_path.call_args.kwargs["exact_attribute_names"] == ["config/a", "config/b"]
+    fetch_sys_id_labels.assert_not_called()
+
+
+def test_fetch_experiments_table_large_attribute_list_uses_existing_path(monkeypatch):
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    monkeypatch.setenv(NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.name, "1")
+
+    with (
+        patch("neptune_query.internal.client.get_client") as get_client,
+        patch("neptune_query.internal.retrieval.search.fetch_table_rows_exact_attributes") as fetch_fast_path,
+        patch("neptune_query.internal.retrieval.search.fetch_sys_id_labels") as fetch_sys_id_labels,
+    ):
+        get_client.return_value = None
+        fetch_fast_path.return_value = iter([])
+        fetch_sys_id_labels.return_value = lambda **kwargs: iter([])
+
+        df = npt.fetch_experiments_table(
+            project=project,
+            attributes=["config/a", "config/b"],
+        )
+
+    assert df.empty
+    fetch_fast_path.assert_not_called()
+    fetch_sys_id_labels.assert_called_once_with(ContainerType.EXPERIMENT)
 
 
 def _edges(sizes):
