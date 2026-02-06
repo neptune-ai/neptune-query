@@ -19,9 +19,7 @@ from datetime import (
     timedelta,
     timezone,
 )
-from unittest.mock import (
-    patch,
-)
+from unittest.mock import patch
 
 import jwt
 import pytest
@@ -33,9 +31,7 @@ from neptune_query.exceptions import (
 from neptune_query.generated.neptune_api.credentials import Credentials
 from neptune_query.generated.neptune_api.errors import ApiKeyRejectedError
 from neptune_query.generated.neptune_api.types import OAuthToken
-from neptune_query.internal.api_utils import (
-    create_auth_api_client,
-)
+from neptune_query.internal.api_utils import create_auth_api_client
 
 _JWT_TEST_SECRET = "test-secret-with-at-least-thirty-two-bytes"
 
@@ -68,8 +64,7 @@ def test_create_auth_api_client_uses_token_claims():
     exchange_mock.assert_not_called()
     assert client.client_id == ""
     assert (
-        client.token_refreshing_endpoint
-        == f"{credentials.base_url}/auth/realms/neptune/protocol/openid-connect/token"
+        client.token_refreshing_endpoint == f"{credentials.base_url}/auth/realms/neptune/protocol/openid-connect/token"
     )
     assert client.initial_oauth_token is None
 

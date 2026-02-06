@@ -46,9 +46,9 @@ from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
     global_search,
     search,
-    split as _split,
-    util,
 )
+from ..retrieval import split as _split
+from ..retrieval import util
 
 __all__ = ("fetch_table", "fetch_table_global")
 

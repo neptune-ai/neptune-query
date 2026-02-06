@@ -43,8 +43,8 @@ from ..filters import (
     _Filter,
 )
 from ..logger import get_logger
+from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
-    attribute_values as att_vals,
     retry,
     util,
 )
