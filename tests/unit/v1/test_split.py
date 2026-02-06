@@ -358,7 +358,7 @@ def test_fetch_experiments_table_uses_entries_search_fast_path_for_exact_attribu
 
     assert df.empty
     fetch_fast_path.assert_called_once()
-    assert fetch_fast_path.call_args.kwargs["exact_attribute_names"] == ["config/a", "config/b"]
+    assert fetch_fast_path.call_args.kwargs["requested_attribute_names"] == {"config/a", "config/b"}
     fetch_sys_id_labels.assert_not_called()
 
 
@@ -381,7 +381,7 @@ def test_fetch_runs_table_uses_entries_search_fast_path_for_exact_attribute_list
 
     assert df.empty
     fetch_fast_path.assert_called_once()
-    assert fetch_fast_path.call_args.kwargs["exact_attribute_names"] == ["config/a", "config/b"]
+    assert fetch_fast_path.call_args.kwargs["requested_attribute_names"] == {"config/a", "config/b"}
     fetch_sys_id_labels.assert_not_called()
 
 
@@ -412,7 +412,7 @@ def test_fetch_experiments_table_large_attribute_list_uses_existing_path(monkeyp
 def test_fetch_experiments_table_uses_existing_path_when_required_sys_attrs_exceed_projection_limit(monkeypatch):
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
-    # "config/a" + "config/b" + required "sys/name" and "sys/id" = 4 projected attributes.
+    # Fast path decision is based on user-requested attributes count.
     monkeypatch.setenv(NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.name, "3")
 
     with (
@@ -430,8 +430,8 @@ def test_fetch_experiments_table_uses_existing_path_when_required_sys_attrs_exce
         )
 
     assert df.empty
-    fetch_fast_path.assert_not_called()
-    fetch_sys_id_labels.assert_called_once_with(ContainerType.EXPERIMENT)
+    fetch_fast_path.assert_called_once()
+    fetch_sys_id_labels.assert_not_called()
 
 
 def _edges(sizes):
