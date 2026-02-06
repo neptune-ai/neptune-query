@@ -24,6 +24,7 @@ import pandas as pd
 from ...exceptions import NeptuneUserError
 from .. import client as _client
 from .. import context as _context
+from .. import env
 from .. import identifiers
 from ..composition import attribute_components as _components
 from ..composition import (
@@ -46,7 +47,6 @@ from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
     global_search,
     search,
-    split as _split,
     util,
 )
 
@@ -99,12 +99,10 @@ def fetch_table(
             label_attribute_name = (
                 "sys/name" if container_type == search.ContainerType.EXPERIMENT else "sys/custom_run_id"
             )
-            attribute_names_for_size_check: list[str] = []
-            for attribute_name in [label_attribute_name, "sys/id", *exact_attribute_names]:
-                if attribute_name not in attribute_names_for_size_check:
-                    attribute_names_for_size_check.append(attribute_name)
+            projection_attribute_names = set(exact_attribute_names)
+            projection_attribute_names.update({"sys/id", label_attribute_name})
 
-            if len(_split.split_attribute_names(attribute_names_for_size_check)) <= 1:
+            if len(projection_attribute_names) <= env.NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.get():
                 table_rows: list[TableRow] = []
                 for page in search.fetch_table_rows_exact_attributes(
                     client=client,
@@ -120,7 +118,6 @@ def fetch_table(
                         table_rows.append(
                             TableRow(values=item.values, label=item.label, project_identifier=project_identifier)
                         )
-
                 return create_runs_table(
                     table_rows=table_rows,
                     type_suffix_in_column_names=type_suffix_in_column_names,

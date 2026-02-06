@@ -149,6 +149,65 @@ class FetchSysAttrs(Protocol[T]):
     ) -> Generator[util.Page[T], None, None]: ...
 
 
+def _build_entries_search_params(
+    *,
+    attribute_names: list[str],
+    batch_size: int,
+    container_type: ContainerType,
+    filter_: Optional[_Filter],
+    sort_by: _Attribute,
+    sort_direction: Literal["asc", "desc"],
+) -> dict[str, Any]:
+    params: dict[str, Any] = {
+        "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_names],
+        "pagination": {"limit": batch_size},
+        "experimentLeader": container_type == ContainerType.EXPERIMENT,
+        "sorting": {
+            "dir": _map_direction(sort_direction),
+            "sortBy": {"name": sort_by.name},
+        },
+    }
+    if filter_ is not None:
+        params["query"] = {"query": str(filter_)}
+    if sort_by.aggregation is not None:
+        params["sorting"]["aggregationMode"] = sort_by.aggregation
+    if sort_by.type is not None:
+        params["sorting"]["sortBy"]["type"] = map_attribute_type_python_to_backend(sort_by.type)
+
+    return params
+
+
+def _fetch_entries_with_projection(
+    *,
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    attribute_names: list[str],
+    process_page: Callable[[ProtoLeaderboardEntriesSearchResultDTO], util.Page[T]],
+    filter_: Optional[_Filter],
+    sort_by: _Attribute,
+    sort_direction: Literal["asc", "desc"],
+    limit: Optional[int],
+    batch_size: int,
+    container_type: ContainerType,
+) -> Generator[util.Page[T], None, None]:
+    params = _build_entries_search_params(
+        attribute_names=attribute_names,
+        batch_size=batch_size,
+        container_type=container_type,
+        filter_=filter_,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+    )
+
+    return util.fetch_pages(
+        client=client,
+        fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
+        process_page=process_page,
+        make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
+        initial_params=params,
+    )
+
+
 def _create_fetch_sys_attrs(
     attribute_names: List[str],
     make_record: Callable[[dict[str, Any]], T],
@@ -164,28 +223,17 @@ def _create_fetch_sys_attrs(
         batch_size: int = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get(),
         container_type: ContainerType = default_container_type,
     ) -> Generator[util.Page[T], None, None]:
-        params: dict[str, Any] = {
-            "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_names],
-            "pagination": {"limit": batch_size},
-            "experimentLeader": container_type == ContainerType.EXPERIMENT,
-            "sorting": {
-                "dir": _map_direction(sort_direction),
-                "sortBy": {"name": sort_by.name},
-            },
-        }
-        if filter_ is not None:
-            params["query"] = {"query": str(filter_)}
-        if sort_by.aggregation is not None:
-            params["sorting"]["aggregationMode"] = sort_by.aggregation
-        if sort_by.type is not None:
-            params["sorting"]["sortBy"]["type"] = map_attribute_type_python_to_backend(sort_by.type)
-
-        return util.fetch_pages(
+        return _fetch_entries_with_projection(
             client=client,
-            fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
+            project_identifier=project_identifier,
+            attribute_names=attribute_names,
             process_page=ft.partial(_process_sys_attrs_page, make_record=make_record),
-            make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
-            initial_params=params,
+            filter_=filter_,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
+            limit=limit,
+            batch_size=batch_size,
+            container_type=container_type,
         )
 
     return fetch_sys_attrs
@@ -250,33 +298,22 @@ def fetch_table_rows_exact_attributes(
         if attribute_name not in attribute_filters:
             attribute_filters.append(attribute_name)
 
-    params: dict[str, Any] = {
-        "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_filters],
-        "pagination": {"limit": batch_size},
-        "experimentLeader": container_type == ContainerType.EXPERIMENT,
-        "sorting": {
-            "dir": _map_direction(sort_direction),
-            "sortBy": {"name": sort_by.name},
-        },
-    }
-    if filter_ is not None:
-        params["query"] = {"query": str(filter_)}
-    if sort_by.aggregation is not None:
-        params["sorting"]["aggregationMode"] = sort_by.aggregation
-    if sort_by.type is not None:
-        params["sorting"]["sortBy"]["type"] = map_attribute_type_python_to_backend(sort_by.type)
-
-    yield from util.fetch_pages(
+    yield from _fetch_entries_with_projection(
         client=client,
-        fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
+        project_identifier=project_identifier,
+        attribute_names=attribute_filters,
         process_page=ft.partial(
             _process_table_rows_exact_attributes_page,
             project_identifier=project_identifier,
             label_attribute_name=label_attribute_name,
             requested_attribute_names=requested_attribute_names_set,
         ),
-        make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
-        initial_params=params,
+        filter_=filter_,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+        limit=limit,
+        batch_size=batch_size,
+        container_type=container_type,
     )
 
 

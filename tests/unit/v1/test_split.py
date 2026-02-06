@@ -11,7 +11,7 @@ import neptune_query as npt
 import neptune_query.runs as nq_runs
 from neptune_query.filters import AttributeFilter
 from neptune_query.internal import context
-from neptune_query.internal.env import NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE
+from neptune_query.internal.env import NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
     ProjectIdentifier,
@@ -388,7 +388,7 @@ def test_fetch_runs_table_uses_entries_search_fast_path_for_exact_attribute_list
 def test_fetch_experiments_table_large_attribute_list_uses_existing_path(monkeypatch):
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
-    monkeypatch.setenv(NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.name, "1")
+    monkeypatch.setenv(NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.name, "1")
 
     with (
         patch("neptune_query.internal.client.get_client") as get_client,
@@ -409,11 +409,11 @@ def test_fetch_experiments_table_large_attribute_list_uses_existing_path(monkeyp
     fetch_sys_id_labels.assert_called_once_with(ContainerType.EXPERIMENT)
 
 
-def test_fetch_experiments_table_uses_existing_path_when_required_sys_attrs_exceed_filter_limit(monkeypatch):
+def test_fetch_experiments_table_uses_existing_path_when_required_sys_attrs_exceed_projection_limit(monkeypatch):
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
-    # "config/a" + "config/b" fit exactly, but required "sys/name" and "sys/id" push the request over the limit.
-    monkeypatch.setenv(NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.name, "16")
+    # "config/a" + "config/b" + required "sys/name" and "sys/id" = 4 projected attributes.
+    monkeypatch.setenv(NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.name, "3")
 
     with (
         patch("neptune_query.internal.client.get_client") as get_client,
