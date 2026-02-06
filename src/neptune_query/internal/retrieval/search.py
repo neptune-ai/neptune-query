@@ -43,11 +43,16 @@ from ..filters import (
     _Filter,
 )
 from ..logger import get_logger
+from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
     retry,
     util,
 )
-from ..retrieval.attribute_types import map_attribute_type_python_to_backend
+from ..retrieval.attribute_types import (
+    extract_value,
+    map_attribute_type_backend_to_python,
+    map_attribute_type_python_to_backend,
+)
 
 logger = get_logger()
 
@@ -75,6 +80,13 @@ class SysIdLabel(Protocol):
 
     @property
     def label(self) -> str: ...
+
+
+@dataclass(frozen=True)
+class TableSearchEntry:
+    sys_id: identifiers.SysId
+    label: str
+    values: list[att_vals.AttributeValue]
 
 
 @dataclass(frozen=True)
@@ -137,6 +149,65 @@ class FetchSysAttrs(Protocol[T]):
     ) -> Generator[util.Page[T], None, None]: ...
 
 
+def _build_entries_search_params(
+    *,
+    attribute_projection: list[str],
+    batch_size: int,
+    container_type: ContainerType,
+    filter_: Optional[_Filter],
+    sort_by: _Attribute,
+    sort_direction: Literal["asc", "desc"],
+) -> dict[str, Any]:
+    params: dict[str, Any] = {
+        "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_projection],
+        "pagination": {"limit": batch_size},
+        "experimentLeader": container_type == ContainerType.EXPERIMENT,
+        "sorting": {
+            "dir": _map_direction(sort_direction),
+            "sortBy": {"name": sort_by.name},
+        },
+    }
+    if filter_ is not None:
+        params["query"] = {"query": str(filter_)}
+    if sort_by.aggregation is not None:
+        params["sorting"]["aggregationMode"] = sort_by.aggregation
+    if sort_by.type is not None:
+        params["sorting"]["sortBy"]["type"] = map_attribute_type_python_to_backend(sort_by.type)
+
+    return params
+
+
+def _fetch_entries_with_projection(
+    *,
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    attribute_projection: list[str],
+    process_page: Callable[[ProtoLeaderboardEntriesSearchResultDTO], util.Page[T]],
+    filter_: Optional[_Filter],
+    sort_by: _Attribute,
+    sort_direction: Literal["asc", "desc"],
+    limit: Optional[int],
+    batch_size: int,
+    container_type: ContainerType,
+) -> Generator[util.Page[T], None, None]:
+    params = _build_entries_search_params(
+        attribute_projection=attribute_projection,
+        batch_size=batch_size,
+        container_type=container_type,
+        filter_=filter_,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+    )
+
+    return util.fetch_pages(
+        client=client,
+        fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
+        process_page=process_page,
+        make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
+        initial_params=params,
+    )
+
+
 def _create_fetch_sys_attrs(
     attribute_names: List[str],
     make_record: Callable[[dict[str, Any]], T],
@@ -152,28 +223,17 @@ def _create_fetch_sys_attrs(
         batch_size: int = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get(),
         container_type: ContainerType = default_container_type,
     ) -> Generator[util.Page[T], None, None]:
-        params: dict[str, Any] = {
-            "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_names],
-            "pagination": {"limit": batch_size},
-            "experimentLeader": container_type == ContainerType.EXPERIMENT,
-            "sorting": {
-                "dir": _map_direction(sort_direction),
-                "sortBy": {"name": sort_by.name},
-            },
-        }
-        if filter_ is not None:
-            params["query"] = {"query": str(filter_)}
-        if sort_by.aggregation is not None:
-            params["sorting"]["aggregationMode"] = sort_by.aggregation
-        if sort_by.type is not None:
-            params["sorting"]["sortBy"]["type"] = map_attribute_type_python_to_backend(sort_by.type)
-
-        return util.fetch_pages(
+        return _fetch_entries_with_projection(
             client=client,
-            fetch_page=ft.partial(_fetch_sys_attrs_page, project_identifier=project_identifier),
+            project_identifier=project_identifier,
+            attribute_projection=attribute_names,
             process_page=ft.partial(_process_sys_attrs_page, make_record=make_record),
-            make_new_page_params=ft.partial(_make_new_sys_attrs_page_params, batch_size=batch_size, limit=limit),
-            initial_params=params,
+            filter_=filter_,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
+            limit=limit,
+            batch_size=batch_size,
+            container_type=container_type,
         )
 
     return fetch_sys_attrs
@@ -215,6 +275,42 @@ fetch_run_sys_ids = _create_fetch_sys_attrs(
 fetch_sys_ids = fetch_experiment_sys_ids
 
 
+def fetch_table_rows_exact_attributes(
+    *,
+    client: AuthenticatedClient,
+    project_identifier: identifiers.ProjectIdentifier,
+    filter_: Optional[_Filter],
+    requested_attribute_names: set[str],
+    sort_by: _Attribute,
+    sort_direction: Literal["asc", "desc"],
+    limit: Optional[int],
+    container_type: ContainerType,
+) -> Generator[util.Page[TableSearchEntry], None, None]:
+    batch_size = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get()
+
+    label_attribute_name = "sys/name" if container_type == ContainerType.EXPERIMENT else "sys/custom_run_id"
+    projection_attribute_names = set(requested_attribute_names)
+    projection_attribute_names.update({"sys/id", label_attribute_name})
+
+    yield from _fetch_entries_with_projection(
+        client=client,
+        project_identifier=project_identifier,
+        attribute_projection=list(projection_attribute_names),
+        process_page=ft.partial(
+            _process_table_rows_exact_attributes_page,
+            project_identifier=project_identifier,
+            label_attribute_name=label_attribute_name,
+            requested_attribute_names=requested_attribute_names,
+        ),
+        filter_=filter_,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+        limit=limit,
+        batch_size=batch_size,
+        container_type=container_type,
+    )
+
+
 def _fetch_sys_attrs_page(
     client: AuthenticatedClient,
     params: dict[str, Any],
@@ -246,6 +342,49 @@ def _process_sys_attrs_page(
         attributes = {attr.name: attr.string_properties.value for attr in entry.attributes}
         item = make_record(attributes)
         items.append(item)
+    return util.Page(items=items)
+
+
+def _process_table_rows_exact_attributes_page(
+    data: ProtoLeaderboardEntriesSearchResultDTO,
+    project_identifier: identifiers.ProjectIdentifier,
+    label_attribute_name: str,
+    requested_attribute_names: set[str],
+) -> util.Page[TableSearchEntry]:
+    items: list[TableSearchEntry] = []
+
+    for entry in data.entries:
+        attributes_by_name = {
+            attr.name: attr
+            for attr in entry.attributes
+            if attr.name in ("sys/id", label_attribute_name) and attr.HasField("string_properties")
+        }
+        label = attributes_by_name[label_attribute_name].string_properties.value
+        sys_id = identifiers.SysId(attributes_by_name["sys/id"].string_properties.value)
+        run_identifier = identifiers.RunIdentifier(project_identifier=project_identifier, sys_id=sys_id)
+
+        values: list[att_vals.AttributeValue] = []
+        for attr in entry.attributes:
+            if attr.name not in requested_attribute_names:
+                continue
+
+            item_value = extract_value(attr)
+            if item_value is None:
+                continue
+
+            values.append(
+                att_vals.AttributeValue(
+                    attribute_definition=identifiers.AttributeDefinition(
+                        name=attr.name,
+                        type=map_attribute_type_backend_to_python(attr.type),
+                    ),
+                    value=item_value,
+                    run_identifier=run_identifier,
+                )
+            )
+
+        items.append(TableSearchEntry(sys_id=sys_id, label=label, values=values))
+
     return util.Page(items=items)
 
 

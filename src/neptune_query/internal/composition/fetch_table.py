@@ -24,7 +24,10 @@ import pandas as pd
 from ...exceptions import NeptuneUserError
 from .. import client as _client
 from .. import context as _context
-from .. import identifiers
+from .. import (
+    env,
+    identifiers,
+)
 from ..composition import attribute_components as _components
 from ..composition import (
     concurrency,
@@ -61,6 +64,7 @@ def fetch_table(
     sort_direction: Literal["asc", "desc"],
     limit: Optional[int],
     type_suffix_in_column_names: bool,
+    exact_attribute_names: Optional[list[str]] = None,
     context: Optional[_context.Context] = None,
     container_type: search.ContainerType,
 ) -> pd.DataFrame:
@@ -92,6 +96,30 @@ def fetch_table(
         )
         sort_by = sort_by_inference_result.result
         sort_by_inference_result.emit_warnings()
+
+        if exact_attribute_names is not None:
+            exact_attribute_names_set = set(exact_attribute_names)
+            if len(exact_attribute_names) <= env.NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.get():
+                table_rows: list[TableRow] = []
+                for page in search.fetch_table_rows_exact_attributes(
+                    client=client,
+                    project_identifier=project_identifier,
+                    filter_=filter_,
+                    requested_attribute_names=exact_attribute_names_set,
+                    sort_by=sort_by,
+                    sort_direction=_sort_direction,
+                    limit=limit,
+                    container_type=container_type,
+                ):
+                    for item in page.items:
+                        table_rows.append(
+                            TableRow(values=item.values, label=item.label, project_identifier=project_identifier)
+                        )
+                return create_runs_table(
+                    table_rows=table_rows,
+                    type_suffix_in_column_names=type_suffix_in_column_names,
+                    container_type=container_type,
+                )
 
         sys_id_label_mapping: dict[identifiers.SysId, str] = {}
         result_by_id: dict[identifiers.SysId, list[att_vals.AttributeValue]] = {}
