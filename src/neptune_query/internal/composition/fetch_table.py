@@ -95,28 +95,37 @@ def fetch_table(
         sort_by = sort_by_inference_result.result
         sort_by_inference_result.emit_warnings()
 
-        if exact_attribute_names is not None and len(_split.split_attribute_names(exact_attribute_names)) <= 1:
-            table_rows: list[TableRow] = []
-            for page in search.fetch_table_rows_exact_attributes(
-                client=client,
-                project_identifier=project_identifier,
-                filter_=filter_,
-                exact_attribute_names=exact_attribute_names,
-                sort_by=sort_by,
-                sort_direction=_sort_direction,
-                limit=limit,
-                container_type=container_type,
-            ):
-                for item in page.items:
-                    table_rows.append(
-                        TableRow(values=item.values, label=item.label, project_identifier=project_identifier)
-                    )
-
-            return create_runs_table(
-                table_rows=table_rows,
-                type_suffix_in_column_names=type_suffix_in_column_names,
-                container_type=container_type,
+        if exact_attribute_names is not None:
+            label_attribute_name = (
+                "sys/name" if container_type == search.ContainerType.EXPERIMENT else "sys/custom_run_id"
             )
+            attribute_names_for_size_check: list[str] = []
+            for attribute_name in [label_attribute_name, "sys/id", *exact_attribute_names]:
+                if attribute_name not in attribute_names_for_size_check:
+                    attribute_names_for_size_check.append(attribute_name)
+
+            if len(_split.split_attribute_names(attribute_names_for_size_check)) <= 1:
+                table_rows: list[TableRow] = []
+                for page in search.fetch_table_rows_exact_attributes(
+                    client=client,
+                    project_identifier=project_identifier,
+                    filter_=filter_,
+                    exact_attribute_names=exact_attribute_names,
+                    sort_by=sort_by,
+                    sort_direction=_sort_direction,
+                    limit=limit,
+                    container_type=container_type,
+                ):
+                    for item in page.items:
+                        table_rows.append(
+                            TableRow(values=item.values, label=item.label, project_identifier=project_identifier)
+                        )
+
+                return create_runs_table(
+                    table_rows=table_rows,
+                    type_suffix_in_column_names=type_suffix_in_column_names,
+                    container_type=container_type,
+                )
 
         sys_id_label_mapping: dict[identifiers.SysId, str] = {}
         result_by_id: dict[identifiers.SysId, list[att_vals.AttributeValue]] = {}

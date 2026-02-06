@@ -409,6 +409,31 @@ def test_fetch_experiments_table_large_attribute_list_uses_existing_path(monkeyp
     fetch_sys_id_labels.assert_called_once_with(ContainerType.EXPERIMENT)
 
 
+def test_fetch_experiments_table_uses_existing_path_when_required_sys_attrs_exceed_filter_limit(monkeypatch):
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    # "config/a" + "config/b" fit exactly, but required "sys/name" and "sys/id" push the request over the limit.
+    monkeypatch.setenv(NEPTUNE_QUERY_MAX_ATTRIBUTE_FILTER_SIZE.name, "16")
+
+    with (
+        patch("neptune_query.internal.client.get_client") as get_client,
+        patch("neptune_query.internal.retrieval.search.fetch_table_rows_exact_attributes") as fetch_fast_path,
+        patch("neptune_query.internal.retrieval.search.fetch_sys_id_labels") as fetch_sys_id_labels,
+    ):
+        get_client.return_value = None
+        fetch_fast_path.return_value = iter([])
+        fetch_sys_id_labels.return_value = lambda **kwargs: iter([])
+
+        df = npt.fetch_experiments_table(
+            project=project,
+            attributes=["config/a", "config/b"],
+        )
+
+    assert df.empty
+    fetch_fast_path.assert_not_called()
+    fetch_sys_id_labels.assert_called_once_with(ContainerType.EXPERIMENT)
+
+
 def _edges(sizes):
     start = 0
     for size in sizes:
