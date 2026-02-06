@@ -96,19 +96,14 @@ def fetch_table(
         sort_by_inference_result.emit_warnings()
 
         if exact_attribute_names is not None:
-            label_attribute_name = (
-                "sys/name" if container_type == search.ContainerType.EXPERIMENT else "sys/custom_run_id"
-            )
-            projection_attribute_names = set(exact_attribute_names)
-            projection_attribute_names.update({"sys/id", label_attribute_name})
-
-            if len(projection_attribute_names) <= env.NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.get():
+            exact_attribute_names = set(exact_attribute_names)
+            if len(exact_attribute_names) <= env.NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.get():
                 table_rows: list[TableRow] = []
                 for page in search.fetch_table_rows_exact_attributes(
                     client=client,
                     project_identifier=project_identifier,
                     filter_=filter_,
-                    exact_attribute_names=exact_attribute_names,
+                    requested_attribute_names=exact_attribute_names,
                     sort_by=sort_by,
                     sort_direction=_sort_direction,
                     limit=limit,

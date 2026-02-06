@@ -23,7 +23,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    TypeVar,
+    TypeVar, Union,
 )
 
 from neptune_query.generated.neptune_api.api.retrieval import search_leaderboard_entries_proto
@@ -151,7 +151,7 @@ class FetchSysAttrs(Protocol[T]):
 
 def _build_entries_search_params(
     *,
-    attribute_names: list[str],
+    attribute_projection: list[str],
     batch_size: int,
     container_type: ContainerType,
     filter_: Optional[_Filter],
@@ -159,7 +159,7 @@ def _build_entries_search_params(
     sort_direction: Literal["asc", "desc"],
 ) -> dict[str, Any]:
     params: dict[str, Any] = {
-        "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_names],
+        "attributeFilters": [{"path": attribute_name} for attribute_name in attribute_projection],
         "pagination": {"limit": batch_size},
         "experimentLeader": container_type == ContainerType.EXPERIMENT,
         "sorting": {
@@ -181,7 +181,7 @@ def _fetch_entries_with_projection(
     *,
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
-    attribute_names: list[str],
+    attribute_projection: list[str],
     process_page: Callable[[ProtoLeaderboardEntriesSearchResultDTO], util.Page[T]],
     filter_: Optional[_Filter],
     sort_by: _Attribute,
@@ -191,7 +191,7 @@ def _fetch_entries_with_projection(
     container_type: ContainerType,
 ) -> Generator[util.Page[T], None, None]:
     params = _build_entries_search_params(
-        attribute_names=attribute_names,
+        attribute_projection=attribute_projection,
         batch_size=batch_size,
         container_type=container_type,
         filter_=filter_,
@@ -226,7 +226,7 @@ def _create_fetch_sys_attrs(
         return _fetch_entries_with_projection(
             client=client,
             project_identifier=project_identifier,
-            attribute_names=attribute_names,
+            attribute_projection=attribute_names,
             process_page=ft.partial(_process_sys_attrs_page, make_record=make_record),
             filter_=filter_,
             sort_by=sort_by,
@@ -280,7 +280,7 @@ def fetch_table_rows_exact_attributes(
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     filter_: Optional[_Filter],
-    exact_attribute_names: list[str],
+    requested_attribute_names: set[str],
     sort_by: _Attribute,
     sort_direction: Literal["asc", "desc"],
     limit: Optional[int],
@@ -288,25 +288,21 @@ def fetch_table_rows_exact_attributes(
 ) -> Generator[util.Page[TableSearchEntry], None, None]:
     batch_size = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get()
 
-    label_attribute_name = "sys/name" if container_type == ContainerType.EXPERIMENT else "sys/custom_run_id"
-    required_sys_attrs = [label_attribute_name, "sys/id"]
-    requested_attribute_names = list(exact_attribute_names)
-    requested_attribute_names_set = set(requested_attribute_names)
-
-    attribute_filters = []
-    for attribute_name in required_sys_attrs + requested_attribute_names:
-        if attribute_name not in attribute_filters:
-            attribute_filters.append(attribute_name)
+    label_attribute_name = (
+        "sys/name" if container_type == ContainerType.EXPERIMENT else "sys/custom_run_id"
+    )
+    projection_attribute_names = set(requested_attribute_names)
+    projection_attribute_names.update({"sys/id", label_attribute_name})
 
     yield from _fetch_entries_with_projection(
         client=client,
         project_identifier=project_identifier,
-        attribute_names=attribute_filters,
+        attribute_projection=list(projection_attribute_names),
         process_page=ft.partial(
             _process_table_rows_exact_attributes_page,
             project_identifier=project_identifier,
             label_attribute_name=label_attribute_name,
-            requested_attribute_names=requested_attribute_names_set,
+            requested_attribute_names=requested_attribute_names,
         ),
         filter_=filter_,
         sort_by=sort_by,
@@ -360,7 +356,7 @@ def _process_table_rows_exact_attributes_page(
     items: list[TableSearchEntry] = []
 
     for entry in data.entries:
-        attributes_by_name = {attr.name: attr for attr in entry.attributes if attr.HasField("string_properties")}
+        attributes_by_name = {attr.name: attr for attr in entry.attributes if attr.name in ("sys/id", label_attribute_name) and attr.HasField("string_properties")}
         label = attributes_by_name[label_attribute_name].string_properties.value
         sys_id = identifiers.SysId(attributes_by_name["sys/id"].string_properties.value)
         run_identifier = identifiers.RunIdentifier(project_identifier=project_identifier, sys_id=sys_id)
