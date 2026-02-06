@@ -1,5 +1,6 @@
 import itertools as it
 import pathlib
+import warnings
 from datetime import (
     datetime,
     timedelta,
@@ -11,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from pandas import Interval
-from pandas._testing import assert_frame_equal
+from pandas._testing import assert_frame_equal as _assert_frame_equal
 
 import neptune_query as npt
 from neptune_query.exceptions import ConflictingAttributeTypes
@@ -63,6 +64,20 @@ PROJECT_IDENTIFIER = identifiers.ProjectIdentifier("project/abc")
 EXPERIMENT_IDENTIFIER = identifiers.RunIdentifier(PROJECT_IDENTIFIER, identifiers.SysId("XXX-1"))
 
 EXPECTED_COLUMN_ORDER = ["value", "absolute_time", "is_preview", "preview_completion"]
+
+
+def assert_frame_equal(left: pd.DataFrame, right: pd.DataFrame) -> None:
+    # pandas 2/3 differ in datetime resolution dtypes (ns/us/ms) and some empty index inferred types.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="the 'check_datetimelike_compat' keyword is deprecated")
+        _assert_frame_equal(
+            left,
+            right,
+            check_dtype=False,
+            check_index_type=False,
+            check_column_type=False,
+            check_datetimelike_compat=True,
+        )
 
 
 def _table_rows_from_mapping(
@@ -645,7 +660,7 @@ def test_create_metrics_dataframe_from_exp_with_no_points():
             names=["experiment", "step"],
         ),
     )
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metrics_dataframe_from_exp_with_no_points_preview():
@@ -686,7 +701,7 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
             names=["experiment", "step"],
         ),
     )
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -754,7 +769,7 @@ def test_create_metrics_dataframe_with_absolute_timestamp(type_suffix_in_column_
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def _run_definition(run_id: str, attribute_path: str, attribute_type: str = "string_series") -> RunAttributeDefinition:
@@ -802,7 +817,7 @@ def test_create_string_series_dataframe_with_absolute_timestamp():
         dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_histogram_dataframe_with_absolute_timestamp():
@@ -863,7 +878,7 @@ def test_create_histogram_dataframe_with_absolute_timestamp():
         dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_file_series_dataframe_with_absolute_timestamp():
@@ -942,7 +957,7 @@ def test_create_file_series_dataframe_with_absolute_timestamp():
         dict(sorted(expected.items(), key=lambda x: (x[0][0], EXPECTED_COLUMN_ORDER.index(x[0][1])))),
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -1004,7 +1019,7 @@ def test_create_metrics_dataframe_without_timestamp(type_suffix_in_column_names:
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metrics_dataframe_random_order():
@@ -1044,7 +1059,7 @@ def test_create_metrics_dataframe_random_order():
         ),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -1075,7 +1090,7 @@ def test_create_empty_metrics_dataframe(
         expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
         # the comparator seems not to delve into the exact column names on the 2nd level when the 1st level is empty..
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("timestamp_column_name", [None, "absolute_time"])
@@ -1101,7 +1116,7 @@ def test_create_empty_series_dataframe(timestamp_column_name: str):
     if timestamp_column_name:
         expected_df.columns = pd.MultiIndex.from_product([[], ["value"]], names=[None, None])
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize(
@@ -1180,7 +1195,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_multiindex(
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize(
@@ -1231,7 +1246,7 @@ def test_create_metrics_dataframe_with_reserved_paths_with_flat_index(path: str,
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0), ("exp2", 1.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_files_dataframe_empty():
@@ -1442,7 +1457,7 @@ def test_create_empty_metric_buckets_dataframe():
     expected_df.columns = pd.MultiIndex.from_product([[], [], ["x", "y"]], names=["experiment", "metric", "bucket"])
     expected_df.index.name = None
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe():
@@ -1547,7 +1562,7 @@ def test_create_metric_buckets_dataframe_parametrized(data, expected_df):
     )
 
     # Then
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe_missing_values():
@@ -1607,7 +1622,7 @@ def test_create_metric_buckets_dataframe_missing_values():
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe_sorted():
@@ -1648,7 +1663,7 @@ def test_create_metric_buckets_dataframe_sorted():
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_metric_buckets_dataframe_completely_nan():
@@ -1716,7 +1731,7 @@ def test_create_metric_buckets_dataframe_completely_nan():
     )
     expected_df.columns.names = ["experiment", "metric", "bucket"]
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [False, True])
@@ -1774,7 +1789,7 @@ def test_create_metrics_dataframe_all_nan_values(
         index=pd.MultiIndex.from_tuples([("exp1", 1.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -1858,7 +1873,7 @@ def test_create_metrics_dataframe_all_nan_row_preserved(
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
 
 
 @pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
@@ -1941,4 +1956,4 @@ def test_create_metrics_dataframe_mixed__all_nan_columns_preserved(
         index=pd.MultiIndex.from_tuples([("exp1", 1.0), ("exp1", 2.0)], names=["experiment", "step"]),
     )
 
-    pd.testing.assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df)
