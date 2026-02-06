@@ -210,8 +210,8 @@ add_empty_license "$tmpdir/neptune.json"
 # Save the final OpenAPI spec to apispec/ for reference
 cp "$tmpdir/neptune.json" ./api_spec/neptune-openapi.json
 
-# Generate python code from the OpenAPI spec
-openapi-python-client generate \
+# Generate python code from the OpenAPI spec via uv-managed tool
+uv tool run openapi-python-client generate \
     --overwrite \
     --meta none \
     --path "$tmpdir/neptune.json" \
@@ -227,14 +227,14 @@ mkdir -p "$output_dir/neptune_api/"
 rm -fr "$output_dir"/neptune_api/api
 mv "$tmpdir/neptune_api/api/" "$output_dir/neptune_api/"
 
-# Note that we DO NOT copy client.py. This file was modified by hand it's a
-# deliberate decision to keep it this way instead of modifying the template
-for file in __init__.py errors.py py.typed types.py; do
+# We intentionally do not move generated client.py/types.py from $tmpdir.
+# Instead we copy custom-managed versions from /rofiles/neptune_api below.
+for file in __init__.py errors.py py.typed; do
   mv "$tmpdir/neptune_api/$file" "$output_dir/neptune_api/"
 done
 
 # Copy our custom versions of some files instead of the generated ones
-for file in client.py auth_helpers.py credentials.py; do
+for file in client.py auth_helpers.py credentials.py types.py; do
   cp /rofiles/neptune_api/$file "$output_dir/neptune_api/"
 done
 

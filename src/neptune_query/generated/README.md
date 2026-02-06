@@ -1,4 +1,14 @@
-This directory contains files that are generated and cannot be edited by hand.
+This directory contains mostly generated files.
+
+`src/neptune_query/generated/neptune_api/` also includes a small set of custom-managed files
+that are copied during codegen from `src/neptune_api_codegen/docker/rofiles/neptune_api/`:
+
+- `client.py`
+- `auth_helpers.py`
+- `credentials.py`
+- `types.py`
+
+These files should be edited in `rofiles` and then propagated by running codegen.
 
 ```
 src/
@@ -11,6 +21,10 @@ src/
         │   └─ neptune-openapi.json  OpenAPI specification file GENERATED from files in neptune_api_spec/swagger
         │
         └── neptune_api/             Python code GENERATED from neptune_api_spec/neptune-openapi.json
+            ├── client.py            Custom-managed, COPIED from codegen rofiles
+            ├── auth_helpers.py      Custom-managed, COPIED from codegen rofiles
+            ├── credentials.py       Custom-managed, COPIED from codegen rofiles
+            ├── types.py             Custom-managed, COPIED from codegen rofiles
             └── proto                Python code GENERATED from files in neptune_api_spec/proto/
 ```
 

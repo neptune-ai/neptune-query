@@ -9,6 +9,9 @@ It orchestrates Dockerized generators to:
 - generate Python modules from `.proto` definitions
 - place artifacts under `src/neptune_query/generated/`
 
+Note: some files under `generated/neptune_api/` are intentionally custom-managed and copied
+from `src/neptune_api_codegen/docker/rofiles/neptune_api/` during generation.
+
 See also: `src/neptune_query/generated/README.md` for a map of generated outputs.
 
 ## Prerequisites

@@ -70,10 +70,8 @@ def clear_cache_before_test():
 @fixture(autouse=True)
 def mock_networking():
     with (
-        patch("neptune_query.internal.client.get_config_and_token_urls") as get_config_and_token_urls,
         patch("neptune_query.internal.client.create_auth_api_client") as create_auth_api_client,
     ):
-        get_config_and_token_urls.return_value = (Mock(), Mock())
         # create_auth_api_client() needs to return a different "client" each time
         create_auth_api_client.side_effect = lambda *args, **kwargs: Mock()
         yield

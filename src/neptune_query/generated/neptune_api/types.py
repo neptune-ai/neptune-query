@@ -15,11 +15,12 @@
 
 """Contains some shared types for properties"""
 
-__all__ = ["File", "Response", "FileJsonType", "Unset", "UNSET", "OAuthToken"]
+__all__ = ["File", "Response", "FileJsonType", "Unset", "UNSET", "OAuthToken", "decode_token_without_verification"]
 
 import time
 from http import HTTPStatus
 from typing import (
+    Any,
     BinaryIO,
     Generic,
     Literal,
@@ -46,6 +47,18 @@ DECODING_OPTIONS = {
     "verify_aud": False,
     "verify_iss": False,
 }
+
+
+def decode_token_without_verification(token: str) -> dict[str, Any]:
+    try:
+        decoded_token = jwt.decode(token, options=DECODING_OPTIONS)
+    except jwt.InvalidTokenError as e:
+        raise InvalidApiTokenException("Cannot decode the access token") from e
+
+    if not isinstance(decoded_token, dict):
+        raise InvalidApiTokenException("Cannot decode the access token")
+
+    return decoded_token
 
 
 class Unset:
@@ -95,9 +108,9 @@ class OAuthToken:
     def from_tokens(cls, access: str, refresh: str) -> "OAuthToken":
         # Decode the JWT to get expiration time
         try:
-            decoded_token = jwt.decode(access, options=DECODING_OPTIONS)
+            decoded_token = decode_token_without_verification(access)
             expiration_time = float(decoded_token["exp"])
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError) as e:
+        except (KeyError, TypeError, ValueError) as e:
             raise InvalidApiTokenException("Cannot decode the access token") from e
 
         return OAuthToken(access_token=access, refresh_token=refresh, expiration_time=expiration_time)

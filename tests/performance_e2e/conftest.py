@@ -214,7 +214,7 @@ def http_client(monkeypatch, backend_base_url: str, api_token: str) -> ClientPro
     patched_client = AuthenticatedClient(
         base_url=backend_base_url,
         credentials=Credentials.from_api_key(api_token),
-        client_id="",
+        client_id="neptune-cli",
         token_refreshing_endpoint="",
         api_key_exchange_callback=lambda _client, _credentials: never_expiring_token,
         verify_ssl=False,

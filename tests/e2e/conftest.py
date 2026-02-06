@@ -16,10 +16,7 @@ from _pytest.outcomes import Failed
 
 from neptune_query.generated.neptune_api import AuthenticatedClient
 from neptune_query.generated.neptune_api.credentials import Credentials
-from neptune_query.internal.api_utils import (
-    create_auth_api_client,
-    get_config_and_token_urls,
-)
+from neptune_query.internal.api_utils import create_auth_api_client
 from neptune_query.internal.composition import concurrency
 from neptune_query.internal.context import set_api_token
 from tests.e2e.data_ingestion import (
@@ -93,10 +90,7 @@ def set_api_token_auto(api_token) -> None:
 @pytest.fixture(scope="session")
 def client(api_token) -> AuthenticatedClient:
     credentials = Credentials.from_api_key(api_key=api_token)
-    config, token_urls = get_config_and_token_urls(credentials=credentials, proxies=None)
-    client = create_auth_api_client(
-        credentials=credentials, config=config, token_refreshing_urls=token_urls, proxies=None
-    )
+    client = create_auth_api_client(credentials=credentials, proxies=None)
 
     return client
 

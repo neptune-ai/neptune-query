@@ -6,11 +6,10 @@ from neptune_query.generated.neptune_api.client import NeptuneAuthenticator
 def test_use_token_factory(mocker, credentials, oauth_token):
     # given
     client = mocker.MagicMock()
+    client.exchange_token.return_value = oauth_token
     authenticator = NeptuneAuthenticator(
-        credentials=credentials,
         client_id="client_id",
         token_refreshing_endpoint="https://api.neptune.ai/oauth/token",
-        api_key_exchange_factory=(lambda _, __: oauth_token),
         client=client,
     )
     request = mocker.MagicMock()
@@ -28,11 +27,9 @@ def test_refresh(mocker, credentials, expired_oauth_token, oauth_token):
     # given
     client = mocker.MagicMock()
     authenticator = NeptuneAuthenticator(
-        credentials=credentials,
         client_id="client_id",
         token_refreshing_endpoint="https://api.neptune.ai/oauth/token",
         client=client,
-        api_key_exchange_factory=token_factory_stub,
     )
     request = mocker.MagicMock()
     request.headers = {}
@@ -53,7 +50,3 @@ def test_refresh(mocker, credentials, expired_oauth_token, oauth_token):
 
     # then
     assert request.headers["Authorization"] == f"Bearer {oauth_token.access_token}"
-
-
-def token_factory_stub(client, credentials):
-    raise NotImplementedError("Should not be called")

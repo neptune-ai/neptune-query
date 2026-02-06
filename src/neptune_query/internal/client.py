@@ -19,6 +19,7 @@ __all__ = ("get_client", "clear_cache")
 
 import logging
 import threading
+import time
 from typing import (
     Dict,
     Optional,
@@ -28,14 +29,13 @@ from typing import (
 from neptune_query.generated.neptune_api import AuthenticatedClient
 from neptune_query.generated.neptune_api.credentials import Credentials
 
-from .api_utils import (
-    create_auth_api_client,
-    get_config_and_token_urls,
-)
+from .api_utils import create_auth_api_client
 from .context import Context
+from .logger import get_logger
 
 # Disable httpx logging, httpx logs requests at INFO level
 logging.getLogger("httpx").setLevel(logging.WARN)
+logger = get_logger()
 
 _cache: dict[int, AuthenticatedClient] = {}
 _lock: threading.RLock = threading.RLock()
@@ -57,16 +57,23 @@ def get_client(context: Context, proxies: Optional[Dict[str, str]] = None) -> Au
         if not context.api_token:
             raise ValueError("API token is not set")
 
+        init_started = time.perf_counter()
         credentials = Credentials.from_api_key(api_key=context.api_token)
-        config, token_urls = get_config_and_token_urls(credentials=credentials, proxies=proxies)
+
+        auth_client_started = time.perf_counter()
         client = create_auth_api_client(
             credentials=credentials,
-            config=config,
-            token_refreshing_urls=token_urls,
             proxies=proxies,
         )
+        auth_client_duration_ms = (time.perf_counter() - auth_client_started) * 1000
 
         _cache[hash_key] = client
+        total_duration_ms = (time.perf_counter() - init_started) * 1000
+        logger.debug(
+            "Initialized Neptune API client in %.1f ms (auth bootstrap + client construction: %.1f ms).",
+            total_duration_ms,
+            auth_client_duration_ms,
+        )
         return client
 
 
