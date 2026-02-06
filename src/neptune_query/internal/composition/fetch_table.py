@@ -24,8 +24,10 @@ import pandas as pd
 from ...exceptions import NeptuneUserError
 from .. import client as _client
 from .. import context as _context
-from .. import env
-from .. import identifiers
+from .. import (
+    env,
+    identifiers,
+)
 from ..composition import attribute_components as _components
 from ..composition import (
     concurrency,
@@ -96,14 +98,14 @@ def fetch_table(
         sort_by_inference_result.emit_warnings()
 
         if exact_attribute_names is not None:
-            exact_attribute_names = set(exact_attribute_names)
+            exact_attribute_names_set = set(exact_attribute_names)
             if len(exact_attribute_names) <= env.NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES.get():
                 table_rows: list[TableRow] = []
                 for page in search.fetch_table_rows_exact_attributes(
                     client=client,
                     project_identifier=project_identifier,
                     filter_=filter_,
-                    requested_attribute_names=exact_attribute_names,
+                    requested_attribute_names=exact_attribute_names_set,
                     sort_by=sort_by,
                     sort_direction=_sort_direction,
                     limit=limit,

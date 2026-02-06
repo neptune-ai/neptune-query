@@ -23,7 +23,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    TypeVar, Union,
+    TypeVar,
 )
 
 from neptune_query.generated.neptune_api.api.retrieval import search_leaderboard_entries_proto
@@ -43,8 +43,8 @@ from ..filters import (
     _Filter,
 )
 from ..logger import get_logger
+from ..retrieval import attribute_values as att_vals
 from ..retrieval import (
-    attribute_values as att_vals,
     retry,
     util,
 )
@@ -288,9 +288,7 @@ def fetch_table_rows_exact_attributes(
 ) -> Generator[util.Page[TableSearchEntry], None, None]:
     batch_size = env.NEPTUNE_QUERY_SYS_ATTRS_BATCH_SIZE.get()
 
-    label_attribute_name = (
-        "sys/name" if container_type == ContainerType.EXPERIMENT else "sys/custom_run_id"
-    )
+    label_attribute_name = "sys/name" if container_type == ContainerType.EXPERIMENT else "sys/custom_run_id"
     projection_attribute_names = set(requested_attribute_names)
     projection_attribute_names.update({"sys/id", label_attribute_name})
 
@@ -356,7 +354,11 @@ def _process_table_rows_exact_attributes_page(
     items: list[TableSearchEntry] = []
 
     for entry in data.entries:
-        attributes_by_name = {attr.name: attr for attr in entry.attributes if attr.name in ("sys/id", label_attribute_name) and attr.HasField("string_properties")}
+        attributes_by_name = {
+            attr.name: attr
+            for attr in entry.attributes
+            if attr.name in ("sys/id", label_attribute_name) and attr.HasField("string_properties")
+        }
         label = attributes_by_name[label_attribute_name].string_properties.value
         sys_id = identifiers.SysId(attributes_by_name["sys/id"].string_properties.value)
         run_identifier = identifiers.RunIdentifier(project_identifier=project_identifier, sys_id=sys_id)
