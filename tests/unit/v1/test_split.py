@@ -379,6 +379,37 @@ def test_fetch_metrics_uses_fast_path_for_exact_attribute_list():
 def test_fetch_runs_metrics_uses_fast_path_for_exact_attribute_list():
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_run_sys_attrs") as fetch_run_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_series_values.return_value = {}
+
+        df = nq_runs.fetch_metrics(
+            project=project,
+            runs=["run-0"],
+            attributes=["metric/a"],
+        )
+
+    assert df.empty
+    fetch_run_sys_attrs.assert_not_called()
+    fetch_defs_split.assert_not_called()
+    fetch_series_values.assert_called_once()
+    assert fetch_series_values.call_args.kwargs["run_identifier_mode"] == "custom_run_id"
+    assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-0")),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        )
+    ]
+
+
+def test_fetch_runs_metrics_with_non_exact_runs_uses_sys_id_based_path():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
     runs = [RunSysAttrs(sys_id=SysId("sysid0"), sys_custom_run_id=CustomRunId("run-0"))]
 
     with (
@@ -397,8 +428,10 @@ def test_fetch_runs_metrics_uses_fast_path_for_exact_attribute_list():
         )
 
     assert df.empty
+    fetch_run_sys_attrs.assert_called()
     fetch_defs_split.assert_not_called()
     fetch_series_values.assert_called_once()
+    assert fetch_series_values.call_args.kwargs.get("run_identifier_mode", "sys_id") == "sys_id"
     assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
         RunAttributeDefinition(
             run_identifier=RunIdentifier(project_identifier=project, sys_id=runs[0].sys_id),

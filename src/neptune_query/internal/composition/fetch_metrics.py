@@ -61,6 +61,7 @@ def fetch_metrics(
     project_identifier: identifiers.ProjectIdentifier,
     filter_: Optional[_Filter],
     attributes: _BaseAttributeFilter,
+    exact_run_ids: Optional[list[str]],
     exact_attribute_names: Optional[list[str]],
     include_time: Optional[Literal["absolute"]],
     step_range: tuple[Optional[float], Optional[float]],
@@ -95,6 +96,7 @@ def fetch_metrics(
         metrics_data, sys_id_to_label_mapping = _fetch_metrics(
             filter_=inferred_filter,
             attributes=restricted_attributes,
+            exact_run_ids=exact_run_ids,
             exact_attribute_names=exact_attribute_names,
             client=client,
             project_identifier=project_identifier,
@@ -122,7 +124,6 @@ def fetch_metrics(
 def _fetch_metrics(
     filter_: Optional[_Filter],
     attributes: _BaseAttributeFilter,
-    exact_attribute_names: Optional[list[str]],
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     executor: Executor,
@@ -132,6 +133,8 @@ def _fetch_metrics(
     include_point_previews: bool,
     tail_limit: Optional[int],
     container_type: ContainerType,
+    exact_run_ids: Optional[list[str]] = None,
+    exact_attribute_names: Optional[list[str]] = None,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
     def merge_results(
         results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None],
@@ -183,6 +186,49 @@ def _fetch_metrics(
                 tail_limit=tail_limit,
             )
         )
+
+    if container_type == ContainerType.RUN and exact_run_ids is not None and exact_attribute_names is not None:
+        deduplicated_run_ids = list(dict.fromkeys(exact_run_ids))
+        deduplicated_attribute_names = list(dict.fromkeys(exact_attribute_names))
+        sys_id_label_mapping: dict[identifiers.SysId, str] = {
+            identifiers.SysId(run_id): run_id for run_id in deduplicated_run_ids
+        }
+
+        output = concurrency.generate_concurrently(
+            items=split.split_series_attributes(
+                items=(
+                    identifiers.RunAttributeDefinition(
+                        run_identifier=identifiers.RunIdentifier(
+                            project_identifier=project_identifier,
+                            sys_id=identifiers.SysId(run_id),
+                        ),
+                        attribute_definition=identifiers.AttributeDefinition(
+                            name=attribute_name,
+                            type="float_series",
+                        ),
+                    )
+                    for run_id in deduplicated_run_ids
+                    for attribute_name in deduplicated_attribute_names
+                )
+            ),
+            executor=executor,
+            downstream=lambda run_attribute_definitions_split: concurrency.return_value(
+                fetch_multiple_series_values(
+                    client=client,
+                    run_attribute_definitions=run_attribute_definitions_split,
+                    include_inherited=lineage_to_the_root,
+                    include_preview=include_point_previews,
+                    container_type=container_type,
+                    step_range=step_range,
+                    tail_limit=tail_limit,
+                    run_identifier_mode="custom_run_id",
+                )
+            ),
+        )
+        results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None] = (
+            concurrency.gather_results(output)
+        )
+        return merge_results(results), sys_id_label_mapping
 
     if exact_attribute_names is not None:
         deduplicated_attribute_names = list(dict.fromkeys(exact_attribute_names))
