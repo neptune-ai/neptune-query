@@ -210,12 +210,17 @@ def http_client(monkeypatch, backend_base_url: str, api_token: str) -> ClientPro
     Returns:
         A wrapper for the Neptune API client with header management
     """
-    never_expiring_token = OAuthToken(access_token="x", refresh_token="x", expiration_time=time.time() + 10_000_000)
+    realm_base_url = f"{backend_base_url.rstrip('/')}/auth/realms/neptune"
+    never_expiring_token = OAuthToken(
+        access_token="x",
+        refresh_token="x",
+        expiration_time=time.time() + 10_000_000,
+        client_id="perf-test-client-id",
+        token_endpoint=f"{realm_base_url}/protocol/openid-connect/token",
+    )
     patched_client = AuthenticatedClient(
         base_url=backend_base_url,
         credentials=Credentials.from_api_key(api_token),
-        client_id="",
-        token_refreshing_endpoint="",
         api_key_exchange_callback=lambda _client, _credentials: never_expiring_token,
         verify_ssl=False,
         httpx_args={"http2": False},

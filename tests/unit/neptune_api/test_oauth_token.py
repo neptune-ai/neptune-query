@@ -26,6 +26,7 @@ def test_almost_expired(oauth_token):
     # then
     assert token.seconds_left == 1
     assert token.is_expired is False
+    assert token.token_endpoint.endswith("/protocol/openid-connect/token")
 
 
 @freeze_time("2024-01-02 03:03:35 UTC")
