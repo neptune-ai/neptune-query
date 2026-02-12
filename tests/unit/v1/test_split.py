@@ -14,6 +14,7 @@ from neptune_query.internal import context
 from neptune_query.internal.env import NEPTUNE_QUERY_ENTRIES_SEARCH_MAX_PROJECTION_ATTRIBUTES
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
+    CustomRunId,
     ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
@@ -24,6 +25,7 @@ from neptune_query.internal.retrieval import util
 from neptune_query.internal.retrieval.search import (
     ContainerType,
     ExperimentSysAttrs,
+    RunSysAttrs,
 )
 
 
@@ -332,11 +334,211 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
                 include_preview=ANY,
                 step_range=ANY,
                 tail_limit=ANY,
+                run_identifier_mode=ANY,
             )
             for start, end in _edges(expected_calls)
         ],
         any_order=True,
     )
+
+
+def test_fetch_metrics_uses_fast_path_for_exact_attribute_list():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    experiments = [ExperimentSysAttrs(sys_id=SysId("sysid0"), sys_name=SysName("irrelevant"))]
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_experiment_sys_attrs.side_effect = lambda **kwargs: iter([util.Page(experiments)])
+        fetch_series_values.return_value = {}
+
+        df = npt.fetch_metrics(
+            project=project,
+            experiments="ignored",
+            attributes=["metric/a", "metric/a", "metric/b"],
+        )
+
+    assert df.empty
+    fetch_defs_split.assert_not_called()
+    fetch_series_values.assert_called_once()
+    assert set(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == {
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=experiments[0].sys_id),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=experiments[0].sys_id),
+            attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
+        ),
+    }
+    assert len(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == 2
+
+
+def test_fetch_runs_metrics_uses_fast_path_for_exact_attribute_list():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_run_sys_attrs") as fetch_run_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_series_values.return_value = {}
+
+        df = nq_runs.fetch_metrics(
+            project=project,
+            runs=["run-0"],
+            attributes=["metric/a"],
+        )
+
+    assert df.empty
+    fetch_run_sys_attrs.assert_not_called()
+    fetch_defs_split.assert_not_called()
+    fetch_series_values.assert_called_once()
+    assert fetch_series_values.call_args.kwargs["run_identifier_mode"] == "custom_run_id"
+    assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-0")),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        )
+    ]
+
+
+def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_run_sys_attrs") as fetch_run_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_series_values.return_value = {}
+
+        df = nq_runs.fetch_metrics(
+            project=project,
+            runs=["run-2", "run-1", "run-2"],
+            attributes=["metric/b", "metric/a", "metric/b"],
+        )
+
+    assert df.empty
+    fetch_run_sys_attrs.assert_not_called()
+    fetch_defs_split.assert_not_called()
+    fetch_series_values.assert_called_once()
+    assert fetch_series_values.call_args.kwargs["run_identifier_mode"] == "custom_run_id"
+    assert set(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == {
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-2")),
+            attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-2")),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-1")),
+            attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-1")),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+    }
+    assert len(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == 4
+
+
+def test_fetch_runs_metrics_with_non_exact_runs_uses_sys_id_based_path():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    runs = [RunSysAttrs(sys_id=SysId("sysid0"), sys_custom_run_id=CustomRunId("run-0"))]
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_run_sys_attrs") as fetch_run_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_run_sys_attrs.side_effect = lambda **kwargs: iter([util.Page(runs)])
+        fetch_series_values.return_value = {}
+
+        df = nq_runs.fetch_metrics(
+            project=project,
+            runs="ignored",
+            attributes=["metric/a"],
+        )
+
+    assert df.empty
+    fetch_run_sys_attrs.assert_called()
+    fetch_defs_split.assert_not_called()
+    fetch_series_values.assert_called_once()
+    assert fetch_series_values.call_args.kwargs.get("run_identifier_mode", "sys_id") == "sys_id"
+    assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(project_identifier=project, sys_id=runs[0].sys_id),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        )
+    ]
+
+
+def test_fetch_metrics_fast_path_failure_is_propagated():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    experiments = [ExperimentSysAttrs(sys_id=SysId("sysid0"), sys_name=SysName("irrelevant"))]
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
+        patch(
+            "neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values"
+        ) as fetch_multiple_series_values,
+    ):
+        fetch_experiment_sys_attrs.side_effect = lambda **kwargs: iter([util.Page(experiments)])
+        fetch_multiple_series_values.side_effect = RuntimeError("fast path failed")
+
+        with pytest.raises(RuntimeError, match="fast path failed"):
+            npt.fetch_metrics(
+                project=project,
+                experiments="ignored",
+                attributes=["metric/a"],
+            )
+
+    fetch_multiple_series_values.assert_called_once()
+
+
+def test_fetch_metrics_attribute_filter_exact_names_uses_existing_path():
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    experiments = [ExperimentSysAttrs(sys_id=SysId("sysid0"), sys_name=SysName("irrelevant"))]
+    attributes = [AttributeDefinition(name="metric/a", type="float_series")]
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_experiment_sys_attrs") as fetch_experiment_sys_attrs,
+        patch(
+            "neptune_query.internal.retrieval.attribute_definitions.fetch_attribute_definitions_single_filter"
+        ) as fetch_attribute_definitions_single_filter,
+        patch(
+            "neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values"
+        ) as fetch_multiple_series_values,
+    ):
+        fetch_experiment_sys_attrs.side_effect = lambda **kwargs: iter([util.Page(experiments)])
+        fetch_attribute_definitions_single_filter.side_effect = lambda **kwargs: iter([util.Page(attributes)])
+        fetch_multiple_series_values.return_value = {}
+
+        df = npt.fetch_metrics(
+            project=project,
+            experiments="ignored",
+            attributes=AttributeFilter(name=["metric/a"]),
+        )
+
+    assert df.empty
+    fetch_attribute_definitions_single_filter.assert_called()
 
 
 def test_fetch_experiments_table_uses_entries_search_fast_path_for_exact_attribute_list():
