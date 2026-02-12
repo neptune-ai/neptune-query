@@ -15,6 +15,7 @@
 
 from concurrent.futures import Executor
 from typing import (
+    Callable,
     Generator,
     Literal,
     Optional,
@@ -60,6 +61,7 @@ def fetch_metrics(
     project_identifier: identifiers.ProjectIdentifier,
     filter_: Optional[_Filter],
     attributes: _BaseAttributeFilter,
+    exact_attribute_names: Optional[list[str]],
     include_time: Optional[Literal["absolute"]],
     step_range: tuple[Optional[float], Optional[float]],
     lineage_to_the_root: bool,
@@ -93,6 +95,7 @@ def fetch_metrics(
         metrics_data, sys_id_to_label_mapping = _fetch_metrics(
             filter_=inferred_filter,
             attributes=restricted_attributes,
+            exact_attribute_names=exact_attribute_names,
             client=client,
             project_identifier=project_identifier,
             step_range=step_range,
@@ -119,6 +122,7 @@ def fetch_metrics(
 def _fetch_metrics(
     filter_: Optional[_Filter],
     attributes: _BaseAttributeFilter,
+    exact_attribute_names: Optional[list[str]],
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     executor: Executor,
@@ -129,23 +133,85 @@ def _fetch_metrics(
     tail_limit: Optional[int],
     container_type: ContainerType,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
-    sys_id_label_mapping: dict[identifiers.SysId, str] = {}
+    def merge_results(
+        results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None],
+    ) -> dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]:
+        metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
+        for result in results:
+            for run_attribute_definition, metric_points in result.items():
+                metrics_data.setdefault(run_attribute_definition, []).extend(metric_points)
+        return metrics_data
 
-    def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
-        for page in search.fetch_sys_id_labels(container_type)(
-            client=client,
-            project_identifier=project_identifier,
-            filter_=filter_,
-        ):
-            sys_ids = []
-            for item in page.items:
-                sys_id_label_mapping[item.sys_id] = item.label
-                sys_ids.append(item.sys_id)
-            yield sys_ids
+    def fetch_metrics_data_with_downstream(
+        downstream: Callable[[list[identifiers.SysId]], concurrency.OUT],
+    ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
+        sys_id_label_mapping: dict[identifiers.SysId, str] = {}
 
-    output = concurrency.generate_concurrently(
-        items=go_fetch_sys_attrs(),
-        executor=executor,
+        def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
+            for page in search.fetch_sys_id_labels(container_type)(
+                client=client,
+                project_identifier=project_identifier,
+                filter_=filter_,
+            ):
+                sys_ids = []
+                for item in page.items:
+                    sys_id_label_mapping[item.sys_id] = item.label
+                    sys_ids.append(item.sys_id)
+                yield sys_ids
+
+        output = concurrency.generate_concurrently(
+            items=go_fetch_sys_attrs(),
+            executor=executor,
+            downstream=downstream,
+        )
+        results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None] = (
+            concurrency.gather_results(output)
+        )
+        return merge_results(results), sys_id_label_mapping
+
+    def fetch_series_values_from_definitions(
+        run_attribute_definitions_split: list[identifiers.RunAttributeDefinition],
+    ) -> concurrency.OUT:
+        return concurrency.return_value(
+            fetch_multiple_series_values(
+                client=client,
+                run_attribute_definitions=run_attribute_definitions_split,
+                include_inherited=lineage_to_the_root,
+                include_preview=include_point_previews,
+                container_type=container_type,
+                step_range=step_range,
+                tail_limit=tail_limit,
+            )
+        )
+
+    if exact_attribute_names is not None:
+        deduplicated_attribute_names = list(dict.fromkeys(exact_attribute_names))
+
+        try:
+            return fetch_metrics_data_with_downstream(
+                downstream=lambda sys_ids: concurrency.generate_concurrently(
+                    items=split.split_series_attributes(
+                        items=(
+                            identifiers.RunAttributeDefinition(
+                                run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
+                                attribute_definition=identifiers.AttributeDefinition(
+                                    name=attribute_name,
+                                    type="float_series",
+                                ),
+                            )
+                            for sys_id in sys_ids
+                            for attribute_name in deduplicated_attribute_names
+                        )
+                    ),
+                    executor=executor,
+                    downstream=fetch_series_values_from_definitions,
+                )
+            )
+        except Exception:
+            # Preserve legacy behavior (e.g. unknown attributes are ignored) by retrying with definitions fetch.
+            pass
+
+    return fetch_metrics_data_with_downstream(
         downstream=lambda sys_ids: fetch_attribute_definitions_split(
             client=client,
             project_identifier=project_identifier,
@@ -166,28 +232,7 @@ def _fetch_metrics(
                     )
                 ),
                 executor=executor,
-                downstream=lambda run_attribute_definitions_split: concurrency.return_value(
-                    fetch_multiple_series_values(
-                        client=client,
-                        run_attribute_definitions=run_attribute_definitions_split,
-                        include_inherited=lineage_to_the_root,
-                        include_preview=include_point_previews,
-                        container_type=container_type,
-                        step_range=step_range,
-                        tail_limit=tail_limit,
-                    )
-                ),
+                downstream=fetch_series_values_from_definitions,
             ),
-        ),
+        )
     )
-
-    results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None] = (
-        concurrency.gather_results(output)
-    )
-
-    metrics_data: dict[identifiers.RunAttributeDefinition, list[FloatPointValue]] = {}
-    for result in results:
-        for run_attribute_definition, metric_points in result.items():
-            metrics_data.setdefault(run_attribute_definition, []).extend(metric_points)
-
-    return metrics_data, sys_id_label_mapping
