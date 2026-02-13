@@ -215,6 +215,8 @@ def fetch_metrics(
         project_identifier=project_identifier,
         filter_=runs_filter,
         attributes=attributes_filter,
+        exact_run_ids=runs if isinstance(runs, list) else None,
+        exact_attribute_names=attributes if isinstance(attributes, list) else None,
         include_time=include_time,
         step_range=step_range,
         lineage_to_the_root=lineage_to_the_root,

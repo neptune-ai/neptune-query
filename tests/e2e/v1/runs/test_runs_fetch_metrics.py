@@ -192,6 +192,17 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
             False,
         ),
         (
+            ["linear_history_root", "linear_history_fork1"],
+            ["unique1/0", "unique2/0"],
+            {
+                ("linear_history_root", "unique1/0"): METRICS["linear_history_root"]["unique1/0"],
+                ("linear_history_fork1", "unique2/0"): METRICS["linear_history_fork1"]["unique2/0"],
+            },
+            None,
+            (None, None),
+            False,
+        ),
+        (
             r"^linear_history_(root|fork1)$",
             r"unique.*",
             {
