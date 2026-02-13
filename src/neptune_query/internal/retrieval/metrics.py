@@ -133,9 +133,7 @@ def _make_holder_identifier(
     if run_identifier_mode == "sys_id":
         return str(run_attribute.run_identifier)
     if run_identifier_mode == "custom_run_id":
-        return (
-            f"CUSTOM/{run_attribute.run_identifier.project_identifier}/{run_attribute.run_identifier.sys_id}"
-        )
+        return f"CUSTOM/{run_attribute.run_identifier.project_identifier}/{run_attribute.run_identifier.sys_id}"
     raise ValueError(f"Unexpected run identifier mode: {run_identifier_mode}")
 
 
