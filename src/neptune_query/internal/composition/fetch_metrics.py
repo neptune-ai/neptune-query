@@ -149,10 +149,6 @@ def _fetch_metrics(
         run_attribute_definitions_split: list[identifiers.RunAttributeDefinition],
         run_identifier_mode: Literal["sys_id", "custom_run_id"] = "sys_id",
     ) -> concurrency.OUT:
-        fetch_kwargs = {}
-        if run_identifier_mode != "sys_id":
-            fetch_kwargs["run_identifier_mode"] = run_identifier_mode
-
         return concurrency.return_value(
             fetch_multiple_series_values(
                 client=client,
@@ -162,7 +158,7 @@ def _fetch_metrics(
                 container_type=container_type,
                 step_range=step_range,
                 tail_limit=tail_limit,
-                **fetch_kwargs,
+                run_identifier_mode=run_identifier_mode,
             )
         )
 

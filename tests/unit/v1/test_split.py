@@ -334,6 +334,7 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
                 include_preview=ANY,
                 step_range=ANY,
                 tail_limit=ANY,
+                run_identifier_mode=ANY,
             )
             for start, end in _edges(expected_calls)
         ],
