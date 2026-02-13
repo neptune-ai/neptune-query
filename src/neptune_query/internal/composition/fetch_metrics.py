@@ -266,6 +266,4 @@ def _fetch_metrics(
         )
         return merge_results(results), sys_id_label_mapping
 
-    return fetch_metrics_data_with_downstream(
-        downstream=lambda sys_ids: downstream_for_sys_ids(sys_ids=sys_ids)
-    )
+    return fetch_metrics_data_with_downstream(downstream=lambda sys_ids: downstream_for_sys_ids(sys_ids=sys_ids))
