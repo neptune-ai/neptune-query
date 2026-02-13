@@ -18,6 +18,8 @@ from neptune_query.generated.neptune_api.types import (
 
 FIXED_TIME = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
 EXPIRATION_TIME = FIXED_TIME + timedelta(seconds=MINIMAL_EXPIRATION_SECONDS + 1)
+ISSUER = "https://dev.neptune.internal.openai.org/auth/realms/neptune"
+CLIENT_ID = "test-client-id"
 
 
 @pytest.fixture
@@ -30,14 +32,30 @@ def credentials() -> Credentials:
 @pytest.fixture
 def oauth_token() -> OAuthToken:
     return OAuthToken.from_tokens(
-        access=jwt.encode({"exp": datetime.timestamp(FIXED_TIME)}, "secret", algorithm="HS256"),
-        refresh=jwt.encode({"exp": datetime.timestamp(FIXED_TIME)}, "secret", algorithm="HS256"),
+        access=jwt.encode(
+            {"exp": datetime.timestamp(FIXED_TIME), "azp": CLIENT_ID, "iss": ISSUER},
+            "secret",
+            algorithm="HS256",
+        ),
+        refresh=jwt.encode(
+            {"exp": datetime.timestamp(FIXED_TIME), "azp": CLIENT_ID, "iss": ISSUER},
+            "secret",
+            algorithm="HS256",
+        ),
     )
 
 
 @pytest.fixture
 def expired_oauth_token() -> OAuthToken:
     return OAuthToken.from_tokens(
-        access=jwt.encode({"exp": datetime.timestamp(EXPIRATION_TIME)}, "secret", algorithm="HS256"),
-        refresh=jwt.encode({"exp": datetime.timestamp(EXPIRATION_TIME)}, "secret", algorithm="HS256"),
+        access=jwt.encode(
+            {"exp": datetime.timestamp(EXPIRATION_TIME), "azp": CLIENT_ID, "iss": ISSUER},
+            "secret",
+            algorithm="HS256",
+        ),
+        refresh=jwt.encode(
+            {"exp": datetime.timestamp(EXPIRATION_TIME), "azp": CLIENT_ID, "iss": ISSUER},
+            "secret",
+            algorithm="HS256",
+        ),
     )

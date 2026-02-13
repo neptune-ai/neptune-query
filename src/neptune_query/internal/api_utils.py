@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
-from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -23,91 +21,24 @@ from typing import (
 
 import httpx
 
-from neptune_query.generated.neptune_api import (
-    AuthenticatedClient,
-    Client,
-)
-from neptune_query.generated.neptune_api.api.backend import get_client_config
+from neptune_query.generated.neptune_api import AuthenticatedClient
 from neptune_query.generated.neptune_api.auth_helpers import exchange_api_key
 from neptune_query.generated.neptune_api.credentials import Credentials
-from neptune_query.generated.neptune_api.models import ClientConfig
-from neptune_query.generated.neptune_api.types import Response
 
-from ..exceptions import NeptuneFailedToFetchClientConfig
 from .env import (
     NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS,
     NEPTUNE_VERIFY_SSL,
 )
-from .retrieval.retry import handle_errors_default
-
-
-@dataclass
-class TokenRefreshingURLs:
-    authorization_endpoint: str
-    token_endpoint: str
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "TokenRefreshingURLs":
-        return TokenRefreshingURLs(
-            authorization_endpoint=data["authorization_endpoint"], token_endpoint=data["token_endpoint"]
-        )
-
-
-def _wrap_httpx_json_response(httpx_response: httpx.Response) -> Response:
-    """Wrap a httpx.Response into an neptune-api Response object that is compatible
-    with backoff_retry(). Use .json() as parsed content in the result."""
-
-    return Response(
-        status_code=HTTPStatus(httpx_response.status_code),
-        content=httpx_response.content,
-        headers=httpx_response.headers,
-        parsed=httpx_response.json(),
-        url=str(httpx_response.url),
-    )
-
-
-def get_config_and_token_urls(
-    *, credentials: Credentials, proxies: Optional[Dict[str, str]] = None
-) -> tuple[ClientConfig, TokenRefreshingURLs]:
-    timeout = httpx.Timeout(NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS.get())
-    with Client(
-        base_url=credentials.base_url,
-        httpx_args={"mounts": proxies},
-        verify_ssl=NEPTUNE_VERIFY_SSL.get(),
-        timeout=timeout,
-        headers={"User-Agent": _generate_user_agent()},
-    ) as client:
-        try:
-            config_response = handle_errors_default(get_client_config.sync_detailed)(client=client)
-            config = config_response.parsed
-            if not isinstance(config, ClientConfig):
-                raise RuntimeError(f"Expected ClientConfig but got {type(config).__name__}")
-
-            urls_response = handle_errors_default(
-                lambda: _wrap_httpx_json_response(client.get_httpx_client().get(config.security.open_id_discovery))
-            )()
-            token_urls_dict = urls_response.parsed
-            if not isinstance(token_urls_dict, dict):
-                raise RuntimeError(f"Expected dict but got {type(token_urls_dict).__name__}")
-            token_urls = TokenRefreshingURLs.from_dict(token_urls_dict)
-
-            return config, token_urls
-        except Exception as e:
-            raise NeptuneFailedToFetchClientConfig(exception=e) from e
 
 
 def create_auth_api_client(
     *,
     credentials: Credentials,
-    config: ClientConfig,
-    token_refreshing_urls: TokenRefreshingURLs,
     proxies: Optional[Dict[str, str]] = None,
 ) -> AuthenticatedClient:
     return AuthenticatedClient(
         base_url=credentials.base_url,
         credentials=credentials,
-        client_id=config.security.client_id,
-        token_refreshing_endpoint=token_refreshing_urls.token_endpoint,
         api_key_exchange_callback=exchange_api_key,
         verify_ssl=NEPTUNE_VERIFY_SSL.get(),
         httpx_args={"mounts": proxies, "http2": False},

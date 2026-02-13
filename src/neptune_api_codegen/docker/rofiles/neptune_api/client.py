@@ -198,8 +198,6 @@ class AuthenticatedClient:
             status code that was not documented in the source OpenAPI document. Can also be provided as a keyword
             argument to the constructor.
         credentials: User credentials for authentication.
-        token_refreshing_endpoint: Token refreshing endpoint url
-        client_id: Client identifier for the OAuth application.
         api_key_exchange_callback: The Neptune API Token exchange function
         prefix: The prefix to use for the Authorization header
         auth_header_name: The name of the Authorization header
@@ -218,8 +216,6 @@ class AuthenticatedClient:
     _async_client: Optional[httpx.AsyncClient] = field(default=None, init=False)
 
     credentials: Credentials
-    token_refreshing_endpoint: str
-    client_id: str
     api_key_exchange_callback: Callable[[Client, Credentials], OAuthToken]
     prefix: str = "Bearer"
     auth_header_name: str = "Authorization"
@@ -299,8 +295,6 @@ class AuthenticatedClient:
             self._client = httpx.Client(
                 auth=NeptuneAuthenticator(
                     credentials=self.credentials,
-                    client_id=self.client_id,
-                    token_refreshing_endpoint=self.token_refreshing_endpoint,
                     api_key_exchange_factory=self.api_key_exchange_callback,
                     client=self.get_token_refreshing_client(),
                 ),
@@ -355,14 +349,10 @@ class NeptuneAuthenticator(httpx.Auth):
     def __init__(
         self,
         credentials: Credentials,
-        client_id: str,
-        token_refreshing_endpoint: str,
         api_key_exchange_factory: Callable[[Client, Credentials], OAuthToken],
         client: Client,
     ):
         self._credentials: Credentials = credentials
-        self._client_id: str = client_id
-        self._token_refreshing_endpoint: str = token_refreshing_endpoint
         self._api_key_exchange_factory: Callable[[Client, Credentials], OAuthToken] = api_key_exchange_factory
 
         self._client = client
@@ -373,11 +363,11 @@ class NeptuneAuthenticator(httpx.Auth):
             raise ValueError("Cannot refresh an empty token")
         try:
             response = self._client.get_httpx_client().post(
-                url=self._token_refreshing_endpoint,
+                url=self._token.token_endpoint,
                 data={
                     "grant_type": "refresh_token",
                     "refresh_token": self._token.refresh_token,
-                    "client_id": self._client_id,
+                    "client_id": self._token.client_id,
                     "expires_in": self._token.seconds_left,
                 },
             )

@@ -91,6 +91,8 @@ class OAuthToken:
     _expiration_time: float = field(default=0.0, alias="expiration_time", kw_only=True)
     access_token: str
     refresh_token: str
+    client_id: str
+    token_endpoint: str
 
     @classmethod
     def from_tokens(cls, access: str, refresh: str) -> "OAuthToken":
@@ -98,10 +100,18 @@ class OAuthToken:
         try:
             decoded_token = jwt.decode(access, options=DECODING_OPTIONS)
             expiration_time = float(decoded_token["exp"])
+            client_id = str(decoded_token["azp"])
+            issuer = str(decoded_token["iss"]).rstrip("/")
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError) as e:
             raise InvalidApiTokenException("Cannot decode the access token") from e
 
-        return OAuthToken(access_token=access, refresh_token=refresh, expiration_time=expiration_time)
+        return OAuthToken(
+            access_token=access,
+            refresh_token=refresh,
+            expiration_time=expiration_time,
+            client_id=client_id,
+            token_endpoint=f"{issuer}/protocol/openid-connect/token",
+        )
 
     @property
     def seconds_left(self) -> float:
