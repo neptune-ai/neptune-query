@@ -136,6 +136,37 @@ def _fetch_metrics(
     exact_run_ids: Optional[list[str]] = None,
     exact_attribute_names: Optional[list[str]] = None,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
+    """Fetch float-series points for runs/experiments and merge split results.
+
+    Shared pipeline:
+    1. Build run/experiment targets as sys ids.
+    2. Build run-attribute pairs either from exact attribute names or from
+       attribute definitions filtered to ``float_series``.
+    3. Fetch series values in concurrent splits and merge chunked outputs.
+    4. ``exact_attribute_names`` optimization from step 2 applies to both
+       runs and experiments, but only after target sys ids are known.
+
+    RUN fast path:
+    - Triggered only when ``container_type == RUN`` and both
+      ``exact_run_ids`` and ``exact_attribute_names`` are provided.
+    - Skips container search and attribute-definition lookup (full fast path).
+    - Uses the deduplicated cartesian product of run ids and attribute names to
+      build ``RunAttributeDefinition`` directly.
+    - Stores each exact run id as ``RunIdentifier.custom_run_id`` so holder
+      serialization uses custom ids.
+    - Returns ``{SysId(run_id): run_id}`` as the label mapping.
+
+    Default path (experiments and non-fast-path runs):
+    - Fetches matching containers and labels via
+      ``search.fetch_sys_id_labels(container_type)``.
+    - For each sys-id page, if ``exact_attribute_names`` are provided, skips
+      ``fetch_attribute_definitions_split`` and builds
+      ``RunAttributeDefinition`` directly.
+    - Otherwise resolves definitions via ``fetch_attribute_definitions_split``.
+    - Then fetches series values.
+    - Holder serialization uses sys ids by default.
+    """
+
     def merge_results(
         results: Generator[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], None, None],
     ) -> dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]:
@@ -148,7 +179,6 @@ def _fetch_metrics(
     def fetch_metrics_for_run_attribute_definitions(
         *,
         run_attribute_definitions: Iterable[identifiers.RunAttributeDefinition],
-        run_identifier_mode: Literal["sys_id", "custom_run_id"] = "sys_id",
     ) -> concurrency.OUT:
         return concurrency.generate_concurrently(
             items=split.split_series_attributes(items=run_attribute_definitions),
@@ -162,22 +192,25 @@ def _fetch_metrics(
                     container_type=container_type,
                     step_range=step_range,
                     tail_limit=tail_limit,
-                    run_identifier_mode=run_identifier_mode,
                 )
             ),
         )
 
-    def downstream_for_sys_ids(
+    def fetch_metrics_for_sys_ids(
         *,
         sys_ids: list[identifiers.SysId],
         deduplicated_exact_attribute_names: Optional[set[str]],
-        run_identifier_mode: Literal["sys_id", "custom_run_id"] = "sys_id",
+        custom_run_ids: Optional[dict[identifiers.SysId, identifiers.CustomRunId]] = None,
     ) -> concurrency.OUT:
         if deduplicated_exact_attribute_names is not None:
             return fetch_metrics_for_run_attribute_definitions(
                 run_attribute_definitions=(
                     identifiers.RunAttributeDefinition(
-                        run_identifier=identifiers.RunIdentifier(project_identifier, sys_id),
+                        run_identifier=identifiers.RunIdentifier(
+                            project_identifier=project_identifier,
+                            sys_id=sys_id,
+                            custom_run_id=custom_run_ids[sys_id] if custom_run_ids is not None else None,
+                        ),
                         attribute_definition=identifiers.AttributeDefinition(
                             name=attribute_name,
                             type="float_series",
@@ -186,7 +219,6 @@ def _fetch_metrics(
                     for sys_id in sys_ids
                     for attribute_name in deduplicated_exact_attribute_names
                 ),
-                run_identifier_mode=run_identifier_mode,
             )
 
         return fetch_attribute_definitions_split(
@@ -206,7 +238,6 @@ def _fetch_metrics(
                     for definition in definitions_page.items
                     if definition.type == "float_series"
                 ),
-                run_identifier_mode=run_identifier_mode,
             ),
         )
 
@@ -216,11 +247,14 @@ def _fetch_metrics(
         run_sys_id_label_mapping: dict[identifiers.SysId, str] = {
             identifiers.SysId(run_id): run_id for run_id in deduplicated_run_ids
         }
+        custom_run_ids_by_sys_id = {
+            identifiers.SysId(run_id): identifiers.CustomRunId(run_id) for run_id in run_sys_id_label_mapping.values()
+        }
 
-        output = downstream_for_sys_ids(
+        output = fetch_metrics_for_sys_ids(
             sys_ids=[identifiers.SysId(run_id) for run_id in run_sys_id_label_mapping.values()],
             deduplicated_exact_attribute_names=deduplicated_exact_attribute_names,
-            run_identifier_mode="custom_run_id",
+            custom_run_ids=custom_run_ids_by_sys_id,
         )
         return merge_results(concurrency.gather_results(output)), run_sys_id_label_mapping
 
@@ -241,7 +275,7 @@ def _fetch_metrics(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: downstream_for_sys_ids(
+        downstream=lambda sys_ids: fetch_metrics_for_sys_ids(
             sys_ids=sys_ids,
             deduplicated_exact_attribute_names=deduplicated_exact_attribute_names,
         ),

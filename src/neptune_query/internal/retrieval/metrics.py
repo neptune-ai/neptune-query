@@ -16,7 +16,6 @@
 import functools as ft
 from typing import (
     Any,
-    Literal,
     Optional,
     Union,
 )
@@ -60,7 +59,6 @@ def fetch_multiple_series_values(
     include_preview: bool,
     step_range: tuple[Union[float, None], Union[float, None]] = (None, None),
     tail_limit: Optional[int] = None,
-    run_identifier_mode: Literal["sys_id", "custom_run_id"] = "sys_id",
 ) -> dict[identifiers.RunAttributeDefinition, list[FloatPointValue]]:
     if not run_attribute_definitions:
         return {}
@@ -81,10 +79,7 @@ def fetch_multiple_series_values(
                 "requestId": request_id,
                 "series": {
                     "holder": {
-                        "identifier": _make_holder_identifier(
-                            run_attribute=run_attribute,
-                            run_identifier_mode=run_identifier_mode,
-                        ),
+                        "identifier": str(run_attribute.run_identifier),
                         "type": "experiment",
                     },
                     "attribute": run_attribute.attribute_definition.name,
@@ -124,17 +119,6 @@ def fetch_multiple_series_values(
         results[attribute].reverse()
 
     return results
-
-
-def _make_holder_identifier(
-    run_attribute: identifiers.RunAttributeDefinition,
-    run_identifier_mode: Literal["sys_id", "custom_run_id"],
-) -> str:
-    if run_identifier_mode == "sys_id":
-        return str(run_attribute.run_identifier)
-    if run_identifier_mode == "custom_run_id":
-        return f"CUSTOM/{run_attribute.run_identifier.project_identifier}/{run_attribute.run_identifier.sys_id}"
-    raise ValueError(f"Unexpected run identifier mode: {run_identifier_mode}")
 
 
 def _fetch_metrics_page(

@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
+    CustomRunId,
     ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
@@ -11,18 +12,23 @@ from neptune_query.internal.retrieval import metrics
 from neptune_query.internal.retrieval.search import ContainerType
 
 
-def _run_attribute(project: str, run_id: str) -> RunAttributeDefinition:
+def _run_attribute(project: str, run_id: str, custom_run_id: str | None = None) -> RunAttributeDefinition:
     return RunAttributeDefinition(
         run_identifier=RunIdentifier(
             project_identifier=ProjectIdentifier(project),
             sys_id=SysId(run_id),
+            custom_run_id=CustomRunId(custom_run_id) if custom_run_id is not None else None,
         ),
         attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
     )
 
 
 def test_fetch_multiple_series_values_uses_custom_holder_identifier():
-    run_attribute = _run_attribute(project="my-org/my-project", run_id="my-run-id")
+    run_attribute = _run_attribute(
+        project="my-org/my-project",
+        run_id="sysid-123",
+        custom_run_id="my-run-id",
+    )
     captured_params = {}
 
     def fake_fetch_pages(**kwargs):
@@ -36,7 +42,6 @@ def test_fetch_multiple_series_values_uses_custom_holder_identifier():
             include_inherited=False,
             container_type=ContainerType.RUN,
             include_preview=False,
-            run_identifier_mode="custom_run_id",
         )
 
     assert result == {run_attribute: []}

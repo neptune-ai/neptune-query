@@ -25,8 +25,11 @@ CustomRunId = NewType("CustomRunId", str)  # an uuid
 class RunIdentifier:
     project_identifier: ProjectIdentifier
     sys_id: SysId
+    custom_run_id: CustomRunId | None = None
 
     def __str__(self) -> str:
+        if self.custom_run_id is not None:
+            return f"CUSTOM/{self.project_identifier}/{self.custom_run_id}"
         return f"{self.project_identifier}/{self.sys_id}"
 
 

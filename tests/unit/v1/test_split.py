@@ -334,7 +334,6 @@ def test_fetch_metrics_patched(sys_id_length, exp_count, attr_name_length, attr_
                 include_preview=ANY,
                 step_range=ANY,
                 tail_limit=ANY,
-                run_identifier_mode=ANY,
             )
             for start, end in _edges(expected_calls)
         ],
@@ -400,10 +399,13 @@ def test_fetch_runs_metrics_uses_fast_path_for_exact_attribute_list():
     fetch_run_sys_attrs.assert_not_called()
     fetch_defs_split.assert_not_called()
     fetch_series_values.assert_called_once()
-    assert fetch_series_values.call_args.kwargs["run_identifier_mode"] == "custom_run_id"
     assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
         RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-0")),
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-0"),
+                custom_run_id=CustomRunId("run-0"),
+            ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
         )
     ]
@@ -431,22 +433,37 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
     fetch_run_sys_attrs.assert_not_called()
     fetch_defs_split.assert_not_called()
     fetch_series_values.assert_called_once()
-    assert fetch_series_values.call_args.kwargs["run_identifier_mode"] == "custom_run_id"
     assert set(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == {
         RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-2")),
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-2"),
+                custom_run_id=CustomRunId("run-2"),
+            ),
             attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
         ),
         RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-2")),
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-2"),
+                custom_run_id=CustomRunId("run-2"),
+            ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
         ),
         RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-1")),
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-1"),
+                custom_run_id=CustomRunId("run-1"),
+            ),
             attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
         ),
         RunAttributeDefinition(
-            run_identifier=RunIdentifier(project_identifier=project, sys_id=SysId("run-1")),
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-1"),
+                custom_run_id=CustomRunId("run-1"),
+            ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
         ),
     }
@@ -477,7 +494,6 @@ def test_fetch_runs_metrics_with_non_exact_runs_uses_sys_id_based_path():
     fetch_run_sys_attrs.assert_called()
     fetch_defs_split.assert_not_called()
     fetch_series_values.assert_called_once()
-    assert fetch_series_values.call_args.kwargs.get("run_identifier_mode", "sys_id") == "sys_id"
     assert fetch_series_values.call_args.kwargs["run_attribute_definitions"] == [
         RunAttributeDefinition(
             run_identifier=RunIdentifier(project_identifier=project, sys_id=runs[0].sys_id),
