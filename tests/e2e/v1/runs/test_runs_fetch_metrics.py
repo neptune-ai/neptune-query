@@ -311,6 +311,58 @@ def test_fetch_run_metrics(
     pd.testing.assert_frame_equal(df, expected_df, check_dtype=False)
 
 
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", ["absolute", None])
+def test_fetch_run_metrics_exact_list_non_existent_run_returns_empty_dataframe(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: str | None,
+):
+    df = runs.fetch_metrics(
+        project=project.project_identifier,
+        runs=["non_existent_run_id_123456789"],
+        attributes=["foo0"],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected_df = build_expected_dataframe(
+        project,
+        expected_metrics={},
+        include_time=include_time,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df, check_dtype=False)
+
+
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", ["absolute", None])
+def test_fetch_run_metrics_exact_list_mixed_existing_and_non_existent_runs_returns_existing_only(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: str | None,
+):
+    df = runs.fetch_metrics(
+        project=project.project_identifier,
+        runs=["linear_history_root", "non_existent_run_id_123456789"],
+        attributes=["foo0"],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected_df = build_expected_dataframe(
+        project,
+        expected_metrics={
+            ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"],
+        },
+        include_time=include_time,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df, check_dtype=False)
+
+
 def build_expected_dataframe(
     project: IngestedProjectData,
     expected_metrics: dict[tuple[str, str], list[tuple[float, float]]],
