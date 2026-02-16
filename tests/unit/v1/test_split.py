@@ -470,6 +470,63 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
     assert len(fetch_series_values.call_args.kwargs["run_attribute_definitions"]) == 4
 
 
+def test_fetch_runs_metrics_fast_path_respects_sys_id_batch_splitting(monkeypatch):
+    project = ProjectIdentifier("project")
+    context.set_api_token("irrelevant")
+    monkeypatch.setenv("NEPTUNE_QUERY_MAX_REQUEST_SIZE", "50")
+
+    with (
+        patch("neptune_query.internal.composition.fetch_metrics._client"),
+        patch("neptune_query.internal.retrieval.search.fetch_run_sys_attrs") as fetch_run_sys_attrs,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_attribute_definitions_split") as fetch_defs_split,
+        patch("neptune_query.internal.composition.fetch_metrics.fetch_multiple_series_values") as fetch_series_values,
+    ):
+        fetch_series_values.return_value = {}
+
+        df = nq_runs.fetch_metrics(
+            project=project,
+            runs=["run-0", "run-1", "run-2"],
+            attributes=["metric/a"],
+        )
+
+    assert df.empty
+    fetch_run_sys_attrs.assert_not_called()
+    fetch_defs_split.assert_not_called()
+    assert fetch_series_values.call_count == 3
+
+    all_run_attribute_definitions = [
+        run_attribute_definition
+        for call_args in fetch_series_values.call_args_list
+        for run_attribute_definition in call_args.kwargs["run_attribute_definitions"]
+    ]
+    assert set(all_run_attribute_definitions) == {
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-0"),
+                custom_run_id=CustomRunId("run-0"),
+            ),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-1"),
+                custom_run_id=CustomRunId("run-1"),
+            ),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+        RunAttributeDefinition(
+            run_identifier=RunIdentifier(
+                project_identifier=project,
+                sys_id=SysId("run-2"),
+                custom_run_id=CustomRunId("run-2"),
+            ),
+            attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
+        ),
+    }
+
+
 def test_fetch_runs_metrics_with_non_exact_runs_uses_sys_id_based_path():
     project = ProjectIdentifier("project")
     context.set_api_token("irrelevant")

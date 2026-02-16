@@ -202,21 +202,25 @@ def _fetch_metrics(
         custom_run_ids: Optional[dict[identifiers.SysId, identifiers.CustomRunId]] = None,
     ) -> concurrency.OUT:
         if deduplicated_exact_attribute_names is not None:
-            return fetch_metrics_for_run_attribute_definitions(
-                run_attribute_definitions=(
-                    identifiers.RunAttributeDefinition(
-                        run_identifier=identifiers.RunIdentifier(
-                            project_identifier=project_identifier,
-                            sys_id=sys_id,
-                            custom_run_id=custom_run_ids[sys_id] if custom_run_ids is not None else None,
-                        ),
-                        attribute_definition=identifiers.AttributeDefinition(
-                            name=attribute_name,
-                            type="float_series",
-                        ),
-                    )
-                    for sys_id in sys_ids
-                    for attribute_name in deduplicated_exact_attribute_names
+            return concurrency.generate_concurrently(
+                items=split.split_sys_ids(sys_ids),
+                executor=executor,
+                downstream=lambda sys_id_batch: fetch_metrics_for_run_attribute_definitions(
+                    run_attribute_definitions=(
+                        identifiers.RunAttributeDefinition(
+                            run_identifier=identifiers.RunIdentifier(
+                                project_identifier=project_identifier,
+                                sys_id=sys_id,
+                                custom_run_id=custom_run_ids[sys_id] if custom_run_ids is not None else None,
+                            ),
+                            attribute_definition=identifiers.AttributeDefinition(
+                                name=attribute_name,
+                                type="float_series",
+                            ),
+                        )
+                        for sys_id in sys_id_batch
+                        for attribute_name in deduplicated_exact_attribute_names
+                    ),
                 ),
             )
 
