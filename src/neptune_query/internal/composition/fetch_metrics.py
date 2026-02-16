@@ -136,35 +136,34 @@ def _fetch_metrics(
     exact_run_ids: Optional[list[str]] = None,
     exact_attribute_names: Optional[list[str]] = None,
 ) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
-    """Fetch float-series points for runs/experiments and merge split results.
+    """Fetch float-series metric points for matching containers (runs/experiments).
 
-    Shared pipeline:
-    1. Build run/experiment targets as sys ids.
-    2. Build run-attribute pairs either from exact attribute names or from
-       attribute definitions filtered to ``float_series``.
-    3. Fetch series values in concurrent splits and merge chunked outputs.
-    4. ``exact_attribute_names`` optimization from step 2 applies to both
-       runs and experiments, but only after target sys ids are known.
+    This function resolves the target containers, determines which attributes to
+    query (either explicitly or by filtering to ``float_series`` definitions),
+    fetches series values concurrently in splits, and merges chunked results.
 
-    RUN fast path:
-    - Triggered only when ``container_type == RUN`` and both
-      ``exact_run_ids`` and ``exact_attribute_names`` are provided.
-    - Skips container search and attribute-definition lookup (full fast path).
-    - Uses the deduplicated cartesian product of run ids and attribute names to
-      build ``RunAttributeDefinition`` directly.
-    - Stores each exact run id as ``RunIdentifier.custom_run_id`` so holder
-      serialization uses custom ids.
-    - Returns ``{SysId(run_id): run_id}`` as the label mapping.
-
+    Behavior
+    --------
     Default path (experiments and non-fast-path runs):
-    - Fetches matching containers and labels via
-      ``search.fetch_sys_id_labels(container_type)``.
-    - For each sys-id page, if ``exact_attribute_names`` are provided, skips
-      ``fetch_attribute_definitions_split`` and builds
-      ``RunAttributeDefinition`` directly.
-    - Otherwise resolves definitions via ``fetch_attribute_definitions_split``.
-    - Then fetches series values.
-    - Holder serialization uses sys ids by default.
+      1) Search for matching containers and build a ``SysId -> label`` mapping.
+      2) Determine run-attribute pairs:
+         - If ``exact_attribute_names`` is provided, build attribute definitions
+           directly (skips attribute-definition lookup).
+         - Otherwise, resolve attribute definitions via
+           ``fetch_attribute_definitions_split`` and keep only ``float_series``.
+      3) Fetch values via ``fetch_multiple_series_values`` concurrently and merge
+         the split outputs.
+
+    Run fast path:
+      Activated only when:
+        - ``container_type == ContainerType.RUN``, and
+        - both ``exact_run_ids`` and ``exact_attribute_names`` are provided.
+      In this mode the function skips container search and definition lookup.
+      It deduplicates run ids and attribute names, builds the cartesian product
+      of ``(run_id, attribute_name)`` into ``RunAttributeDefinition`` objects,
+      and stores each provided run id as ``RunIdentifier.custom_run_id`` so that
+      downstream/holder serialization uses custom ids rather than sys ids.
+      The returned label mapping is ``{SysId(run_id): run_id}``.
     """
 
     def merge_results(
