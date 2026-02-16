@@ -379,6 +379,94 @@ def test__fetch_metrics_unique__output_format_variants(
     assert {t[0] for t in result.index.tolist()} == filtered_experiments
 
 
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", [None, "absolute"])
+def test__fetch_metrics_exact_list_non_existent_experiment_returns_empty_dataframe(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: Union[Literal["absolute"], None],
+):
+    df = fetch_metrics(
+        project=project.project_identifier,
+        experiments=["non-existent-experiment-123456789"],
+        attributes=["train/metrics/value_0"],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={},
+        sys_id_label_mapping={},
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=False,
+        timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)
+
+
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", [None, "absolute"])
+def test__fetch_metrics_exact_list_mixed_existing_and_non_existent_experiments_returns_existing_only(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: Union[Literal["absolute"], None],
+):
+    target_run = next(run for run in project.ingested_runs if run.experiment_name == EXPERIMENT_NAMES[0])
+    metric_name = "train/metrics/value_0"
+
+    df = fetch_metrics(
+        project=project.project_identifier,
+        experiments=[EXPERIMENT_NAMES[0], "non-existent-experiment-123456789"],
+        attributes=[metric_name],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={
+            _to_run_attribute_definition(project.project_identifier, target_run.run_id, metric_name): [
+                _to_float_point_value(step, value) for step, value in target_run.float_series[metric_name].items()
+            ]
+        },
+        sys_id_label_mapping={SysId(target_run.run_id): target_run.experiment_name},
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=False,
+        timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)
+
+
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", [None, "absolute"])
+def test__fetch_metrics_exact_list_missing_attribute_returns_empty_dataframe(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: Union[Literal["absolute"], None],
+):
+    df = fetch_metrics(
+        project=project.project_identifier,
+        experiments=[EXPERIMENT_NAMES[0]],
+        attributes=["train/metrics/non-existent-attribute-123456789"],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={},
+        sys_id_label_mapping={},
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=False,
+        timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)
+
+
 @pytest.mark.parametrize(
     "lineage_to_the_root,expected_values",
     [
