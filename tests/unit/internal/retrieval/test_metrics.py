@@ -12,13 +12,22 @@ from neptune_query.internal.retrieval import metrics
 from neptune_query.internal.retrieval.search import ContainerType
 
 
-def _run_attribute(project: str, run_id: str, custom_run_id: str | None = None) -> RunAttributeDefinition:
-    return RunAttributeDefinition(
-        run_identifier=RunIdentifier(
+def _run_attribute(project: str, run_id: str | None = None, custom_run_id: str | None = None) -> RunAttributeDefinition:
+    if custom_run_id is not None:
+        run_identifier = RunIdentifier(
+            project_identifier=ProjectIdentifier(project),
+            custom_run_id=CustomRunId(custom_run_id),
+        )
+    else:
+        if run_id is None:
+            raise ValueError("run_id is required when custom_run_id is not provided")
+        run_identifier = RunIdentifier(
             project_identifier=ProjectIdentifier(project),
             sys_id=SysId(run_id),
-            custom_run_id=CustomRunId(custom_run_id) if custom_run_id is not None else None,
-        ),
+        )
+
+    return RunAttributeDefinition(
+        run_identifier=run_identifier,
         attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
     )
 
@@ -26,7 +35,6 @@ def _run_attribute(project: str, run_id: str, custom_run_id: str | None = None) 
 def test_fetch_multiple_series_values_uses_custom_holder_identifier():
     run_attribute = _run_attribute(
         project="my-org/my-project",
-        run_id="sysid-123",
         custom_run_id="my-run-id",
     )
     captured_params = {}

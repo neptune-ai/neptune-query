@@ -19,6 +19,7 @@ from typing import (
     Iterable,
     Literal,
     Optional,
+    cast,
 )
 
 import pandas as pd
@@ -54,6 +55,8 @@ from ..retrieval.metrics import (
 from ..retrieval.search import ContainerType
 
 __all__ = ("fetch_metrics",)
+
+RunLabelIdentifier = identifiers.SysId | identifiers.CustomRunId
 
 
 def fetch_metrics(
@@ -135,7 +138,7 @@ def _fetch_metrics(
     container_type: ContainerType,
     exact_run_ids: Optional[list[str]] = None,
     exact_attribute_names: Optional[list[str]] = None,
-) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[identifiers.SysId, str]]:
+) -> tuple[dict[identifiers.RunAttributeDefinition, list[FloatPointValue]], dict[RunLabelIdentifier, str]]:
     """Fetch float-series metric points for matching containers (runs/experiments).
 
     This function resolves the target containers, determines which attributes to
@@ -161,9 +164,8 @@ def _fetch_metrics(
       In this mode the function skips container search and definition lookup.
       It deduplicates run ids and attribute names, builds the cartesian product
       of ``(run_id, attribute_name)`` into ``RunAttributeDefinition`` objects,
-      and stores each provided run id as ``RunIdentifier.custom_run_id`` so that
-      downstream/holder serialization uses custom ids rather than sys ids.
-      The returned label mapping is ``{SysId(run_id): run_id}``.
+      and stores each provided run id as ``RunIdentifier.custom_run_id``.
+      The returned label mapping is ``{CustomRunId(run_id): run_id}``.
     """
 
     def merge_results(
@@ -195,34 +197,51 @@ def _fetch_metrics(
             ),
         )
 
-    def fetch_metrics_for_sys_ids(
+    def _make_run_identifier(
         *,
-        sys_ids: list[identifiers.SysId],
+        run_id: identifiers.SysId | identifiers.CustomRunId,
+        identifiers_are_custom_run_ids: bool,
+    ) -> identifiers.RunIdentifier:
+        if identifiers_are_custom_run_ids:
+            return identifiers.RunIdentifier(
+                project_identifier=project_identifier,
+                custom_run_id=cast(identifiers.CustomRunId, run_id),
+            )
+        return identifiers.RunIdentifier(
+            project_identifier=project_identifier,
+            sys_id=cast(identifiers.SysId, run_id),
+        )
+
+    def fetch_metrics_for_run_ids(
+        *,
+        run_ids: list[identifiers.SysId | identifiers.CustomRunId],
         deduplicated_exact_attribute_names: Optional[set[str]],
-        custom_run_ids: Optional[dict[identifiers.SysId, identifiers.CustomRunId]] = None,
+        identifiers_are_custom_run_ids: bool = False,
     ) -> concurrency.OUT:
         if deduplicated_exact_attribute_names is not None:
             return concurrency.generate_concurrently(
-                items=split.split_sys_ids(sys_ids),
+                items=split.split_sys_ids(cast(list[identifiers.SysId], run_ids)),
                 executor=executor,
-                downstream=lambda sys_id_batch: fetch_metrics_for_run_attribute_definitions(
+                downstream=lambda run_id_batch: fetch_metrics_for_run_attribute_definitions(
                     run_attribute_definitions=(
                         identifiers.RunAttributeDefinition(
-                            run_identifier=identifiers.RunIdentifier(
-                                project_identifier=project_identifier,
-                                sys_id=sys_id,
-                                custom_run_id=custom_run_ids[sys_id] if custom_run_ids is not None else None,
+                            run_identifier=_make_run_identifier(
+                                run_id=run_id,
+                                identifiers_are_custom_run_ids=identifiers_are_custom_run_ids,
                             ),
                             attribute_definition=identifiers.AttributeDefinition(
                                 name=attribute_name,
                                 type="float_series",
                             ),
                         )
-                        for sys_id in sys_id_batch
+                        for run_id in run_id_batch
                         for attribute_name in deduplicated_exact_attribute_names
                     ),
                 ),
             )
+
+        if identifiers_are_custom_run_ids:
+            raise ValueError("Custom run ids require exact attribute names")
 
         return fetch_attribute_definitions_split(
             client=client,
@@ -230,7 +249,7 @@ def _fetch_metrics(
             attribute_filter=attributes,
             executor=executor,
             fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
-            sys_ids=sys_ids,
+            sys_ids=cast(list[identifiers.SysId], run_ids),
             downstream=lambda sys_ids_split, definitions_page: fetch_metrics_for_run_attribute_definitions(
                 run_attribute_definitions=(
                     identifiers.RunAttributeDefinition(
@@ -246,22 +265,19 @@ def _fetch_metrics(
 
     deduplicated_exact_attribute_names = set(exact_attribute_names) if exact_attribute_names is not None else None
     if container_type == ContainerType.RUN and exact_run_ids is not None and exact_attribute_names is not None:
-        deduplicated_run_ids = set(exact_run_ids)
-        run_sys_id_label_mapping: dict[identifiers.SysId, str] = {
-            identifiers.SysId(run_id): run_id for run_id in deduplicated_run_ids
-        }
-        custom_run_ids_by_sys_id = {
-            identifiers.SysId(run_id): identifiers.CustomRunId(run_id) for run_id in run_sys_id_label_mapping.values()
+        deduplicated_run_ids = {identifiers.CustomRunId(run_id) for run_id in exact_run_ids}
+        run_label_mapping: dict[identifiers.CustomRunId, str] = {
+            run_id: str(run_id) for run_id in deduplicated_run_ids
         }
 
-        output = fetch_metrics_for_sys_ids(
-            sys_ids=[identifiers.SysId(run_id) for run_id in run_sys_id_label_mapping.values()],
+        output = fetch_metrics_for_run_ids(
+            run_ids=list(run_label_mapping.keys()),
             deduplicated_exact_attribute_names=deduplicated_exact_attribute_names,
-            custom_run_ids=custom_run_ids_by_sys_id,
+            identifiers_are_custom_run_ids=True,
         )
-        return merge_results(concurrency.gather_results(output)), run_sys_id_label_mapping
+        return merge_results(concurrency.gather_results(output)), run_label_mapping
 
-    sys_id_label_mapping: dict[identifiers.SysId, str] = {}
+    sys_id_label_mapping: dict[RunLabelIdentifier, str] = {}
 
     def go_fetch_sys_attrs() -> Generator[list[identifiers.SysId], None, None]:
         for page in search.fetch_sys_id_labels(container_type)(
@@ -278,8 +294,8 @@ def _fetch_metrics(
     output = concurrency.generate_concurrently(
         items=go_fetch_sys_attrs(),
         executor=executor,
-        downstream=lambda sys_ids: fetch_metrics_for_sys_ids(
-            sys_ids=sys_ids,
+        downstream=lambda sys_ids: fetch_metrics_for_run_ids(
+            run_ids=sys_ids,
             deduplicated_exact_attribute_names=deduplicated_exact_attribute_names,
         ),
     )

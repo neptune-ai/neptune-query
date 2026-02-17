@@ -403,7 +403,6 @@ def test_fetch_runs_metrics_uses_fast_path_for_exact_attribute_list():
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-0"),
                 custom_run_id=CustomRunId("run-0"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
@@ -437,7 +436,6 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-2"),
                 custom_run_id=CustomRunId("run-2"),
             ),
             attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
@@ -445,7 +443,6 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-2"),
                 custom_run_id=CustomRunId("run-2"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
@@ -453,7 +450,6 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-1"),
                 custom_run_id=CustomRunId("run-1"),
             ),
             attribute_definition=AttributeDefinition(name="metric/b", type="float_series"),
@@ -461,7 +457,6 @@ def test_fetch_runs_metrics_fast_path_deduplicates_runs_and_attributes():
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-1"),
                 custom_run_id=CustomRunId("run-1"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
@@ -503,7 +498,6 @@ def test_fetch_runs_metrics_fast_path_respects_sys_id_batch_splitting(monkeypatc
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-0"),
                 custom_run_id=CustomRunId("run-0"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
@@ -511,7 +505,6 @@ def test_fetch_runs_metrics_fast_path_respects_sys_id_batch_splitting(monkeypatc
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-1"),
                 custom_run_id=CustomRunId("run-1"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),
@@ -519,7 +512,6 @@ def test_fetch_runs_metrics_fast_path_respects_sys_id_batch_splitting(monkeypatc
         RunAttributeDefinition(
             run_identifier=RunIdentifier(
                 project_identifier=project,
-                sys_id=SysId("run-2"),
                 custom_run_id=CustomRunId("run-2"),
             ),
             attribute_definition=AttributeDefinition(name="metric/a", type="float_series"),

@@ -57,6 +57,8 @@ __all__ = (
     "create_metric_buckets_dataframe",
 )
 
+RunLabelIdentifier = identifiers.SysId | identifiers.CustomRunId
+
 
 @dataclass
 class TableRow:
@@ -188,7 +190,7 @@ def _convert_table_to_dataframe(
 
 def create_metrics_dataframe(
     metrics_data: dict[identifiers.RunAttributeDefinition, list[metrics.FloatPointValue]],
-    sys_id_label_mapping: dict[identifiers.SysId, str],
+    sys_id_label_mapping: dict[RunLabelIdentifier, str],
     *,
     type_suffix_in_column_names: bool,
     include_point_previews: bool,
@@ -225,20 +227,28 @@ def create_metrics_dataframe(
     """
 
     path_mapping: dict[str, int] = {}
-    sys_id_mapping: dict[str, int] = {}
+    run_label_mapping: dict[RunLabelIdentifier, int] = {}
     label_mapping: list[str] = []
 
+    def run_label_id(run_identifier: identifiers.RunIdentifier) -> RunLabelIdentifier:
+        if run_identifier.sys_id is not None:
+            return run_identifier.sys_id
+        if run_identifier.custom_run_id is not None:
+            return run_identifier.custom_run_id
+        raise ValueError("RunIdentifier must have either sys_id or custom_run_id")
+
     for run_attr_definition in metrics_data:
-        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
-            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+        run_label_id_ = run_label_id(run_attr_definition.run_identifier)
+        if run_label_id_ not in run_label_mapping:
+            run_label_mapping[run_label_id_] = len(run_label_mapping)
+            label_mapping.append(sys_id_label_mapping[run_label_id_])
 
         if run_attr_definition.attribute_definition.name not in path_mapping:
             path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
         for attribute, points in metrics_data.items():
-            exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
+            exp_category = run_label_mapping[run_label_id(attribute.run_identifier)]
             path_category = path_mapping[attribute.attribute_definition.name]
 
             for point in points:
