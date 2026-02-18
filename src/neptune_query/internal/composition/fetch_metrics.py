@@ -19,6 +19,7 @@ from typing import (
     Iterable,
     Literal,
     Optional,
+    Sequence,
     cast,
 )
 
@@ -214,7 +215,7 @@ def _fetch_metrics(
 
     def fetch_metrics_for_run_ids(
         *,
-        run_ids: list[identifiers.SysId | identifiers.CustomRunId],
+        run_ids: Sequence[identifiers.SysId | identifiers.CustomRunId],
         deduplicated_exact_attribute_names: Optional[set[str]],
         identifiers_are_custom_run_ids: bool = False,
     ) -> concurrency.OUT:
@@ -266,9 +267,7 @@ def _fetch_metrics(
     deduplicated_exact_attribute_names = set(exact_attribute_names) if exact_attribute_names is not None else None
     if container_type == ContainerType.RUN and exact_run_ids is not None and exact_attribute_names is not None:
         deduplicated_run_ids = {identifiers.CustomRunId(run_id) for run_id in exact_run_ids}
-        run_label_mapping: dict[identifiers.CustomRunId, str] = {
-            run_id: str(run_id) for run_id in deduplicated_run_ids
-        }
+        run_label_mapping: dict[RunLabelIdentifier, str] = {run_id: str(run_id) for run_id in deduplicated_run_ids}
 
         output = fetch_metrics_for_run_ids(
             run_ids=list(run_label_mapping.keys()),

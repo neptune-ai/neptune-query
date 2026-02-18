@@ -166,7 +166,10 @@ def fetch_table(
         )
         for attribute_values_page in attribute_value_pages:
             for attribute_value in attribute_values_page.items:
-                result_by_id[attribute_value.run_identifier.sys_id].append(attribute_value)
+                run_sys_id = attribute_value.run_identifier.sys_id
+                if run_sys_id is None:
+                    raise ValueError("Expected sys_id in run identifier when building table rows")
+                result_by_id[run_sys_id].append(attribute_value)
 
     return create_runs_table(
         table_rows=[

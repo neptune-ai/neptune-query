@@ -60,6 +60,20 @@ __all__ = (
 RunLabelIdentifier = identifiers.SysId | identifiers.CustomRunId
 
 
+def _run_label_id(run_identifier: identifiers.RunIdentifier) -> RunLabelIdentifier:
+    if run_identifier.sys_id is not None:
+        return run_identifier.sys_id
+    if run_identifier.custom_run_id is not None:
+        return run_identifier.custom_run_id
+    raise ValueError("RunIdentifier must have either sys_id or custom_run_id")
+
+
+def _require_sys_id(run_identifier: identifiers.RunIdentifier) -> identifiers.SysId:
+    if run_identifier.sys_id is None:
+        raise ValueError("RunIdentifier must have sys_id")
+    return run_identifier.sys_id
+
+
 @dataclass
 class TableRow:
     values: list[AttributeValue]
@@ -230,15 +244,8 @@ def create_metrics_dataframe(
     run_label_mapping: dict[RunLabelIdentifier, int] = {}
     label_mapping: list[str] = []
 
-    def run_label_id(run_identifier: identifiers.RunIdentifier) -> RunLabelIdentifier:
-        if run_identifier.sys_id is not None:
-            return run_identifier.sys_id
-        if run_identifier.custom_run_id is not None:
-            return run_identifier.custom_run_id
-        raise ValueError("RunIdentifier must have either sys_id or custom_run_id")
-
     for run_attr_definition in metrics_data:
-        run_label_id_ = run_label_id(run_attr_definition.run_identifier)
+        run_label_id_ = _run_label_id(run_attr_definition.run_identifier)
         if run_label_id_ not in run_label_mapping:
             run_label_mapping[run_label_id_] = len(run_label_mapping)
             label_mapping.append(sys_id_label_mapping[run_label_id_])
@@ -248,7 +255,7 @@ def create_metrics_dataframe(
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
         for attribute, points in metrics_data.items():
-            exp_category = run_label_mapping[run_label_id(attribute.run_identifier)]
+            exp_category = run_label_mapping[_run_label_id(attribute.run_identifier)]
             path_category = path_mapping[attribute.attribute_definition.name]
 
             for point in points:
@@ -318,9 +325,10 @@ def create_series_dataframe(
     label_mapping: list[str] = []
 
     for run_attr_definition in series_data.keys():
-        if run_attr_definition.run_identifier.sys_id not in experiment_mapping:
-            experiment_mapping[run_attr_definition.run_identifier.sys_id] = len(experiment_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+        run_sys_id = _require_sys_id(run_attr_definition.run_identifier)
+        if run_sys_id not in experiment_mapping:
+            experiment_mapping[run_sys_id] = len(experiment_mapping)
+            label_mapping.append(sys_id_label_mapping[run_sys_id])
 
         if run_attr_definition.attribute_definition.name not in path_mapping:
             path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
@@ -329,7 +337,8 @@ def create_series_dataframe(
         run_attribute_definition: identifiers.RunAttributeDefinition, values: list[series.SeriesValue]
     ) -> list[series.SeriesValue]:
         if run_attribute_definition.attribute_definition.type == "file_series":
-            label = sys_id_label_mapping[run_attribute_definition.run_identifier.sys_id]
+            run_sys_id = _require_sys_id(run_attribute_definition.run_identifier)
+            label = sys_id_label_mapping[run_sys_id]
             return [
                 series.SeriesValue(
                     step=point.step,
@@ -359,7 +368,8 @@ def create_series_dataframe(
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
         for attribute, values in series_data.items():
-            exp_category = experiment_mapping[attribute.run_identifier.sys_id]
+            run_sys_id = _require_sys_id(attribute.run_identifier)
+            exp_category = experiment_mapping[run_sys_id]
             path_category = path_mapping[attribute.attribute_definition.name]
             converted_values = convert_values(attribute, values)
 
@@ -414,20 +424,22 @@ def create_metric_buckets_dataframe(
     """
 
     path_mapping: dict[str, int] = {}
-    sys_id_mapping: dict[str, int] = {}
+    sys_id_mapping: dict[identifiers.SysId, int] = {}
     label_mapping: list[str] = []
 
     for run_attr_definition in buckets_data:
-        if run_attr_definition.run_identifier.sys_id not in sys_id_mapping:
-            sys_id_mapping[run_attr_definition.run_identifier.sys_id] = len(sys_id_mapping)
-            label_mapping.append(sys_id_label_mapping[run_attr_definition.run_identifier.sys_id])
+        run_sys_id = _require_sys_id(run_attr_definition.run_identifier)
+        if run_sys_id not in sys_id_mapping:
+            sys_id_mapping[run_sys_id] = len(sys_id_mapping)
+            label_mapping.append(sys_id_label_mapping[run_sys_id])
 
         if run_attr_definition.attribute_definition.name not in path_mapping:
             path_mapping[run_attr_definition.attribute_definition.name] = len(path_mapping)
 
     def generate_categorized_rows() -> Generator[Tuple, None, None]:
         for attribute, buckets in buckets_data.items():
-            exp_category = sys_id_mapping[attribute.run_identifier.sys_id]
+            run_sys_id = _require_sys_id(attribute.run_identifier)
+            exp_category = sys_id_mapping[run_sys_id]
             path_category = path_mapping[attribute.attribute_definition.name]
 
             buckets.sort(key=lambda b: (b.from_x, b.to_x))
@@ -475,7 +487,7 @@ def create_metric_buckets_dataframe(
             [
                 (
                     dim,
-                    sys_id_label_mapping[run_attr_definition.run_identifier.sys_id],
+                    sys_id_label_mapping[_require_sys_id(run_attr_definition.run_identifier)],
                     run_attr_definition.attribute_definition.name,
                 )
                 for run_attr_definition in buckets_data.keys()
