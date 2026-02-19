@@ -37,6 +37,7 @@ from tests.e2e.data_ingestion import (
 METRIC_STEPS = 6
 EXPERIMENT_NAMES = ["metrics-alpha", "metrics-beta", "metrics-gamma"]
 INF_NAN_EXPERIMENT_NAME = "metrics-inf-nan"
+NON_FLOAT_SERIES_ATTRIBUTE = "train/logs/status"
 
 INF_SERIES_VALUES = [float("inf"), 1.0, float("-inf"), 3.0, 4.0, float("inf"), 6.0, float("-inf"), 8.0, 9.0]
 NAN_SERIES_VALUES = [float("nan"), 1.0, float("nan"), 3.0, 4.0, float("nan"), 6.0, float("nan"), 8.0, 9.0]
@@ -68,6 +69,9 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
                 float_series={
                     "train/metrics/value_0": {float(step): float(step) * 0.1 for step in range(METRIC_STEPS)},
                     "train/metrics/value_1": {float(step): float(step) * 0.2 + 0.5 for step in range(METRIC_STEPS)},
+                },
+                string_series={
+                    NON_FLOAT_SERIES_ATTRIBUTE: {float(step): f"status-{step}" for step in range(METRIC_STEPS)},
                 },
             ),
             RunData(
@@ -451,6 +455,33 @@ def test__fetch_metrics_exact_list_missing_attribute_returns_empty_dataframe(
         project=project.project_identifier,
         experiments=[EXPERIMENT_NAMES[0]],
         attributes=["train/metrics/non-existent-attribute-123456789"],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected = create_metrics_dataframe(
+        metrics_data={},
+        sys_id_label_mapping={},
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_point_previews=False,
+        timestamp_column_name="absolute_time" if include_time == "absolute" else None,
+        index_column_name="experiment",
+    )
+
+    pd.testing.assert_frame_equal(df, expected)
+
+
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", [None, "absolute"])
+def test__fetch_metrics_exact_list_existing_non_float_attribute_returns_empty_dataframe(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: Union[Literal["absolute"], None],
+):
+    df = fetch_metrics(
+        project=project.project_identifier,
+        experiments=[EXPERIMENT_NAMES[0]],
+        attributes=[NON_FLOAT_SERIES_ATTRIBUTE],
         type_suffix_in_column_names=type_suffix_in_column_names,
         include_time=include_time,
     )

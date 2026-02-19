@@ -42,6 +42,7 @@ METRICS: dict[str, dict[str, list[tuple[float, float]]]] = {
         "foo1": [(float(step), float(step * 0.8)) for step in range(9, 20)],
     },
 }
+NON_FLOAT_SERIES_ATTRIBUTE = "logs/status"
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +55,9 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
             experiment_name="linear-history",
             run_id="linear_history_root",
             float_series={name: dict(series) for name, series in METRICS["linear_history_root"].items()},
+            string_series={
+                NON_FLOAT_SERIES_ATTRIBUTE: {0.0: "started", 1.0: "running", 2.0: "finished"},
+            },
         ),
         RunData(
             experiment_name="linear-history",
@@ -356,6 +360,31 @@ def test_fetch_run_metrics_exact_list_mixed_existing_and_non_existent_runs_retur
         expected_metrics={
             ("linear_history_root", "foo0"): METRICS["linear_history_root"]["foo0"],
         },
+        include_time=include_time,
+        type_suffix_in_column_names=type_suffix_in_column_names,
+    )
+
+    pd.testing.assert_frame_equal(df, expected_df, check_dtype=False)
+
+
+@pytest.mark.parametrize("type_suffix_in_column_names", [True, False])
+@pytest.mark.parametrize("include_time", ["absolute", None])
+def test_fetch_run_metrics_exact_list_existing_non_float_attribute_returns_empty_dataframe(
+    project: IngestedProjectData,
+    type_suffix_in_column_names: bool,
+    include_time: str | None,
+):
+    df = runs.fetch_metrics(
+        project=project.project_identifier,
+        runs=["linear_history_root"],
+        attributes=[NON_FLOAT_SERIES_ATTRIBUTE],
+        type_suffix_in_column_names=type_suffix_in_column_names,
+        include_time=include_time,
+    )
+
+    expected_df = build_expected_dataframe(
+        project,
+        expected_metrics={},
         include_time=include_time,
         type_suffix_in_column_names=type_suffix_in_column_names,
     )
