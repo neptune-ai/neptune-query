@@ -23,6 +23,7 @@ from neptune_query.internal import (
 )
 from neptune_query.internal.identifiers import (
     AttributeDefinition,
+    CustomRunId,
     ProjectIdentifier,
     RunAttributeDefinition,
     RunIdentifier,
@@ -701,6 +702,38 @@ def test_create_metrics_dataframe_from_exp_with_no_points_preview():
             names=["experiment", "step"],
         ),
     )
+    assert_frame_equal(df, expected_df)
+
+
+def test_create_metrics_dataframe_uses_custom_run_id_mapping_for_run_fast_path():
+    data = {
+        RunAttributeDefinition(
+            RunIdentifier(
+                project_identifier=ProjectIdentifier("foo/bar"),
+                custom_run_id=CustomRunId("run-1"),
+            ),
+            AttributeDefinition("path1", "float_series"),
+        ): [
+            (_make_timestamp(2023, 1, 1), 1, 10.0, False, 1.0),
+        ],
+    }
+
+    df = create_metrics_dataframe(
+        metrics_data=data,
+        sys_id_label_mapping={CustomRunId("run-1"): "run-1"},
+        type_suffix_in_column_names=False,
+        include_point_previews=False,
+        index_column_name="run",
+    )
+
+    expected_df = pd.DataFrame(
+        data={"path1": [10.0]},
+        index=pd.MultiIndex.from_tuples(
+            tuples=[("run-1", 1.0)],
+            names=["run", "step"],
+        ),
+    )
+
     assert_frame_equal(df, expected_df)
 
 

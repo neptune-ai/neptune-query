@@ -58,6 +58,9 @@ def run_in_docker(work_dir: Path, dockerfile: str, command: list[str], verbose: 
     image_name = f"neptune-api-codegen_{dockerfile.replace('Dockerfile.', '')}"
     with TemporaryDirectory() as tmpdir:
         shutil.copy(str(dockerfile_path), str(Path(tmpdir) / "Dockerfile"))
+        npm_tools_dir = docker_dir / "npm-tools"
+        if npm_tools_dir.is_dir():
+            shutil.copytree(str(npm_tools_dir), str(Path(tmpdir) / "npm-tools"))
         verbose_run(
             ["docker", "build", "-t", image_name, tmpdir],
             verbose=verbose,

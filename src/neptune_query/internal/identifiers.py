@@ -24,10 +24,21 @@ CustomRunId = NewType("CustomRunId", str)  # an uuid
 @dataclass(frozen=True)
 class RunIdentifier:
     project_identifier: ProjectIdentifier
-    sys_id: SysId
+    sys_id: SysId | None = None
+    custom_run_id: CustomRunId | None = None
+
+    def __post_init__(self) -> None:
+        has_sys_id = self.sys_id is not None
+        has_custom_run_id = self.custom_run_id is not None
+        if has_sys_id == has_custom_run_id:
+            raise ValueError("Exactly one of sys_id and custom_run_id must be provided")
 
     def __str__(self) -> str:
-        return f"{self.project_identifier}/{self.sys_id}"
+        if self.custom_run_id is not None:
+            return f"CUSTOM/{self.project_identifier}/{self.custom_run_id}"
+        if self.sys_id is not None:
+            return f"{self.project_identifier}/{self.sys_id}"
+        raise ValueError("RunIdentifier must have either sys_id or custom_run_id")
 
 
 @dataclass(frozen=True)
