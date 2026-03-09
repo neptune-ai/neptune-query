@@ -47,6 +47,7 @@ classifiers = [
     "Operating System :: Unix",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 keywords = [
