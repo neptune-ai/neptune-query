@@ -20,4 +20,4 @@ colorlog == 6.9.0
 hypothesis == 6.150.2
 fastapi == 0.127.0
 humanize == 4.15.0
-uvicorn == 0.40.0
+uvicorn == 0.42.0
