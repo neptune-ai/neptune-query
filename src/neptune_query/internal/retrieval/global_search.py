@@ -20,6 +20,7 @@ from typing import (
     Generator,
     Literal,
     Optional,
+    cast,
 )
 
 import attrs
@@ -166,17 +167,20 @@ def _make_next_page_params(
     if len(data.entries) < batch_size:
         return None
 
-    # We're always passing the offest, this is just to satisfy mypy
-    assert current_params.pagination and current_params.pagination.offset
+    # Pagination is always provided here; assert against UNSET so offset=0 remains valid.
+    assert current_params.pagination is not UNSET
+    pagination = cast(QueryLeaderboardParamsPaginationDTO, current_params.pagination)
+    assert pagination.offset is not UNSET
+    current_offset = cast(int, pagination.offset)
 
-    retrieved_so_far = current_params.pagination.offset + batch_size
+    retrieved_so_far = current_offset + batch_size
     if limit is not None and retrieved_so_far >= limit:
         return None
 
     return attrs.evolve(
         current_params,
         pagination=attrs.evolve(
-            current_params.pagination,
+            pagination,
             limit=min(limit - retrieved_so_far, batch_size) if limit is not None else batch_size,
             offset=retrieved_so_far,
         ),
