@@ -38,7 +38,7 @@ from .util import (
     _validate_string_or_string_list,
 )
 
-AGGREGATION_LITERAL = Literal["last", "min", "max", "average", "variance"]
+AGGREGATION_LITERAL = Literal["last"]
 
 
 class _BaseAttributeFilter(ABC):
@@ -81,9 +81,8 @@ class _AttributeFilter(_BaseAttributeFilter):
                 name_matches_none (Union[str, list[str], None]): A list of regular expressions that the attribute
                     names mustn't match. Attributes matching any of the regexes are excluded.
                     If `None`, this filter is not applied.
-        aggregations (list[Literal["last", "min", "max", "average", "variance"]]): List of
-            aggregation functions to apply when fetching metrics of type FloatSeries or StringSeries.
-            Defaults to ["last"].
+        aggregations (list[Literal["last"]]): List of aggregation functions to apply when fetching series.
+            Defaults to ["last"]. This is the only supported aggregation.
 
     Example:
 
@@ -91,13 +90,13 @@ class _AttributeFilter(_BaseAttributeFilter):
     from .filters import _AttributeFilter
 
 
-    loss_avg_and_var = _AttributeFilter(
+    loss_last = _AttributeFilter(
         type_in=["float_series"],
         name_matches_all=[r"loss$"],
-        aggregations=["average", "variance"],
+        aggregations=["last"]
     )
 
-    npt.fetch_experiments_table(attributes=loss_avg_and_var)
+    npt.fetch_experiments_table(attributes=loss_last)
     ```
     """
 
@@ -150,9 +149,9 @@ class _Attribute:
 
     Args:
         name (str): An attribute name to match exactly.
-        aggregation (Literal["last", "min", "max", "average", "variance"], optional):
+        aggregation (Literal["last"], optional):
             Aggregation function to apply when specifying a metric of type FloatSeries.
-            Defaults to `"last"`, i.e. the last logged value.
+            `"last"` is the only supported aggregation.
         type (Literal["float", "int", "string", "bool", "datetime", "float_series", "string_set"], optional):
             Attribute type. Specify it to resolve ambiguity, in case some of the project's runs contain attributes
             that have the same name but are of a different type.
@@ -160,19 +159,19 @@ class _Attribute:
 
     Example:
 
-    Select a metric and pick variance as the aggregation:
+    Select a metric and use the last logged value:
 
     ```
     from .filters import _Attribute, _Filter
 
 
-    val_loss_variance = _Attribute(
+    val_loss = _Attribute(
         name="val/loss",
-        aggregation="variance",
+        aggregation="last",
     )
     # Construct a filter and pass it to a fetching or listing method
-    tiny_val_loss_variance = _Filter.lt(val_loss_variance, 0.01)
-    npt.fetch_experiments_table(experiments=tiny_val_loss_variance)
+    tiny_val_loss = _Filter.lt(val_loss, 0.01)
+    npt.fetch_experiments_table(experiments=tiny_val_loss)
     ```
     """
 

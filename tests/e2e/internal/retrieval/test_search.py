@@ -120,12 +120,6 @@ def project(ensure_project: EnsureProjectFunction) -> IngestedProjectData:
     return ensure_project(project_data)
 
 
-def _variance(xs):
-    n = len(xs)
-    mean = sum(xs) / n
-    return sum((x - mean) ** 2 for x in xs) / n
-
-
 def test_find_experiments_project_does_not_exist(client, project):
     workspace, _ = project.project_identifier.split("/")
     project_identifier = ProjectIdentifier(f"{workspace}/does-not-exist")
@@ -317,116 +311,6 @@ def test_find_experiments_by_config_values(client, project, experiment_filter, f
             _Filter.ne(
                 _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="last"),
                 FLOAT_SERIES_VALUES[-1],
-            ),
-            False,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="min"),
-                min(FLOAT_SERIES_VALUES),
-            ),
-            True,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="min"),
-                min(FLOAT_SERIES_VALUES) + 1,
-            ),
-            False,
-        ),
-        (
-            _Filter.ne(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="min"),
-                min(FLOAT_SERIES_VALUES),
-            ),
-            False,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="max"),
-                max(FLOAT_SERIES_VALUES),
-            ),
-            True,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="max"),
-                max(FLOAT_SERIES_VALUES) + 1,
-            ),
-            False,
-        ),
-        (
-            _Filter.ne(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="max"),
-                max(FLOAT_SERIES_VALUES),
-            ),
-            False,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="average"),
-                sum(FLOAT_SERIES_VALUES) / len(FLOAT_SERIES_VALUES),
-            ),
-            True,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="average"),
-                sum(FLOAT_SERIES_VALUES) / len(FLOAT_SERIES_VALUES) + 1.0,
-            ),
-            False,
-        ),
-        (
-            _Filter.ne(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="average"),
-                sum(FLOAT_SERIES_VALUES) / len(FLOAT_SERIES_VALUES),
-            ),
-            False,
-        ),
-        (
-            _Filter.all(
-                [
-                    _Filter.ge(
-                        _Attribute(
-                            name="float_series/float-series-value_0", type="float_series", aggregation="variance"
-                        ),
-                        _variance(FLOAT_SERIES_VALUES) - 1e-6,
-                    ),
-                    _Filter.le(
-                        _Attribute(
-                            name="float_series/float-series-value_0", type="float_series", aggregation="variance"
-                        ),
-                        _variance(FLOAT_SERIES_VALUES) + 1e-6,
-                    ),
-                ]
-            ),
-            True,
-        ),
-        (
-            _Filter.eq(
-                _Attribute(name="float_series/float-series-value_0", type="float_series", aggregation="variance"),
-                _variance(FLOAT_SERIES_VALUES) + 1,
-            ),
-            False,
-        ),
-        (
-            _Filter.negate(
-                _Filter.all(
-                    [
-                        _Filter.ge(
-                            _Attribute(
-                                name="float_series/float-series-value_0", type="float_series", aggregation="variance"
-                            ),
-                            _variance(FLOAT_SERIES_VALUES) - 1e-6,
-                        ),
-                        _Filter.le(
-                            _Attribute(
-                                name="float_series/float-series-value_0", type="float_series", aggregation="variance"
-                            ),
-                            _variance(FLOAT_SERIES_VALUES) + 1e-6,
-                        ),
-                    ]
-                ),
             ),
             False,
         ),

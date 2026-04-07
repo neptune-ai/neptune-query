@@ -32,13 +32,7 @@ from .. import (
     filters,
     identifiers,
 )
-from ..retrieval.attribute_types import (
-    ATTRIBUTE_LITERAL,
-    FILE_SERIES_AGGREGATIONS,
-    FLOAT_SERIES_AGGREGATIONS,
-    HISTOGRAM_SERIES_AGGREGATIONS,
-    STRING_SERIES_AGGREGATIONS,
-)
+from ..retrieval.attribute_types import ATTRIBUTE_LITERAL
 from ..warnings import throttled_warn
 from .attributes import fetch_attribute_definitions
 
@@ -284,21 +278,6 @@ def _infer_attribute_types_locally(
                 inferred_type=inferred_type,
                 success_details="Inferred as a known system attribute",
             )
-
-    # TODO: this doesn't have a lot of sense in neptune-query, as we don't have aggregations beyond last anymore
-    for state in inference_state.incomplete_attributes():
-        attribute = state.attribute
-        matches: list[ATTRIBUTE_LITERAL] = []
-        if all(agg in FLOAT_SERIES_AGGREGATIONS for agg in attribute.aggregation or []):
-            matches.append("float_series")
-        if all(agg in STRING_SERIES_AGGREGATIONS for agg in attribute.aggregation or []):
-            matches.append("string_series")
-        if all(agg in FILE_SERIES_AGGREGATIONS for agg in attribute.aggregation or []):
-            matches.append("file_series")
-        if all(agg in HISTOGRAM_SERIES_AGGREGATIONS for agg in attribute.aggregation or []):
-            matches.append("histogram_series")
-        if len(matches) == 1:
-            state.set_success(inferred_type=matches[0], success_details="Inferred from aggregation")
 
 
 def _infer_attribute_types_from_api(

@@ -58,7 +58,7 @@ ALL_TYPES: Sequence[ATTRIBUTE_LITERAL] = (
     "file_series",
     "histogram_series",
 )
-FLOAT_SERIES_AGGREGATIONS = frozenset({"last", "min", "max", "average", "variance"})
+FLOAT_SERIES_AGGREGATIONS = frozenset({"last"})
 STRING_SERIES_AGGREGATIONS = frozenset({"last"})
 FILE_SERIES_AGGREGATIONS = frozenset({"last"})
 HISTOGRAM_SERIES_AGGREGATIONS = frozenset({"last"})
