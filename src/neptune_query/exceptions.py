@@ -141,7 +141,7 @@ class AttributeTypeInferenceError(NeptuneError):
 To resolve this ambiguity, specify the attribute type explicitly when constructing a filter:
     {python}
     fetch_experiments_table(
-        experiments=Filter.eq(Attribute("metrics/m1", aggregation="max", type="float_series"), 1.2),
+        experiments=Filter.eq(Attribute("metrics/m1", aggregation="last", type="float_series"), 1.2),
         ...
         sort_by=Attribute("config/batch_size", type="int"),
         ...

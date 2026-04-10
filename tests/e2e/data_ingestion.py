@@ -25,6 +25,7 @@ import neptune_scale
 import neptune_scale.types
 
 from neptune_query.generated.neptune_api import AuthenticatedClient
+from neptune_query.internal.filters import _Filter
 from neptune_query.internal.identifiers import ProjectIdentifier
 from neptune_query.internal.retrieval import search
 
@@ -116,8 +117,13 @@ class IngestedProjectData:
 def _wait_for_ingestion(
     client: AuthenticatedClient, project_identifier: ProjectIdentifier, expected_data: ProjectData
 ) -> None:
-    for attempt in range(20):
+    expected_experiment_names = {run.experiment_name for run in expected_data.runs if run.experiment_name is not None}
+    found_runs = 0
+    found_experiment_names: set[str] = set()
+
+    for _ in range(20):
         found_runs = 0
+        found_experiment_names = set()
 
         for page in search.fetch_run_sys_ids(
             client=client,
@@ -127,13 +133,25 @@ def _wait_for_ingestion(
             found_runs += len(page.items)
 
         if found_runs == len(expected_data.runs):
+            for page in search.fetch_experiment_sys_attrs(
+                client=client,
+                project_identifier=project_identifier,
+                filter_=_Filter.any([_Filter.name_eq(name) for name in expected_experiment_names]),
+            ):
+                for experiment in page.items:
+                    found_experiment_names.add(experiment.sys_name)
+
+        if found_runs == len(expected_data.runs) and expected_experiment_names == found_experiment_names:
             return
 
         # Next attempt in 2 seconds, please
         sleep(2)
 
+    missing_experiment_names = expected_experiment_names - found_experiment_names
     raise RuntimeError(
-        f"Timed out waiting for data ingestion, " f"found runs: {found_runs} out of expected: {len(expected_data.runs)}"
+        "Timed out waiting for data ingestion, "
+        f"found runs: {found_runs} out of expected: {len(expected_data.runs)}, "
+        f"missing experiments: {sorted(missing_experiment_names)}"
     )
 
 

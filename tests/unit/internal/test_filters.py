@@ -16,13 +16,20 @@ def test_attribute_valid_values():
     _Attribute(name="test")  # minimal case
     _Attribute(name="test", aggregation="last")
     _Attribute(name="test", type="float")
-    _Attribute(name="test", aggregation="variance", type="float_series")
+    _Attribute(name="test", aggregation="last", type="float_series")
 
 
 def test_attribute_invalid_aggregation():
     # Test invalid aggregation values
     with pytest.raises(ValueError) as exc_info:
         _Attribute(name="test", aggregation="invalid_agg")
+    assert f"aggregation must be one of: {sorted(types.ALL_AGGREGATIONS)}" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("aggregation", ["min", "max", "average", "variance"])
+def test_attribute_removed_aggregations_are_invalid(aggregation):
+    with pytest.raises(ValueError) as exc_info:
+        _Attribute(name="test", aggregation=aggregation)
     assert f"aggregation must be one of: {sorted(types.ALL_AGGREGATIONS)}" in str(exc_info.value)
 
 
@@ -145,7 +152,7 @@ def test_attribute_filter_valid_values():
     _AttributeFilter(
         must_match_any=[_AttributeNameFilter(must_match_regexes=["test1"], must_not_match_regexes=["test2"])]
     )  # list of strings
-    _AttributeFilter(aggregations=["last", "min"])  # valid aggregations
+    _AttributeFilter(aggregations=["last"])  # valid aggregations
 
 
 def test_name_eq_validation():
@@ -244,6 +251,11 @@ def test_aggregations_validation():
         "last",  # string instead of list
         ["invalid_agg"],  # list with invalid aggregation
         ["last", "invalid_agg"],  # list with mix of valid and invalid
+        ["min"],
+        ["max"],
+        ["average"],
+        ["variance"],
+        ["last", "min"],
         [42, "last"],  # list with non-string
     ]
 

@@ -31,7 +31,13 @@ from neptune_query import (
     list_experiments,
     runs,
 )
+from neptune_query.filters import Attribute
 from neptune_query.internal.query_metadata_context import QueryMetadata
+
+
+def test_public_attribute_rejects_aggregation_argument() -> None:
+    with pytest.raises(TypeError):
+        Attribute("metrics/m1", type="float_series", aggregation="max")  # type: ignore[call-arg]
 
 
 @pytest.fixture(autouse=True, scope="module")

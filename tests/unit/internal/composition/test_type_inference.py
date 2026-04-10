@@ -45,12 +45,11 @@ def test_inference_state_incomplete_attributes_and_raise():
         state.raise_if_incomplete()
 
 
-def test_infer_attribute_types_locally_float_series():
+def test_infer_attribute_types_locally_last_aggregation_does_not_infer_series_type():
     attr = _Attribute("foo", aggregation="last")
     state = type_inference.InferenceState.from_attribute(attr)
-    state.attributes[0].attribute.aggregation = ["last", "min", "max", "average", "variance"]
     type_inference._infer_attribute_types_locally(state)
-    assert state.attributes[0].inferred_type == "float_series"
+    assert state.attributes[0].inferred_type is None
 
 
 def test_fill_unknown_types_as_string():
