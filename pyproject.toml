@@ -19,7 +19,7 @@ httpx = { version = ">=0.15.4,<0.28.2", extras = ["http2"] }
 attrs = ">=21.3.0"
 python-dateutil = "^2.8.0"
 PyJWT = "^2.0.0"
-protobuf = ">=4.21.1,<7"
+protobuf = ">=4.21.1,<8"
 
 # Optional for default progress update handling
 tqdm = { version = ">=4.66.0" }
